@@ -3,7 +3,11 @@
 
 -- Function to automatically create user profile when user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
 BEGIN
   INSERT INTO public.user_profiles (id, email, display_name)
   VALUES (
@@ -14,7 +18,7 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Trigger to create profile when user is created
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -25,14 +29,18 @@ CREATE TRIGGER on_auth_user_created
 
 -- Function to update user profile email when auth.users email is updated
 CREATE OR REPLACE FUNCTION public.handle_user_email_update()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
 BEGIN
   UPDATE public.user_profiles
   SET email = NEW.email, updated_at = NOW()
   WHERE id = NEW.id;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Trigger to sync email updates
 DROP TRIGGER IF EXISTS on_auth_user_email_updated ON auth.users;
