@@ -3,12 +3,12 @@ services:
     name: foundrylab
     env: node
     buildCommand: npm install && npm run build:web
-    startCommand: npm run serve
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
+        sync: false
       # Note: The following environment variables must be set in Render dashboard:
       # - EXPO_PUBLIC_SUPABASE_URL (your Supabase project URL)
       # - EXPO_PUBLIC_SUPABASE_ANON_KEY (your Supabase anon/public key)
