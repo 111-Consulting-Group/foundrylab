@@ -11,13 +11,13 @@ export default function NotFoundScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Not Found' }} />
-      <SafeAreaView className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`}>
+      <SafeAreaView className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}>
         <View className="flex-1 items-center justify-center p-5">
-          <Text className={`text-xl font-bold mb-4 ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+          <Text className={`text-xl font-bold mb-4 ${isDark ? 'text-graphite-50' : 'text-carbon-950'}`}>
             This screen doesn&apos;t exist.
           </Text>
           <Link href="/" className="mt-4 py-4">
-            <Text className="text-forge-500 text-base">Go to home screen</Text>
+            <Text className="text-signal-500 text-base">Go to home screen</Text>
           </Link>
         </View>
       </SafeAreaView>

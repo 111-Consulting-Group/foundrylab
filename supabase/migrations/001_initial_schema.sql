@@ -1,4 +1,4 @@
--- Forged Fitness App Database Schema
+-- Foundry Lab App Database Schema
 -- Version: 1.0.0
 -- Description: Initial schema for hybrid athlete tracking (Strength + Conditioning)
 

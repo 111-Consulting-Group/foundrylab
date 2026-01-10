@@ -37,7 +37,7 @@ config.transformer.unstable_importSideEffects = false;
 // Store the default resolver if it exists
 const defaultResolver = config.resolver.resolveRequest;
 
-// Add web-specific resolver to handle MMKV
+// Add web-specific resolver to handle MMKV and ensure platform extensions work
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   // On web, replace react-native-mmkv with an empty mock
   if (platform === 'web' && moduleName === 'react-native-mmkv') {
@@ -46,10 +46,18 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       type: 'sourceFile',
     };
   }
-  // Fall back to default resolution if it exists
+  
+  // Let the default resolver handle everything else (including platform-specific extensions like .web.ts)
+  // The default resolver knows how to resolve @/ paths and .web.ts extensions
   if (defaultResolver) {
-    return defaultResolver(context, moduleName, platform);
+    try {
+      return defaultResolver(context, moduleName, platform);
+    } catch (error) {
+      // If default resolver fails, try context's resolver as fallback
+      return context.resolveRequest(context, moduleName, platform);
+    }
   }
+  
   // Use context's default resolver as fallback
   return context.resolveRequest(context, moduleName, platform);
 };

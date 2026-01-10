@@ -1,4 +1,4 @@
--- Seed default exercises for Forged fitness app
+-- Seed default exercises for Foundry Lab app
 -- These are common exercises for hybrid athletes (Strength + Conditioning)
 
 -- ============================================

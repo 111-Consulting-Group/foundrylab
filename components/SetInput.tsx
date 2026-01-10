@@ -167,17 +167,17 @@ export function SetInput({
       className={`p-4 rounded-xl mb-3 ${
         isCompleted
           ? isDark
-            ? 'bg-success-500/20 border-success-500/50'
-            : 'bg-success-100 border-success-300'
+            ? 'bg-progress-500/20 border-progress-500/50'
+            : 'bg-progress-500/20 border-progress-500/50'
           : isDark
-          ? 'bg-steel-800'
+          ? 'bg-graphite-800'
           : 'bg-white'
       } border ${
         isCompleted
           ? ''
           : isDark
-          ? 'border-steel-700'
-          : 'border-steel-200'
+          ? 'border-graphite-700'
+          : 'border-graphite-200'
       }`}
     >
       {/* Set Header */}
@@ -187,26 +187,26 @@ export function SetInput({
             className={`w-8 h-8 rounded-full items-center justify-center mr-2 ${
               isWarmup
                 ? isDark
-                  ? 'bg-steel-700'
-                  : 'bg-steel-200'
+                  ? 'bg-graphite-700'
+                  : 'bg-graphite-200'
                 : isDark
-                ? 'bg-forge-500/30'
-                : 'bg-forge-100'
+                ? 'bg-signal-500/30'
+                : 'bg-graphite-100'
             }`}
           >
             <Text
               className={`font-bold text-sm ${
                 isWarmup
                   ? isDark
-                    ? 'text-steel-400'
-                    : 'text-steel-500'
-                  : 'text-forge-500'
+                    ? 'text-graphite-400'
+                    : 'text-graphite-500'
+                  : 'text-signal-500'
               }`}
             >
               {isWarmup ? 'W' : setNumber}
             </Text>
           </View>
-          <Text className={`font-medium ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+          <Text className={`font-medium ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
             {isWarmup ? 'Warm-up Set' : `Set ${setNumber}`}
           </Text>
         </View>
@@ -215,10 +215,10 @@ export function SetInput({
         {lastSessionSet && !isWarmup && (
           <View
             className={`px-2 py-1 rounded-full ${
-              isDark ? 'bg-steel-700' : 'bg-steel-100'
+              isDark ? 'bg-graphite-700' : 'bg-graphite-100'
             }`}
           >
-            <Text className={`text-xs ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
               Last: {lastSessionSet.actual_weight}lbs x {lastSessionSet.actual_reps}
             </Text>
           </View>
@@ -236,13 +236,13 @@ export function SetInput({
       <View className="flex-row items-center gap-3 mb-3">
         {/* Weight Input */}
         <View className="flex-1">
-          <Text className={`text-xs mb-1 ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+          <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
             Weight (lbs)
           </Text>
           <TextInput
             className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
-              isDark ? 'bg-steel-900 text-steel-100' : 'bg-steel-50 text-steel-900'
-            } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+              isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
+            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
             value={weight}
             onChangeText={setWeight}
             keyboardType="decimal-pad"
@@ -252,17 +252,17 @@ export function SetInput({
           />
         </View>
 
-        <Text className={`text-xl ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>x</Text>
+        <Text className={`text-xl ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>x</Text>
 
         {/* Reps Input */}
         <View className="flex-1">
-          <Text className={`text-xs mb-1 ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+          <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
             Reps
           </Text>
           <TextInput
             className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
-              isDark ? 'bg-steel-900 text-steel-100' : 'bg-steel-50 text-steel-900'
-            } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+              isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
+            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
             value={reps}
             onChangeText={setReps}
             keyboardType="number-pad"
@@ -272,23 +272,23 @@ export function SetInput({
           />
         </View>
 
-        <Text className={`text-xl ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>@</Text>
+        <Text className={`text-xl ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>@</Text>
 
         {/* RPE Button/Display */}
         <View className="flex-1">
-          <Text className={`text-xs mb-1 ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+          <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
             RPE
           </Text>
           <Pressable
             className={`px-3 py-2 rounded-lg items-center ${
-              isDark ? 'bg-steel-900' : 'bg-steel-50'
-            } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+              isDark ? 'bg-graphite-900' : 'bg-graphite-50'
+            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
             onPress={() => !isCompleted && setShowRPESlider(!showRPESlider)}
             disabled={isCompleted}
           >
             <Text
               className={`text-lg font-semibold ${
-                rpe >= 9 ? 'text-ember-500' : isDark ? 'text-steel-100' : 'text-steel-900'
+                rpe >= 9 ? 'text-oxide-500' : isDark ? 'text-graphite-100' : 'text-graphite-900'
               }`}
             >
               {rpe}
@@ -299,12 +299,12 @@ export function SetInput({
 
       {/* RPE Slider (expandable) */}
       {showRPESlider && !isCompleted && (
-        <View className={`p-3 rounded-lg mb-3 ${isDark ? 'bg-steel-900' : 'bg-steel-50'}`}>
+        <View className={`p-3 rounded-lg mb-3 ${isDark ? 'bg-graphite-900' : 'bg-graphite-50'}`}>
           <View className="flex-row justify-between mb-2">
-            <Text className={`text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+            <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
               RPE {rpe}
             </Text>
-            <Text className={`text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+            <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
               {RPE_DESCRIPTIONS[rpe] || ''}
             </Text>
           </View>
@@ -314,9 +314,9 @@ export function SetInput({
             step={0.5}
             value={rpe}
             onValueChange={setRpe}
-            minimumTrackTintColor="#ed7411"
-            maximumTrackTintColor={isDark ? '#3e4965' : '#d3d8e4'}
-            thumbTintColor="#ed7411"
+            minimumTrackTintColor="#2F80ED"
+            maximumTrackTintColor={isDark ? '#353D4B' : '#A5ABB6'}
+            thumbTintColor="#2F80ED"
           />
         </View>
       )}
@@ -324,8 +324,8 @@ export function SetInput({
       {/* E1RM and Target Display */}
       <View className="flex-row items-center justify-between">
         {currentE1RM > 0 && (
-          <Text className={`text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
-            Est. 1RM: <Text className="font-semibold text-forge-500">{currentE1RM} lbs</Text>
+          <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            Est. 1RM: <Text className="font-semibold text-signal-500">{currentE1RM} lbs</Text>
           </Text>
         )}
 
@@ -333,14 +333,14 @@ export function SetInput({
         {!isCompleted && (
           <Pressable
             className={`px-6 py-2 rounded-full ${
-              weight && reps ? 'bg-forge-500' : isDark ? 'bg-steel-700' : 'bg-steel-200'
+              weight && reps ? 'bg-signal-500' : isDark ? 'bg-graphite-700' : 'bg-graphite-200'
             }`}
             onPress={handleSaveSet}
             disabled={!weight || !reps}
           >
             <Text
               className={`font-semibold ${
-                weight && reps ? 'text-white' : isDark ? 'text-steel-500' : 'text-steel-400'
+                weight && reps ? 'text-white' : isDark ? 'text-graphite-500' : 'text-graphite-400'
               }`}
             >
               Log Set
@@ -358,7 +358,7 @@ export function SetInput({
               size={16}
               color={isDark ? '#808fb0' : '#607296'}
             />
-            <Text className={`ml-1 text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+            <Text className={`ml-1 text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
               Edit
             </Text>
           </Pressable>

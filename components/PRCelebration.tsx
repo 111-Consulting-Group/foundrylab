@@ -131,11 +131,11 @@ export function PRCelebration({
             transform: [{ scale: scaleAnim }],
           }}
           className={`w-full max-w-sm rounded-3xl overflow-hidden ${
-            isDark ? 'bg-steel-900' : 'bg-white'
+            isDark ? 'bg-graphite-900' : 'bg-white'
           }`}
         >
-          {/* Ember Gradient Header */}
-          <View className="bg-gradient-to-br from-ember-500 to-ember-600 py-8 items-center relative overflow-hidden">
+          {/* Oxide Orange Gradient Header - Special PR moment */}
+          <View className="bg-gradient-to-br from-oxide-500 to-oxide-600 py-8 items-center relative overflow-hidden">
             {/* Animated confetti/sparkles */}
             {[...Array(8)].map((_, i) => (
               <Animated.View
@@ -192,7 +192,7 @@ export function PRCelebration({
           <View className="p-6 items-center">
             <Text
               className={`text-lg font-semibold mb-2 ${
-                isDark ? 'text-steel-100' : 'text-steel-900'
+                isDark ? 'text-graphite-100' : 'text-graphite-900'
               }`}
             >
               {exercise.name}
@@ -200,7 +200,7 @@ export function PRCelebration({
 
             <View className="flex-row items-center justify-center mb-4">
               <Text
-                className={`text-4xl font-bold text-ember-500`}
+                className={`text-4xl font-bold text-oxide-500`}
               >
                 {value}
               </Text>
@@ -209,10 +209,10 @@ export function PRCelebration({
             {previousValue && (
               <View
                 className={`px-4 py-2 rounded-full ${
-                  isDark ? 'bg-steel-800' : 'bg-steel-100'
+                  isDark ? 'bg-graphite-800' : 'bg-graphite-100'
                 }`}
               >
-                <Text className={`text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                   Previous best: {previousValue}
                 </Text>
               </View>
@@ -220,7 +220,7 @@ export function PRCelebration({
 
             {/* Close Button */}
             <Pressable
-              className="mt-6 w-full py-3 rounded-xl bg-ember-500 items-center"
+              className="mt-6 w-full py-3 rounded-xl bg-oxide-500 items-center"
               onPress={onClose}
             >
               <Text className="text-white font-semibold text-lg">

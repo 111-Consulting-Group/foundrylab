@@ -147,10 +147,10 @@ ${Object.values(exerciseSummary)
     return (
       <SafeAreaView
         className={`flex-1 items-center justify-center ${
-          isDark ? 'bg-steel-950' : 'bg-steel-50'
+          isDark ? 'bg-carbon-950' : 'bg-graphite-50'
         }`}
       >
-        <ActivityIndicator size="large" color="#ed7411" />
+        <ActivityIndicator size="large" color="#2F80ED" />
       </SafeAreaView>
     );
   }
@@ -159,10 +159,10 @@ ${Object.values(exerciseSummary)
     return (
       <SafeAreaView
         className={`flex-1 items-center justify-center ${
-          isDark ? 'bg-steel-950' : 'bg-steel-50'
+          isDark ? 'bg-carbon-950' : 'bg-graphite-50'
         }`}
       >
-        <Text className={isDark ? 'text-steel-400' : 'text-steel-500'}>
+        <Text className={isDark ? 'text-graphite-400' : 'text-graphite-500'}>
           Workout not found
         </Text>
       </SafeAreaView>
@@ -173,25 +173,25 @@ ${Object.values(exerciseSummary)
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView
-        className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`}
+        className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
         edges={['left', 'right', 'bottom']}
       >
       {/* Header */}
       <View
         className={`px-4 py-3 border-b flex-row items-center justify-between ${
-          isDark ? 'border-steel-700 bg-steel-900' : 'border-steel-200 bg-white'
+          isDark ? 'border-graphite-700 bg-graphite-900' : 'border-graphite-200 bg-white'
         }`}
       >
         <Pressable onPress={() => router.back()} className="p-2 -ml-2">
           <Ionicons
             name="close"
             size={24}
-            color={isDark ? '#f6f7f9' : '#1e232f'}
+            color={isDark ? '#E6E8EB' : '#0E1116'}
           />
         </Pressable>
         <Text
           className={`text-lg font-semibold ${
-            isDark ? 'text-steel-100' : 'text-steel-900'
+            isDark ? 'text-graphite-50' : 'text-carbon-950'
           }`}
         >
           Workout Summary
@@ -200,7 +200,7 @@ ${Object.values(exerciseSummary)
           <Ionicons
             name="share-outline"
             size={24}
-            color={isDark ? '#ed7411' : '#de5a09'}
+            color={isDark ? '#2F80ED' : '#2F80ED'}
           />
         </Pressable>
       </View>
@@ -210,31 +210,31 @@ ${Object.values(exerciseSummary)
         <View ref={summaryRef} className="p-4">
           <View
             className={`rounded-2xl p-6 ${
-              isDark ? 'bg-steel-900' : 'bg-white'
+              isDark ? 'bg-graphite-900' : 'bg-white'
             } shadow-lg`}
           >
             {/* Workout Title */}
             <View className="items-center mb-6">
-              <View className="w-16 h-16 rounded-full bg-forge-500 items-center justify-center mb-3">
+              <View className="w-16 h-16 rounded-full bg-signal-500 items-center justify-center mb-3">
                 <Ionicons name="barbell" size={32} color="#ffffff" />
               </View>
               <Text
                 className={`text-2xl font-bold text-center ${
-                  isDark ? 'text-steel-100' : 'text-steel-900'
+                  isDark ? 'text-graphite-50' : 'text-carbon-950'
                 }`}
               >
                 {workout.focus}
               </Text>
               <Text
                 className={`text-sm mt-1 ${
-                  isDark ? 'text-steel-400' : 'text-steel-500'
+                  isDark ? 'text-graphite-400' : 'text-graphite-500'
                 }`}
               >
                 {workoutDate}
               </Text>
               <Text
                 className={`text-sm ${
-                  isDark ? 'text-steel-400' : 'text-steel-500'
+                  isDark ? 'text-graphite-400' : 'text-graphite-500'
                 }`}
               >
                 ⏱️ {workout.duration_minutes || 0} minutes
@@ -245,15 +245,15 @@ ${Object.values(exerciseSummary)
             <View className="flex-row flex-wrap justify-between mb-6">
               <View
                 className={`w-[48%] p-4 rounded-xl mb-3 ${
-                  isDark ? 'bg-steel-800' : 'bg-steel-50'
+                  isDark ? 'bg-graphite-800' : 'bg-graphite-50'
                 }`}
               >
-                <Text className="text-4xl font-bold text-forge-500 mb-1">
+                <Text className="text-4xl font-bold text-signal-500 mb-1">
                   {stats.totalSets}
                 </Text>
                 <Text
                   className={`text-sm ${
-                    isDark ? 'text-steel-400' : 'text-steel-500'
+                    isDark ? 'text-graphite-400' : 'text-graphite-500'
                   }`}
                 >
                   Total Sets
@@ -262,15 +262,15 @@ ${Object.values(exerciseSummary)
               
               <View
                 className={`w-[48%] p-4 rounded-xl mb-3 ${
-                  isDark ? 'bg-steel-800' : 'bg-steel-50'
+                  isDark ? 'bg-graphite-800' : 'bg-graphite-50'
                 }`}
               >
-                <Text className="text-4xl font-bold text-forge-500 mb-1">
+                <Text className="text-4xl font-bold text-signal-500 mb-1">
                   {stats.totalReps}
                 </Text>
                 <Text
                   className={`text-sm ${
-                    isDark ? 'text-steel-400' : 'text-steel-500'
+                    isDark ? 'text-graphite-400' : 'text-graphite-500'
                   }`}
                 >
                   Total Reps
@@ -279,15 +279,15 @@ ${Object.values(exerciseSummary)
               
               <View
                 className={`w-[48%] p-4 rounded-xl ${
-                  isDark ? 'bg-steel-800' : 'bg-steel-50'
+                  isDark ? 'bg-graphite-800' : 'bg-graphite-50'
                 }`}
               >
-                <Text className="text-4xl font-bold text-forge-500 mb-1">
+                <Text className="text-4xl font-bold text-signal-500 mb-1">
                   {Math.round(stats.totalVolume)}
                 </Text>
                 <Text
                   className={`text-sm ${
-                    isDark ? 'text-steel-400' : 'text-steel-500'
+                    isDark ? 'text-graphite-400' : 'text-graphite-500'
                   }`}
                 >
                   lbs Moved
@@ -296,15 +296,15 @@ ${Object.values(exerciseSummary)
               
               <View
                 className={`w-[48%] p-4 rounded-xl ${
-                  isDark ? 'bg-steel-800' : 'bg-steel-50'
+                  isDark ? 'bg-graphite-800' : 'bg-graphite-50'
                 }`}
               >
-                <Text className="text-4xl font-bold text-forge-500 mb-1">
+                <Text className="text-4xl font-bold text-signal-500 mb-1">
                   {stats.maxWeight}
                 </Text>
                 <Text
                   className={`text-sm ${
-                    isDark ? 'text-steel-400' : 'text-steel-500'
+                    isDark ? 'text-graphite-400' : 'text-graphite-500'
                   }`}
                 >
                   lbs Max
@@ -316,7 +316,7 @@ ${Object.values(exerciseSummary)
             <View>
               <Text
                 className={`text-lg font-bold mb-3 ${
-                  isDark ? 'text-steel-100' : 'text-steel-900'
+                  isDark ? 'text-graphite-50' : 'text-carbon-950'
                 }`}
               >
                 Exercise Breakdown
@@ -327,25 +327,25 @@ ${Object.values(exerciseSummary)
                   <View
                     key={index}
                     className={`p-3 rounded-lg mb-2 ${
-                      isDark ? 'bg-steel-800' : 'bg-steel-50'
+                      isDark ? 'bg-graphite-800' : 'bg-graphite-50'
                     }`}
                   >
                     <View className="flex-row items-center justify-between mb-1">
                       <Text
                         className={`font-semibold flex-1 ${
-                          isDark ? 'text-steel-200' : 'text-steel-800'
+                          isDark ? 'text-graphite-200' : 'text-graphite-800'
                         }`}
                       >
                         {ex.name}
                       </Text>
-                      <Text className="text-forge-500 font-bold">
+                      <Text className="text-signal-500 font-bold">
                         {Math.round(ex.totalVolume)} lbs
                       </Text>
                     </View>
                     <View className="flex-row">
                       <Text
                         className={`text-xs ${
-                          isDark ? 'text-steel-400' : 'text-steel-500'
+                          isDark ? 'text-graphite-400' : 'text-graphite-500'
                         }`}
                       >
                         {ex.sets} sets • Max: {ex.maxWeight} lbs
@@ -356,13 +356,13 @@ ${Object.values(exerciseSummary)
             </View>
 
             {/* Footer */}
-            <View className="mt-6 pt-4 border-t border-steel-700 items-center">
+            <View className="mt-6 pt-4 border-t border-graphite-700 items-center">
               <Text
                 className={`text-xs ${
-                  isDark ? 'text-steel-500' : 'text-steel-400'
+                  isDark ? 'text-graphite-500' : 'text-graphite-400'
                 }`}
               >
-                Powered by Forged Fitness
+                Powered by Foundry Lab
               </Text>
             </View>
           </View>
@@ -373,7 +373,7 @@ ${Object.values(exerciseSummary)
           <View className="px-4 pb-4">
             <Pressable
               onPress={handleShare}
-              className="bg-forge-500 rounded-xl p-4 flex-row items-center justify-center"
+              className="bg-signal-500 rounded-xl p-4 flex-row items-center justify-center"
             >
               <Ionicons name="share-social" size={20} color="#ffffff" />
               <Text className="text-white font-semibold ml-2">

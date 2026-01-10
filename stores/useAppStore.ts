@@ -126,7 +126,7 @@ export const useAppStore = create<AppState>()(
       clearActiveWorkout: () => set({ activeWorkout: null }),
     }),
     {
-      name: 'forged-app-storage',
+      name: 'foundry-lab-storage',
       storage: createJSONStorage(() => zustandStorage),
       partialize: (state) => ({
         userId: state.userId,

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { useRouter, Link } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
+import { getAuthErrorMessage } from '@/lib/validation';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -21,13 +22,14 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
       if (error) {
         console.error('Login error details:', error);
-        Alert.alert('Login Error', error.message || 'Failed to sign in. Please check your credentials.');
+        const message = getAuthErrorMessage(error);
+        Alert.alert('Sign In Error', message);
         setLoading(false);
         return;
       }
@@ -50,25 +52,30 @@ export default function LoginScreen() {
         router.replace('/(tabs)');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'An error occurred');
+      const message = getAuthErrorMessage(err);
+      Alert.alert('Error', message);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <View className="flex-1 bg-[#1e232f] justify-center px-6">
+    <ScrollView
+      className="flex-1 bg-carbon-950"
+      contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 48, justifyContent: 'center', minHeight: '100%' }}
+      keyboardShouldPersistTaps="handled"
+    >
       <View className="mb-8">
-        <Text className="text-4xl font-bold text-white mb-2">Forged</Text>
-        <Text className="text-gray-400 text-lg">Sign in to continue</Text>
+        <Text className="text-4xl font-bold text-graphite-50 mb-2">Foundry Lab</Text>
+        <Text className="text-graphite-400 text-lg">Sign in to continue</Text>
       </View>
 
       <View className="mb-4">
-        <Text className="text-gray-300 mb-2">Email</Text>
+        <Text className="text-graphite-300 mb-2">Email</Text>
         <TextInput
-          className="bg-[#303848] text-white px-4 py-3 rounded-lg border border-[#3e4965]"
+          className="bg-graphite-900 text-graphite-50 px-4 py-3 rounded-lg border border-graphite-700"
           placeholder="Enter your email"
-          placeholderTextColor="#6b7280"
+          placeholderTextColor="#6B7485"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -77,12 +84,12 @@ export default function LoginScreen() {
         />
       </View>
 
-      <View className="mb-6">
-        <Text className="text-gray-300 mb-2">Password</Text>
+      <View className="mb-4">
+        <Text className="text-graphite-300 mb-2">Password</Text>
         <TextInput
-          className="bg-[#303848] text-white px-4 py-3 rounded-lg border border-[#3e4965]"
+          className="bg-graphite-900 text-graphite-50 px-4 py-3 rounded-lg border border-graphite-700"
           placeholder="Enter your password"
-          placeholderTextColor="#6b7280"
+          placeholderTextColor="#6B7485"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -91,21 +98,34 @@ export default function LoginScreen() {
         />
       </View>
 
+      <View className="mb-6">
+        <Link href="/forgot-password" asChild>
+          <TouchableOpacity>
+            <Text className="text-signal-500 font-semibold text-right">Forgot Password?</Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
+
       <TouchableOpacity
-        className="bg-[#ed7411] py-4 rounded-lg items-center mb-4"
+        className="bg-signal-500 py-4 rounded-lg items-center mb-6"
         onPress={handleLogin}
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color="#ffffff" />
         ) : (
           <Text className="text-white font-semibold text-lg">Sign In</Text>
         )}
       </TouchableOpacity>
 
-      <Text className="text-gray-500 text-center text-sm">
-        For development: Use andywolfe15@yahoo.com / password1
-      </Text>
-    </View>
+      <View className="flex-row justify-center items-center">
+        <Text className="text-graphite-400">Don't have an account? </Text>
+        <Link href="/signup" asChild>
+          <TouchableOpacity>
+            <Text className="text-signal-500 font-semibold">Sign Up</Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
+    </ScrollView>
   );
 }

@@ -1,4 +1,4 @@
-// Database types for Forged fitness app
+// Database types for Foundry Lab app
 // These types are designed to match the Supabase PostgreSQL schema
 
 export type Json =

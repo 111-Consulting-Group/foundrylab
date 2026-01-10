@@ -55,35 +55,35 @@ export default function ProgramScreen() {
   if (!isLoading && !activeBlock) {
     return (
       <SafeAreaView
-        className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`}
+        className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
         edges={['left', 'right']}
       >
         <View className="flex-1 items-center justify-center px-6">
           <View
             className={`w-20 h-20 rounded-full items-center justify-center mb-4 ${
-              isDark ? 'bg-steel-800' : 'bg-steel-100'
+              isDark ? 'bg-graphite-800' : 'bg-graphite-100'
             }`}
           >
             <Ionicons
               name="calendar-outline"
               size={40}
-              color={isDark ? '#ed7411' : '#de5a09'}
+              color={isDark ? '#2F80ED' : '#2F80ED'}
             />
           </View>
           <Text
             className={`text-xl font-bold text-center mb-2 ${
-              isDark ? 'text-steel-100' : 'text-steel-900'
+              isDark ? 'text-graphite-100' : 'text-graphite-900'
             }`}
           >
             No Active Program
           </Text>
           <Text
-            className={`text-center mb-6 ${isDark ? 'text-steel-400' : 'text-steel-500'}`}
+            className={`text-center mb-6 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
           >
             Generate a training block with AI or create one manually to get started
           </Text>
           <Link href="/block-builder" asChild>
-            <Pressable className="px-6 py-3 rounded-xl bg-forge-500">
+            <Pressable className="px-6 py-3 rounded-xl bg-signal-500">
               <View className="flex-row items-center">
                 <Ionicons name="sparkles" size={20} color="#ffffff" />
                 <Text className="text-white font-semibold ml-2">
@@ -99,12 +99,12 @@ export default function ProgramScreen() {
 
   return (
     <SafeAreaView
-      className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`}
+      className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
       edges={['left', 'right']}
     >
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#ed7411" />
+          <ActivityIndicator size="large" color="#2F80ED" />
         </View>
       ) : (
         <ScrollView className="flex-1">
@@ -114,13 +114,13 @@ export default function ProgramScreen() {
               <View className="flex-1">
                 <Text
                   className={`text-xl font-bold ${
-                    isDark ? 'text-steel-100' : 'text-steel-900'
+                    isDark ? 'text-graphite-100' : 'text-graphite-900'
                   }`}
                 >
                   {activeBlock?.name || 'Training Block'}
                 </Text>
                 <Text
-                  className={`text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}
+                  className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
                 >
                   Week {currentWeek} of {activeBlock?.duration_weeks || 0}
                   {activeBlock?.description ? ` • ${activeBlock.description.slice(0, 30)}...` : ''}
@@ -131,7 +131,7 @@ export default function ProgramScreen() {
                   <Ionicons
                     name="add-circle"
                     size={28}
-                    color={isDark ? '#ed7411' : '#de5a09'}
+                    color={isDark ? '#2F80ED' : '#2F80ED'}
                   />
                 </Pressable>
               </Link>
@@ -141,18 +141,18 @@ export default function ProgramScreen() {
             {progress && (
               <View
                 className={`h-2 rounded-full ${
-                  isDark ? 'bg-steel-800' : 'bg-steel-200'
+                  isDark ? 'bg-graphite-800' : 'bg-graphite-200'
                 } mt-2`}
               >
                 <View
-                  className="h-full rounded-full bg-forge-500"
+                  className="h-full rounded-full bg-signal-500"
                   style={{ width: `${progress.percentage}%` }}
                 />
               </View>
             )}
             {progress && (
               <Text
-                className={`text-xs mt-1 ${isDark ? 'text-steel-500' : 'text-steel-400'}`}
+                className={`text-xs mt-1 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}
               >
                 {progress.completed} of {progress.total} workouts completed
               </Text>
@@ -172,10 +172,10 @@ export default function ProgramScreen() {
                     <View
                       className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${
                         isCurrentWeek
-                          ? 'bg-forge-500'
+                          ? 'bg-signal-500'
                           : isDark
-                          ? 'bg-steel-700'
-                          : 'bg-steel-200'
+                          ? 'bg-graphite-700'
+                          : 'bg-graphite-200'
                       }`}
                     >
                       <Text
@@ -183,8 +183,8 @@ export default function ProgramScreen() {
                           isCurrentWeek
                             ? 'text-white'
                             : isDark
-                            ? 'text-steel-300'
-                            : 'text-steel-600'
+                            ? 'text-graphite-300'
+                            : 'text-graphite-600'
                         }`}
                       >
                         W{week}
@@ -192,14 +192,14 @@ export default function ProgramScreen() {
                     </View>
                     <Text
                       className={`font-semibold ${
-                        isDark ? 'text-steel-200' : 'text-steel-800'
+                        isDark ? 'text-graphite-200' : 'text-graphite-800'
                       }`}
                     >
                       Week {week}
                     </Text>
                     {isCurrentWeek && (
-                      <View className="ml-2 px-2 py-0.5 rounded-full bg-forge-500/20">
-                        <Text className="text-forge-500 text-xs font-semibold">
+                      <View className="ml-2 px-2 py-0.5 rounded-full bg-signal-500/20">
+                        <Text className="text-signal-500 text-xs font-semibold">
                           Current
                         </Text>
                       </View>
@@ -217,25 +217,25 @@ export default function ProgramScreen() {
                           <Pressable
                             key={workout.id}
                             className={`p-4 rounded-xl flex-row items-center ${
-                              isDark ? 'bg-steel-800' : 'bg-white'
+                              isDark ? 'bg-graphite-800' : 'bg-white'
                             } border ${
                               isNext
-                                ? 'border-forge-500'
+                                ? 'border-signal-500'
                                 : isDark
-                                ? 'border-steel-700'
-                                : 'border-steel-200'
+                                ? 'border-graphite-700'
+                                : 'border-graphite-200'
                             }`}
                             onPress={() => router.push(`/workout/${workout.id}`)}
                           >
                             <View
                               className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
                                 isCompleted
-                                  ? 'bg-success-500'
+                                  ? 'bg-progress-500'
                                   : isNext
-                                  ? 'bg-forge-500'
+                                  ? 'bg-signal-500'
                                   : isDark
-                                  ? 'bg-steel-700'
-                                  : 'bg-steel-200'
+                                  ? 'bg-graphite-700'
+                                  : 'bg-graphite-200'
                               }`}
                             >
                               {isCompleted ? (
@@ -246,8 +246,8 @@ export default function ProgramScreen() {
                                     isNext
                                       ? 'text-white'
                                       : isDark
-                                      ? 'text-steel-400'
-                                      : 'text-steel-500'
+                                      ? 'text-graphite-400'
+                                      : 'text-graphite-500'
                                   }`}
                                 >
                                   {workout.day_number || 1}
@@ -257,14 +257,14 @@ export default function ProgramScreen() {
                             <View className="flex-1">
                               <Text
                                 className={`font-semibold ${
-                                  isDark ? 'text-steel-100' : 'text-steel-900'
+                                  isDark ? 'text-graphite-100' : 'text-graphite-900'
                                 }`}
                               >
                                 Day {workout.day_number}: {workout.focus}
                               </Text>
                               <Text
                                 className={`text-sm ${
-                                  isDark ? 'text-steel-400' : 'text-steel-500'
+                                  isDark ? 'text-graphite-400' : 'text-graphite-500'
                                 }`}
                               >
                                 {isCompleted
@@ -275,7 +275,7 @@ export default function ProgramScreen() {
                               </Text>
                             </View>
                             {isNext && (
-                              <View className="px-3 py-1 rounded-full bg-forge-500 mr-2">
+                              <View className="px-3 py-1 rounded-full bg-signal-500 mr-2">
                                 <Text className="text-white text-xs font-semibold">
                                   Up Next
                                 </Text>
@@ -297,7 +297,7 @@ export default function ProgramScreen() {
           {/* Empty state for no workouts */}
           {Object.keys(workoutsByWeek).length === 0 && (
             <View className="px-4 py-8 items-center">
-              <Text className={`${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+              <Text className={`${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                 No workouts scheduled for this block
               </Text>
             </View>

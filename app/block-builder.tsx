@@ -115,7 +115,7 @@ export default function BlockBuilderScreen() {
 
   return (
     <SafeAreaView
-      className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`}
+      className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
       edges={['left', 'right', 'bottom']}
     >
       <KeyboardAvoidingView
@@ -125,13 +125,13 @@ export default function BlockBuilderScreen() {
         {/* Header */}
         <View
           className={`flex-row items-center justify-between px-4 py-3 border-b ${
-            isDark ? 'border-steel-700' : 'border-steel-200'
+            isDark ? 'border-graphite-700' : 'border-graphite-200'
           }`}
         >
           <Pressable onPress={() => router.back()} className="p-2 -ml-2">
-            <Ionicons name="close" size={24} color={isDark ? '#f6f7f9' : '#1e232f'} />
+            <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
           </Pressable>
-          <Text className={`text-lg font-bold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+          <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
             AI Block Builder
           </Text>
           <View className="w-10" />
@@ -148,15 +148,15 @@ export default function BlockBuilderScreen() {
               <View className="mb-6">
                 <Text
                   className={`text-sm font-semibold mb-2 ${
-                    isDark ? 'text-steel-300' : 'text-steel-600'
+                    isDark ? 'text-graphite-300' : 'text-graphite-600'
                   }`}
                 >
                   Describe your training goals
                 </Text>
                 <TextInput
                   className={`p-4 rounded-xl text-base min-h-[120px] ${
-                    isDark ? 'bg-steel-800 text-steel-100' : 'bg-white text-steel-900'
-                  } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                    isDark ? 'bg-graphite-800 text-graphite-100' : 'bg-white text-graphite-900'
+                  } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
                   placeholder="e.g., I want to build strength in my squat and deadlift while maintaining conditioning for hiking..."
                   placeholderTextColor={isDark ? '#607296' : '#808fb0'}
                   value={prompt}
@@ -170,7 +170,7 @@ export default function BlockBuilderScreen() {
               <View className="mb-6">
                 <Text
                   className={`text-sm font-semibold mb-2 ${
-                    isDark ? 'text-steel-300' : 'text-steel-600'
+                    isDark ? 'text-graphite-300' : 'text-graphite-600'
                   }`}
                 >
                   Block Duration
@@ -181,13 +181,13 @@ export default function BlockBuilderScreen() {
                       key={weeks}
                       className={`flex-1 py-3 rounded-xl items-center ${
                         durationWeeks === weeks
-                          ? 'bg-forge-500'
+                          ? 'bg-signal-500'
                           : isDark
-                          ? 'bg-steel-800'
+                          ? 'bg-graphite-800'
                           : 'bg-white'
                       } ${
                         durationWeeks !== weeks
-                          ? `border ${isDark ? 'border-steel-700' : 'border-steel-200'}`
+                          ? `border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`
                           : ''
                       }`}
                       onPress={() => setDurationWeeks(weeks)}
@@ -197,8 +197,8 @@ export default function BlockBuilderScreen() {
                           durationWeeks === weeks
                             ? 'text-white'
                             : isDark
-                            ? 'text-steel-300'
-                            : 'text-steel-600'
+                            ? 'text-graphite-300'
+                            : 'text-graphite-600'
                         }`}
                       >
                         {weeks} weeks
@@ -212,7 +212,7 @@ export default function BlockBuilderScreen() {
               <View className="mb-6">
                 <Text
                   className={`text-sm font-semibold mb-3 ${
-                    isDark ? 'text-steel-300' : 'text-steel-600'
+                    isDark ? 'text-graphite-300' : 'text-graphite-600'
                   }`}
                 >
                   Quick Templates
@@ -222,22 +222,22 @@ export default function BlockBuilderScreen() {
                     <Pressable
                       key={suggestion.title}
                       className={`p-4 rounded-xl ${
-                        isDark ? 'bg-steel-800' : 'bg-white'
-                      } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                        isDark ? 'bg-graphite-800' : 'bg-white'
+                      } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
                       onPress={() => applySuggestion(suggestion)}
                     >
                       <View className="flex-row items-center justify-between">
                         <View className="flex-1">
                           <Text
                             className={`font-semibold ${
-                              isDark ? 'text-steel-100' : 'text-steel-900'
+                              isDark ? 'text-graphite-100' : 'text-graphite-900'
                             }`}
                           >
                             {suggestion.title}
                           </Text>
                           <Text
                             className={`text-sm mt-1 ${
-                              isDark ? 'text-steel-400' : 'text-steel-500'
+                              isDark ? 'text-graphite-400' : 'text-graphite-500'
                             }`}
                           >
                             {suggestion.description}
@@ -257,7 +257,7 @@ export default function BlockBuilderScreen() {
               {/* Generate Button */}
               <Pressable
                 className={`py-4 rounded-xl items-center ${
-                  prompt.trim() && !isGenerating ? 'bg-forge-500' : isDark ? 'bg-steel-700' : 'bg-steel-200'
+                  prompt.trim() && !isGenerating ? 'bg-signal-500' : isDark ? 'bg-graphite-700' : 'bg-graphite-200'
                 }`}
                 onPress={handleGenerate}
                 disabled={!prompt.trim() || isGenerating}
@@ -280,29 +280,29 @@ export default function BlockBuilderScreen() {
               {/* Generated Block Preview */}
               <View
                 className={`p-4 rounded-xl mb-4 ${
-                  isDark ? 'bg-forge-500/20' : 'bg-forge-50'
-                } border ${isDark ? 'border-forge-500/30' : 'border-forge-200'}`}
+                  isDark ? 'bg-signal-500/20' : 'bg-graphite-50'
+                } border ${isDark ? 'border-signal-500/30' : 'border-graphite-200'}`}
               >
                 <View className="flex-row items-center mb-2">
-                  <Ionicons name="checkmark-circle" size={20} color="#ed7411" />
-                  <Text className="text-forge-500 font-semibold ml-2">
+                  <Ionicons name="checkmark-circle" size={20} color="#2F80ED" />
+                  <Text className="text-signal-500 font-semibold ml-2">
                     Block Generated!
                   </Text>
                 </View>
-                <Text className={`font-bold text-lg ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+                <Text className={`font-bold text-lg ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                   {generatedBlock.name}
                 </Text>
-                <Text className={`mt-1 ${isDark ? 'text-steel-300' : 'text-steel-600'}`}>
+                <Text className={`mt-1 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
                   {generatedBlock.description}
                 </Text>
                 <View className="flex-row gap-3 mt-3">
-                  <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-steel-700' : 'bg-steel-100'}`}>
-                    <Text className={`text-sm ${isDark ? 'text-steel-300' : 'text-steel-600'}`}>
+                  <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}>
+                    <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
                       {generatedBlock.duration_weeks} weeks
                     </Text>
                   </View>
-                  <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-steel-700' : 'bg-steel-100'}`}>
-                    <Text className={`text-sm ${isDark ? 'text-steel-300' : 'text-steel-600'}`}>
+                  <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}>
+                    <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
                       {generatedBlock.workouts.length} workouts
                     </Text>
                   </View>
@@ -312,7 +312,7 @@ export default function BlockBuilderScreen() {
               {/* Workout Preview */}
               <Text
                 className={`text-sm font-semibold mb-3 ${
-                  isDark ? 'text-steel-300' : 'text-steel-600'
+                  isDark ? 'text-graphite-300' : 'text-graphite-600'
                 }`}
               >
                 Week 1 Preview
@@ -323,19 +323,19 @@ export default function BlockBuilderScreen() {
                   <View
                     key={index}
                     className={`p-4 rounded-xl mb-3 ${
-                      isDark ? 'bg-steel-800' : 'bg-white'
-                    } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                      isDark ? 'bg-graphite-800' : 'bg-white'
+                    } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
                   >
                     <View className="flex-row items-center justify-between mb-3">
                       <View className="flex-row items-center">
-                        <View className="w-8 h-8 rounded-full bg-forge-500 items-center justify-center mr-3">
+                        <View className="w-8 h-8 rounded-full bg-signal-500 items-center justify-center mr-3">
                           <Text className="text-white font-bold text-sm">
                             D{workout.day_number}
                           </Text>
                         </View>
                         <Text
                           className={`font-semibold ${
-                            isDark ? 'text-steel-100' : 'text-steel-900'
+                            isDark ? 'text-graphite-100' : 'text-graphite-900'
                           }`}
                         >
                           {workout.focus}
@@ -347,12 +347,12 @@ export default function BlockBuilderScreen() {
                         <View key={exIndex} className="flex-row items-center">
                           <View
                             className={`w-1.5 h-1.5 rounded-full mr-2 ${
-                              isDark ? 'bg-steel-500' : 'bg-steel-300'
+                              isDark ? 'bg-graphite-500' : 'bg-graphite-300'
                             }`}
                           />
                           <Text
                             className={`text-sm ${
-                              isDark ? 'text-steel-300' : 'text-steel-600'
+                              isDark ? 'text-graphite-300' : 'text-graphite-600'
                             }`}
                           >
                             {ex.exercise_name} - {ex.sets.length} sets
@@ -362,7 +362,7 @@ export default function BlockBuilderScreen() {
                       {workout.exercises.length > 5 && (
                         <Text
                           className={`text-sm ${
-                            isDark ? 'text-steel-500' : 'text-steel-400'
+                            isDark ? 'text-graphite-500' : 'text-graphite-400'
                           }`}
                         >
                           +{workout.exercises.length - 5} more exercises
@@ -376,20 +376,20 @@ export default function BlockBuilderScreen() {
               <View className="flex-row gap-3 mt-2">
                 <Pressable
                   className={`flex-1 py-4 rounded-xl items-center border ${
-                    isDark ? 'border-steel-600' : 'border-steel-300'
+                    isDark ? 'border-graphite-600' : 'border-graphite-300'
                   }`}
                   onPress={() => {
                     setGeneratedBlock(null);
                     setPrompt('');
                   }}
                 >
-                  <Text className={`font-semibold ${isDark ? 'text-steel-300' : 'text-steel-600'}`}>
+                  <Text className={`font-semibold ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
                     Start Over
                   </Text>
                 </Pressable>
                 <Pressable
                   className={`flex-1 py-4 rounded-xl items-center ${
-                    isSaving ? 'bg-forge-400' : 'bg-forge-500'
+                    isSaving ? 'bg-signal-400' : 'bg-signal-500'
                   }`}
                   onPress={handleSaveBlock}
                   disabled={isSaving}

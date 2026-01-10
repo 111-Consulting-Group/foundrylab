@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { Platform, TouchableOpacity, Alert } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { useLogout } from '@/hooks/useAuth';
 
 type TabIconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -20,15 +21,52 @@ function TabBarIcon({ name, color, focused }: { name: TabIconName; color: string
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const logoutMutation = useLogout();
+
+  const handleLogout = () => {
+    console.log('Logout button clicked');
+    
+    if (Platform.OS === 'web') {
+      // On web, use window.confirm for better compatibility
+      const confirmed = window.confirm('Are you sure you want to log out?');
+      if (confirmed) {
+        console.log('User confirmed logout (web), calling mutation');
+        logoutMutation.mutate();
+      } else {
+        console.log('Logout cancelled (web)');
+      }
+    } else {
+      // On native, use Alert.alert
+      Alert.alert(
+        'Log Out',
+        'Are you sure you want to log out?',
+        [
+          { 
+            text: 'Cancel', 
+            style: 'cancel',
+            onPress: () => console.log('Logout cancelled (native)'),
+          },
+          {
+            text: 'Log Out',
+            style: 'destructive',
+            onPress: () => {
+              console.log('User confirmed logout (native), calling mutation');
+              logoutMutation.mutate();
+            },
+          },
+        ]
+      );
+    }
+  };
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#ed7411', // forge-500
-        tabBarInactiveTintColor: isDark ? '#808fb0' : '#607296', // steel-400/500
+        tabBarActiveTintColor: '#2F80ED', // signal-500
+        tabBarInactiveTintColor: isDark ? '#6B7485' : '#525C6E', // graphite-400/500
         tabBarStyle: {
-          backgroundColor: isDark ? '#1e232f' : '#ffffff',
-          borderTopColor: isDark ? '#3e4965' : '#d3d8e4',
+          backgroundColor: isDark ? '#0E1116' : '#ffffff',
+          borderTopColor: isDark ? '#353D4B' : '#A5ABB6',
           borderTopWidth: 1,
           paddingBottom: Platform.OS === 'ios' ? 24 : 8,
           paddingTop: 8,
@@ -39,9 +77,9 @@ export default function TabLayout() {
           fontWeight: '600',
         },
         headerStyle: {
-          backgroundColor: isDark ? '#1e232f' : '#ffffff',
+          backgroundColor: isDark ? '#0E1116' : '#ffffff',
         },
-        headerTintColor: isDark ? '#f6f7f9' : '#1e232f',
+        headerTintColor: isDark ? '#E6E8EB' : '#0E1116',
         headerTitleStyle: {
           fontWeight: '700',
         },
@@ -54,7 +92,20 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} focused={focused} />
           ),
-          headerTitle: 'Forged',
+          headerTitle: 'Foundry Lab',
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={{ marginRight: 16 }}
+              disabled={logoutMutation.isPending}
+            >
+              <Ionicons
+                name="log-out-outline"
+                size={24}
+                color={isDark ? '#E6E8EB' : '#0E1116'}
+              />
+            </TouchableOpacity>
+          ),
         }}
       />
       <Tabs.Screen

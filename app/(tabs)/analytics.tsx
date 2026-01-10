@@ -37,20 +37,20 @@ export default function AnalyticsScreen() {
   const screenWidth = Dimensions.get('window').width;
 
   return (
-    <SafeAreaView className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`} edges={['left', 'right']}>
+    <SafeAreaView className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`} edges={['left', 'right']}>
       <ScrollView className="flex-1">
         {/* Metric Toggle */}
         <View className="px-4 pt-4">
           <View
             className={`flex-row p-1 rounded-xl ${
-              isDark ? 'bg-steel-800' : 'bg-steel-200'
+              isDark ? 'bg-graphite-800' : 'bg-graphite-200'
             }`}
           >
             <Pressable
               onPress={() => setSelectedMetric('strength')}
               className={`flex-1 py-3 rounded-lg items-center ${
                 selectedMetric === 'strength'
-                  ? 'bg-forge-500'
+                  ? 'bg-signal-500'
                   : 'bg-transparent'
               }`}
             >
@@ -59,8 +59,8 @@ export default function AnalyticsScreen() {
                   selectedMetric === 'strength'
                     ? 'text-white'
                     : isDark
-                    ? 'text-steel-400'
-                    : 'text-steel-600'
+                    ? 'text-graphite-400'
+                    : 'text-graphite-600'
                 }`}
               >
                 Strength
@@ -70,7 +70,7 @@ export default function AnalyticsScreen() {
               onPress={() => setSelectedMetric('conditioning')}
               className={`flex-1 py-3 rounded-lg items-center ${
                 selectedMetric === 'conditioning'
-                  ? 'bg-forge-500'
+                  ? 'bg-signal-500'
                   : 'bg-transparent'
               }`}
             >
@@ -79,8 +79,8 @@ export default function AnalyticsScreen() {
                   selectedMetric === 'conditioning'
                     ? 'text-white'
                     : isDark
-                    ? 'text-steel-400'
-                    : 'text-steel-600'
+                    ? 'text-graphite-400'
+                    : 'text-graphite-600'
                 }`}
               >
                 Conditioning
@@ -93,23 +93,23 @@ export default function AnalyticsScreen() {
           <>
             {/* Estimated 1RM Chart Placeholder */}
             <View className="px-4 mt-6">
-              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                 Estimated 1RM Progress
               </Text>
               <View
                 className={`h-48 rounded-xl items-center justify-center ${
-                  isDark ? 'bg-steel-800' : 'bg-white'
-                } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                  isDark ? 'bg-graphite-800' : 'bg-white'
+                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
               >
                 <Ionicons
                   name="trending-up"
                   size={48}
-                  color={isDark ? '#3e4965' : '#d3d8e4'}
+                  color={isDark ? '#353D4B' : '#A5ABB6'}
                 />
-                <Text className={`mt-2 ${isDark ? 'text-steel-500' : 'text-steel-400'}`}>
+                <Text className={`mt-2 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
                   Line chart visualization
                 </Text>
-                <Text className={`text-sm ${isDark ? 'text-steel-600' : 'text-steel-300'}`}>
+                <Text className={`text-sm ${isDark ? 'text-graphite-600' : 'text-graphite-300'}`}>
                   Coming with chart library integration
                 </Text>
               </View>
@@ -117,7 +117,7 @@ export default function AnalyticsScreen() {
 
             {/* Lift Progress Cards */}
             <View className="px-4 mt-6">
-              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                 Main Lifts (E1RM)
               </Text>
               <View className="gap-3">
@@ -125,26 +125,26 @@ export default function AnalyticsScreen() {
                   <View
                     key={lift.name}
                     className={`p-4 rounded-xl ${
-                      isDark ? 'bg-steel-800' : 'bg-white'
-                    } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                      isDark ? 'bg-graphite-800' : 'bg-white'
+                    } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
                   >
                     <View className="flex-row items-center justify-between mb-2">
-                      <Text className={`font-semibold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+                      <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                         {lift.name}
                       </Text>
                       <View
                         className={`flex-row items-center px-2 py-1 rounded-full ${
-                          lift.percentChange > 0 ? 'bg-success-500/20' : 'bg-ember-500/20'
+                          lift.percentChange > 0 ? 'bg-progress-500/20' : 'bg-regression-500/20'
                         }`}
                       >
                         <Ionicons
                           name={lift.percentChange > 0 ? 'arrow-up' : 'arrow-down'}
                           size={12}
-                          color={lift.percentChange > 0 ? '#22c55e' : '#f43f5e'}
+                          color={lift.percentChange > 0 ? '#27AE60' : '#EB5757'}
                         />
                         <Text
                           className={`text-xs font-semibold ml-1 ${
-                            lift.percentChange > 0 ? 'text-success-500' : 'text-ember-500'
+                            lift.percentChange > 0 ? 'text-progress-500' : 'text-regression-500'
                           }`}
                         >
                           {lift.percentChange.toFixed(1)}%
@@ -153,27 +153,27 @@ export default function AnalyticsScreen() {
                     </View>
                     <View className="flex-row items-end justify-between">
                       <View>
-                        <Text className={`text-3xl font-bold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+                        <Text className={`text-3xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                           {lift.current1RM}
                         </Text>
-                        <Text className={`text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                        <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                           lbs
                         </Text>
                       </View>
                       <View className="items-end">
-                        <Text className={`text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                        <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                           Previous: {lift.previous1RM} lbs
                         </Text>
-                        <Text className={`text-xs ${isDark ? 'text-steel-500' : 'text-steel-400'}`}>
+                        <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
                           +{lift.current1RM - lift.previous1RM} lbs
                         </Text>
                       </View>
                     </View>
 
                     {/* Progress Bar */}
-                    <View className={`h-1 rounded-full mt-3 ${isDark ? 'bg-steel-700' : 'bg-steel-200'}`}>
+                    <View className={`h-1 rounded-full mt-3 ${isDark ? 'bg-graphite-700' : 'bg-graphite-200'}`}>
                       <View
-                        className="h-full rounded-full bg-forge-500"
+                        className="h-full rounded-full bg-signal-500"
                         style={{ width: `${Math.min((lift.current1RM / 500) * 100, 100)}%` }}
                       />
                     </View>
@@ -186,23 +186,23 @@ export default function AnalyticsScreen() {
           <>
             {/* Aerobic Efficiency Chart Placeholder */}
             <View className="px-4 mt-6">
-              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                 Aerobic Efficiency
               </Text>
               <View
                 className={`h-48 rounded-xl items-center justify-center ${
-                  isDark ? 'bg-steel-800' : 'bg-white'
-                } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                  isDark ? 'bg-graphite-800' : 'bg-white'
+                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
               >
                 <Ionicons
                   name="pulse"
                   size={48}
-                  color={isDark ? '#3e4965' : '#d3d8e4'}
+                  color={isDark ? '#353D4B' : '#A5ABB6'}
                 />
-                <Text className={`mt-2 ${isDark ? 'text-steel-500' : 'text-steel-400'}`}>
+                <Text className={`mt-2 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
                   Watts vs Heart Rate scatter plot
                 </Text>
-                <Text className={`text-sm ${isDark ? 'text-steel-600' : 'text-steel-300'}`}>
+                <Text className={`text-sm ${isDark ? 'text-graphite-600' : 'text-graphite-300'}`}>
                   Coming with chart library integration
                 </Text>
               </View>
@@ -210,38 +210,38 @@ export default function AnalyticsScreen() {
 
             {/* Conditioning Metrics */}
             <View className="px-4 mt-6">
-              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                 Conditioning Metrics
               </Text>
               <View className="gap-3">
                 <View className="flex-row gap-3">
                   <View
                     className={`flex-1 p-4 rounded-xl ${
-                      isDark ? 'bg-steel-800' : 'bg-white'
-                    } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                      isDark ? 'bg-graphite-800' : 'bg-white'
+                    } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
                   >
                     <View className="flex-row items-center mb-2">
-                      <Ionicons name="flash" size={20} color="#ed7411" />
-                      <Text className={`ml-2 text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                      <Ionicons name="flash" size={20} color="#2F80ED" />
+                      <Text className={`ml-2 text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                         Avg W/kg
                       </Text>
                     </View>
-                    <Text className={`text-2xl font-bold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+                    <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                       {conditioningMetrics.avgWattsPerKg}
                     </Text>
                   </View>
                   <View
                     className={`flex-1 p-4 rounded-xl ${
-                      isDark ? 'bg-steel-800' : 'bg-white'
-                    } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                      isDark ? 'bg-graphite-800' : 'bg-white'
+                    } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
                   >
                     <View className="flex-row items-center mb-2">
-                      <Ionicons name="heart" size={20} color="#f43f5e" />
-                      <Text className={`ml-2 text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                      <Ionicons name="heart" size={20} color="#EB5757" />
+                      <Text className={`ml-2 text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                         Avg HR
                       </Text>
                     </View>
-                    <Text className={`text-2xl font-bold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+                    <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                       {conditioningMetrics.avgHeartRate}
                     </Text>
                   </View>
@@ -250,31 +250,31 @@ export default function AnalyticsScreen() {
                 <View className="flex-row gap-3">
                   <View
                     className={`flex-1 p-4 rounded-xl ${
-                      isDark ? 'bg-steel-800' : 'bg-white'
-                    } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                      isDark ? 'bg-graphite-800' : 'bg-white'
+                    } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
                   >
                     <View className="flex-row items-center mb-2">
                       <Ionicons name="analytics" size={20} color="#22c55e" />
-                      <Text className={`ml-2 text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                      <Text className={`ml-2 text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                         Zone 2 Compliance
                       </Text>
                     </View>
-                    <Text className={`text-2xl font-bold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+                    <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                       {conditioningMetrics.zone2Compliance}%
                     </Text>
                   </View>
                   <View
                     className={`flex-1 p-4 rounded-xl ${
-                      isDark ? 'bg-steel-800' : 'bg-white'
-                    } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                      isDark ? 'bg-graphite-800' : 'bg-white'
+                    } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
                   >
                     <View className="flex-row items-center mb-2">
                       <Ionicons name="time" size={20} color="#808fb0" />
-                      <Text className={`ml-2 text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                      <Text className={`ml-2 text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                         Weekly Minutes
                       </Text>
                     </View>
-                    <Text className={`text-2xl font-bold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+                    <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                       {conditioningMetrics.weeklyMinutes}
                     </Text>
                   </View>

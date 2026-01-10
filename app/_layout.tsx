@@ -27,30 +27,30 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
-// Custom dark theme matching Forged brand colors
-const ForgedDarkTheme = {
+// Custom dark theme matching Foundry Lab brand colors
+const FoundryLabDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    primary: '#ed7411',
-    background: '#1e232f',
-    card: '#303848',
-    text: '#f6f7f9',
-    border: '#3e4965',
-    notification: '#f43f5e',
+    primary: '#2F80ED', // Signal Blue
+    background: '#0E1116', // Carbon Black
+    card: '#1C222B', // Graphite Gray
+    text: '#E6E8EB', // Bone White
+    border: '#353D4B', // Graphite 700
+    notification: '#EB5757', // Regression Red
   },
 };
 
-const ForgedLightTheme = {
+const FoundryLabLightTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#ed7411',
-    background: '#f6f7f9',
+    primary: '#2F80ED', // Signal Blue
+    background: '#E6E8EB', // Bone White
     card: '#ffffff',
-    text: '#1e232f',
-    border: '#d3d8e4',
-    notification: '#f43f5e',
+    text: '#0E1116', // Carbon Black
+    border: '#A5ABB6', // Graphite 200
+    notification: '#EB5757', // Regression Red
   },
 };
 
@@ -108,7 +108,7 @@ export default function RootLayout() {
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log('Auth state changed:', event);
+          console.log('Auth state changed:', event, session?.user?.id || 'no user');
           if (session?.user) {
             setUserId(session.user.id);
             
@@ -123,6 +123,8 @@ export default function RootLayout() {
               setUserProfile(profile);
             }
           } else {
+            // User signed out - clear state
+            console.log('Auth state changed: SIGNED_OUT, clearing user state');
             setUserId(null);
             setUserProfile(null);
           }
@@ -168,13 +170,25 @@ function RootLayoutNav() {
   const userId = useAppStore((state) => state.userId);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? ForgedDarkTheme : ForgedLightTheme}>
+    <ThemeProvider value={colorScheme === 'dark' ? FoundryLabDarkTheme : FoundryLabLightTheme}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="signup" options={{ headerShown: false }} />
+          <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+          <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="workout/[id]"
+            options={{
+              presentation: 'card',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="workout-summary/[id]"
             options={{
               presentation: 'card',
               headerShown: false,

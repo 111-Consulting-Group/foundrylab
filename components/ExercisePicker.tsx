@@ -78,37 +78,37 @@ export function ExercisePicker({
   const renderExerciseItem = useCallback(
     ({ item }: { item: Exercise }) => (
       <Pressable
-        className={`p-4 border-b ${isDark ? 'border-steel-700' : 'border-steel-200'} active:opacity-70`}
+        className={`p-4 border-b ${isDark ? 'border-graphite-700' : 'border-graphite-200'} active:opacity-70`}
         onPress={() => handleSelectExercise(item)}
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
-            <Text className={`font-medium ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+            <Text className={`font-medium ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
               {item.name}
             </Text>
             <View className="flex-row items-center mt-1">
               <View
                 className={`px-2 py-0.5 rounded mr-2 ${
                   item.modality === 'Strength'
-                    ? 'bg-forge-500/20'
+                    ? 'bg-signal-500/20'
                     : item.modality === 'Cardio'
-                    ? 'bg-success-500/20'
+                    ? 'bg-progress-500/20'
                     : 'bg-purple-500/20'
                 }`}
               >
                 <Text
                   className={`text-xs ${
                     item.modality === 'Strength'
-                      ? 'text-forge-500'
+                      ? 'text-signal-500'
                       : item.modality === 'Cardio'
-                      ? 'text-success-500'
+                      ? 'text-progress-500'
                       : 'text-purple-500'
                   }`}
                 >
                   {item.modality}
                 </Text>
               </View>
-              <Text className={`text-xs ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                 {item.muscle_group}
               </Text>
             </View>
@@ -133,19 +133,19 @@ export function ExercisePicker({
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`}
+        className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
       >
         {/* Header */}
         <View
           className={`flex-row items-center justify-between px-4 py-3 border-b ${
-            isDark ? 'border-steel-700 bg-steel-900' : 'border-steel-200 bg-white'
+            isDark ? 'border-graphite-700 bg-graphite-900' : 'border-graphite-200 bg-white'
           }`}
         >
-          <Text className={`text-lg font-bold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+          <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
             Select Exercise
           </Text>
           <Pressable onPress={onClose} className="p-2">
-            <Ionicons name="close" size={24} color={isDark ? '#f6f7f9' : '#1e232f'} />
+            <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
           </Pressable>
         </View>
 
@@ -153,8 +153,8 @@ export function ExercisePicker({
         <View className="px-4 py-3">
           <View
             className={`flex-row items-center px-4 py-3 rounded-xl ${
-              isDark ? 'bg-steel-800' : 'bg-white'
-            } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+              isDark ? 'bg-graphite-800' : 'bg-white'
+            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
           >
             <Ionicons
               name="search"
@@ -162,7 +162,7 @@ export function ExercisePicker({
               color={isDark ? '#808fb0' : '#607296'}
             />
             <TextInput
-              className={`flex-1 ml-3 text-base ${isDark ? 'text-steel-100' : 'text-steel-900'}`}
+              className={`flex-1 ml-3 text-base ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
               placeholder="Search exercises..."
               placeholderTextColor={isDark ? '#607296' : '#808fb0'}
               value={searchQuery}
@@ -194,13 +194,13 @@ export function ExercisePicker({
               <Pressable
                 className={`px-4 py-2 rounded-full ${
                   selectedModality === item.value
-                    ? 'bg-forge-500'
+                    ? 'bg-signal-500'
                     : isDark
-                    ? 'bg-steel-800'
+                    ? 'bg-graphite-800'
                     : 'bg-white'
                 } ${
                   selectedModality !== item.value
-                    ? `border ${isDark ? 'border-steel-700' : 'border-steel-200'}`
+                    ? `border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`
                     : ''
                 }`}
                 onPress={() => setSelectedModality(item.value)}
@@ -210,8 +210,8 @@ export function ExercisePicker({
                     selectedModality === item.value
                       ? 'text-white'
                       : isDark
-                      ? 'text-steel-300'
-                      : 'text-steel-600'
+                      ? 'text-graphite-300'
+                      : 'text-graphite-600'
                   }`}
                 >
                   {item.label}
@@ -226,7 +226,7 @@ export function ExercisePicker({
           <View className="px-4 mb-2">
             <Text
               className={`text-sm font-semibold mb-2 ${
-                isDark ? 'text-steel-400' : 'text-steel-500'
+                isDark ? 'text-graphite-400' : 'text-graphite-500'
               }`}
             >
               Recent
@@ -236,11 +236,11 @@ export function ExercisePicker({
                 <Pressable
                   key={exercise.id}
                   className={`px-3 py-2 rounded-lg ${
-                    isDark ? 'bg-steel-800' : 'bg-white'
-                  } border ${isDark ? 'border-forge-500/30' : 'border-forge-400/30'}`}
+                    isDark ? 'bg-graphite-800' : 'bg-white'
+                  } border ${isDark ? 'border-signal-500/30' : 'border-signal-400/30'}`}
                   onPress={() => handleSelectExercise(exercise)}
                 >
-                  <Text className={`${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+                  <Text className={`${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                     {exercise.name}
                   </Text>
                 </Pressable>
@@ -260,7 +260,7 @@ export function ExercisePicker({
           ListEmptyComponent={
             <View className="items-center justify-center py-12">
               {isLoading ? (
-                <Text className={`${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                <Text className={`${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                   Loading exercises...
                 </Text>
               ) : (
@@ -271,7 +271,7 @@ export function ExercisePicker({
                     color={isDark ? '#607296' : '#808fb0'}
                   />
                   <Text
-                    className={`mt-3 ${isDark ? 'text-steel-400' : 'text-steel-500'}`}
+                    className={`mt-3 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
                   >
                     No exercises found
                   </Text>

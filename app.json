@@ -1,29 +1,29 @@
 {
   "expo": {
-    "name": "Forged",
-    "slug": "forged",
+    "name": "Foundry Lab",
+    "slug": "foundry-lab",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "forged",
+    "scheme": "foundry-lab",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1e232f"
+      "backgroundColor": "#0E1116"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.forged.app"
+      "bundleIdentifier": "com.foundrylab.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#1e232f"
+        "backgroundColor": "#0E1116"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.forged.app"
+      "package": "com.foundrylab.app"
     },
     "web": {
       "bundler": "metro",

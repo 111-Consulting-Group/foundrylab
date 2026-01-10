@@ -12,19 +12,19 @@ export default function ExerciseHistoryScreen() {
 
   return (
     <SafeAreaView
-      className={`flex-1 ${isDark ? 'bg-[#1e232f]' : 'bg-[#f6f7f9]'}`}
+      className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
     >
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-700">
+      <View className="flex-row items-center justify-between px-4 py-3 border-b border-graphite-700">
         <Pressable onPress={() => router.back()} className="p-2 -ml-2">
           <Ionicons
             name="chevron-back"
             size={24}
-            color={isDark ? '#f6f7f9' : '#1e232f'}
+            color={isDark ? '#E6E8EB' : '#0E1116'}
           />
         </Pressable>
         <Text
-          className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}
+          className={`text-lg font-semibold ${isDark ? 'text-graphite-50' : 'text-carbon-950'}`}
         >
           Exercise History
         </Text>
@@ -36,15 +36,15 @@ export default function ExerciseHistoryScreen() {
         <Ionicons
           name="bar-chart-outline"
           size={64}
-          color={isDark ? '#6b7280' : '#9ca3af'}
+          color={isDark ? '#6B7485' : '#878E9C'}
         />
         <Text
-          className={`text-xl font-semibold mt-4 ${isDark ? 'text-white' : 'text-gray-900'}`}
+          className={`text-xl font-semibold mt-4 ${isDark ? 'text-graphite-50' : 'text-carbon-950'}`}
         >
           Coming Soon
         </Text>
         <Text
-          className={`text-center mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+          className={`text-center mt-2 ${isDark ? 'text-graphite-400' : 'text-graphite-600'}`}
         >
           View your performance history, PRs, and trends for this exercise.
         </Text>

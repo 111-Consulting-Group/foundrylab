@@ -75,13 +75,13 @@ export default function HistoryScreen() {
   );
 
   return (
-    <SafeAreaView className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`} edges={['left', 'right']}>
+    <SafeAreaView className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`} edges={['left', 'right']}>
       {/* Search Bar */}
       <View className="px-4 py-3">
         <View
           className={`flex-row items-center px-4 py-3 rounded-xl ${
-            isDark ? 'bg-steel-800' : 'bg-white'
-          } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+            isDark ? 'bg-graphite-800' : 'bg-white'
+          } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
         >
           <Ionicons
             name="search"
@@ -90,7 +90,7 @@ export default function HistoryScreen() {
             style={{ marginRight: 10 }}
           />
           <TextInput
-            className={`flex-1 text-base ${isDark ? 'text-steel-100' : 'text-steel-900'}`}
+            className={`flex-1 text-base ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
             placeholder="Search workouts or exercises..."
             placeholderTextColor={isDark ? '#808fb0' : '#607296'}
             value={searchQuery}
@@ -109,33 +109,33 @@ export default function HistoryScreen() {
         <View className="flex-row gap-3">
           <View
             className={`flex-1 p-4 rounded-xl ${
-              isDark ? 'bg-steel-800' : 'bg-white'
-            } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+              isDark ? 'bg-graphite-800' : 'bg-white'
+            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
           >
-            <Text className={`text-2xl font-bold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+            <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
               47
             </Text>
-            <Text className={`text-xs ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
               Total Workouts
             </Text>
           </View>
           <View
             className={`flex-1 p-4 rounded-xl ${
-              isDark ? 'bg-steel-800' : 'bg-white'
-            } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+              isDark ? 'bg-graphite-800' : 'bg-white'
+            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
           >
-            <Text className={`text-2xl font-bold text-forge-500`}>295k</Text>
-            <Text className={`text-xs ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+            <Text className={`text-2xl font-bold text-signal-500`}>295k</Text>
+            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
               Total Volume (lbs)
             </Text>
           </View>
           <View
             className={`flex-1 p-4 rounded-xl ${
-              isDark ? 'bg-steel-800' : 'bg-white'
-            } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+              isDark ? 'bg-graphite-800' : 'bg-white'
+            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
           >
-            <Text className={`text-2xl font-bold text-ember-500`}>12</Text>
-            <Text className={`text-xs ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+            <Text className={`text-2xl font-bold text-oxide-500`}>12</Text>
+            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
               PRs This Month
             </Text>
           </View>
@@ -144,7 +144,7 @@ export default function HistoryScreen() {
 
       {/* Workout List */}
       <ScrollView className="flex-1 px-4">
-        <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+        <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
           Recent Workouts
         </Text>
 
@@ -153,14 +153,14 @@ export default function HistoryScreen() {
             <Pressable
               key={workout.id}
               className={`p-4 rounded-xl ${
-                isDark ? 'bg-steel-800' : 'bg-white'
-              } border ${isDark ? 'border-steel-700' : 'border-steel-200'}`}
+                isDark ? 'bg-graphite-800' : 'bg-white'
+              } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
             >
               <View className="flex-row items-start justify-between mb-2">
                 <View className="flex-row items-center">
                   <View
                     className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
-                      workout.totalVolume > 0 ? 'bg-forge-500' : 'bg-success-500'
+                      workout.totalVolume > 0 ? 'bg-signal-500' : 'bg-progress-500'
                     }`}
                   >
                     <Ionicons
@@ -170,18 +170,18 @@ export default function HistoryScreen() {
                     />
                   </View>
                   <View>
-                    <Text className={`font-semibold ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+                    <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                       {workout.focus}
                     </Text>
-                    <Text className={`text-sm ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                    <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                       {format(workout.date, 'EEEE, MMM d')}
                     </Text>
                   </View>
                 </View>
                 {workout.prCount > 0 && (
-                  <View className="flex-row items-center bg-ember-500/20 px-2 py-1 rounded-full">
-                    <Ionicons name="trophy" size={12} color="#f43f5e" />
-                    <Text className="text-ember-500 text-xs font-semibold ml-1">
+                  <View className="flex-row items-center bg-oxide-500/20 px-2 py-1 rounded-full">
+                    <Ionicons name="trophy" size={12} color="#F2994A" />
+                    <Text className="text-oxide-500 text-xs font-semibold ml-1">
                       {workout.prCount} PR{workout.prCount > 1 ? 's' : ''}
                     </Text>
                   </View>
@@ -195,7 +195,7 @@ export default function HistoryScreen() {
                     size={14}
                     color={isDark ? '#808fb0' : '#607296'}
                   />
-                  <Text className={`text-sm ml-1 ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                  <Text className={`text-sm ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                     {workout.duration} min
                   </Text>
                 </View>
@@ -205,7 +205,7 @@ export default function HistoryScreen() {
                     size={14}
                     color={isDark ? '#808fb0' : '#607296'}
                   />
-                  <Text className={`text-sm ml-1 ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                  <Text className={`text-sm ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                     {workout.exerciseCount} exercises
                   </Text>
                 </View>
@@ -216,7 +216,7 @@ export default function HistoryScreen() {
                       size={14}
                       color={isDark ? '#808fb0' : '#607296'}
                     />
-                    <Text className={`text-sm ml-1 ${isDark ? 'text-steel-400' : 'text-steel-500'}`}>
+                    <Text className={`text-sm ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                       {(workout.totalVolume / 1000).toFixed(1)}k lbs
                     </Text>
                   </View>
