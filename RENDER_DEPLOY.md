@@ -18,14 +18,22 @@ This guide explains how to deploy the Foundry Lab app to Render.
 
 ### 2. Configure the Service
 
-**Important:** You need to manually set these in the Render dashboard:
+**CRITICAL:** You MUST manually set the Build Command in the Render dashboard. Render will NOT automatically detect it from `render.yaml` unless you use "New Blueprint".
 
 #### Build & Start Settings:
+After connecting your repo, in the "Build & Deploy" section:
+
 - **Name**: `foundrylab` (or your preferred name)
 - **Environment**: `Node`
-- **Build Command**: `npm install && npm run build:web`
-- **Start Command**: `npm start`
+- **Build Command**: ⚠️ **SET THIS** → `npm install && npm run build:web`
+- **Start Command**: ⚠️ **SET THIS** → `npm start`
 - **Root Directory**: (leave empty, or use `.`)
+- **Auto-Deploy**: `Yes` (recommended)
+
+**IMPORTANT**: 
+- The Build Command field is often **EMPTY by default** - you must fill it in!
+- If Build Command is empty, Render will skip the build phase and go straight to start
+- This will cause the "dist directory not found" error
 
 #### Environment Variables:
 Add these in the "Environment" section:
@@ -75,12 +83,34 @@ This means Render is trying to run `node expo-router/entry` directly instead of 
 
 ### Error: "dist directory not found"
 
-This means the build didn't complete successfully.
+This means the build didn't complete successfully or wasn't executed.
 
-**Solution**: Check the build logs for errors. Common issues:
-- Missing environment variables (EXPO_PUBLIC_SUPABASE_URL, etc.)
-- Build failures in Expo export
-- Missing dependencies
+**Solution Steps:**
+
+1. **Verify Build Command is Set**:
+   - Go to your Render service → Settings
+   - Scroll to "Build & Deploy"
+   - **Build Command** MUST be set to: `npm install && npm run build:web`
+   - If it's empty or different, update it and save
+
+2. **Check Build Logs**:
+   - Go to your Render service → Logs
+   - Look for the "Build" phase logs (not "Deploy" phase)
+   - The build logs should show:
+     - `npm install` running
+     - `npm run build:web` running  
+     - `npx expo export --platform web` executing
+     - Files being written to `dist/`
+
+3. **Common Build Issues**:
+   - **Missing environment variables**: `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` must be set BEFORE building
+   - **Build failures**: Check for errors in the build logs (TypeScript errors, missing dependencies, etc.)
+   - **Memory issues**: Expo builds can be memory-intensive; you might need to upgrade your Render plan
+
+4. **If Build Command is Not Running**:
+   - Make sure you're looking at the BUILD logs, not DEPLOY logs
+   - The build phase happens BEFORE the deploy/start phase
+   - If you only see "Deploying..." and "Running 'npm start'", the build command isn't configured correctly
 
 ### Environment Variables Not Working
 

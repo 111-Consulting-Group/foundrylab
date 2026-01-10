@@ -101,13 +101,24 @@ const server = createServer((req, res) => {
   res.end('404 Not Found');
 });
 
+// Check if dist directory exists before starting server
+if (!existsSync(DIST_DIR)) {
+  console.error(`ERROR: dist directory not found at ${DIST_DIR}`);
+  console.error('');
+  console.error('The build step did not complete successfully.');
+  console.error('This usually means:');
+  console.error('  1. The build command was not executed');
+  console.error('  2. The build command failed (check build logs)');
+  console.error('  3. Missing environment variables (EXPO_PUBLIC_SUPABASE_URL, etc.)');
+  console.error('');
+  console.error('Please ensure:');
+  console.error('  - Build Command is set in Render: "npm install && npm run build:web"');
+  console.error('  - All required environment variables are set before building');
+  console.error('  - Check the build logs for any errors');
+  process.exit(1);
+}
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Serving files from: ${DIST_DIR}`);
-  
-  if (!existsSync(DIST_DIR)) {
-    console.error(`ERROR: dist directory not found at ${DIST_DIR}`);
-    console.error('Please run "npm run build:web" first');
-    process.exit(1);
-  }
 });

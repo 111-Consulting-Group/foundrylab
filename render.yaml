@@ -2,14 +2,18 @@ services:
   - type: web
     name: foundrylab
     env: node
+    region: oregon
+    plan: free
     buildCommand: npm install && npm run build:web
     startCommand: npm start
+    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         sync: false
-      # Note: The following environment variables must be set in Render dashboard:
+      # CRITICAL: The following environment variables MUST be set in Render dashboard
+      # BEFORE the first deployment. They are required at BUILD TIME:
       # - EXPO_PUBLIC_SUPABASE_URL (your Supabase project URL)
       # - EXPO_PUBLIC_SUPABASE_ANON_KEY (your Supabase anon/public key)
-      # These are required at build time for static export
+      # These are baked into the static build during the build phase
