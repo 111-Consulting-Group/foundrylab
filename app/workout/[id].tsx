@@ -1,0 +1,619 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, router } from 'expo-router';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ExercisePicker } from '@/components/ExercisePicker';
+import { PRCelebration } from '@/components/PRCelebration';
+import { SetInput } from '@/components/SetInput';
+import { useColorScheme } from '@/components/useColorScheme';
+import {
+  useWorkout,
+  useAddWorkoutSet,
+  useCompleteWorkout,
+  useCreateWorkout,
+} from '@/hooks/useWorkouts';
+import { useAppStore, useActiveWorkout } from '@/stores/useAppStore';
+import type { Exercise, WorkoutSetInsert } from '@/types/database';
+
+// Tracked exercise with local state
+interface TrackedExercise {
+  exercise: Exercise;
+  sets: number[];
+  targetSets?: number;
+  targetReps?: number;
+  targetRPE?: number;
+  targetLoad?: number;
+}
+
+export default function ActiveWorkoutScreen() {
+  const { id, focus: focusParam } = useLocalSearchParams<{ id: string; focus?: string }>();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Check if this is a new ad-hoc workout or an existing scheduled one
+  const isNewWorkout = id === 'new';
+
+  // Store state
+  const activeWorkout = useActiveWorkout();
+  const { startWorkout, endWorkout, addCompletedSet } = useAppStore();
+
+  // Queries & mutations
+  const { data: workout, isLoading: workoutLoading } = useWorkout(isNewWorkout ? '' : id);
+  const createWorkoutMutation = useCreateWorkout();
+  const addSetMutation = useAddWorkoutSet();
+  const completeWorkoutMutation = useCompleteWorkout();
+
+  // Local state
+  const [trackedExercises, setTrackedExercises] = useState<TrackedExercise[]>([]);
+  const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [currentWorkoutId, setCurrentWorkoutId] = useState<string | null>(
+    isNewWorkout ? null : id
+  );
+  const [recentExerciseIds, setRecentExerciseIds] = useState<string[]>([]);
+  const [workoutStartTime] = useState(new Date());
+
+  // PR celebration state
+  const [showPRCelebration, setShowPRCelebration] = useState(false);
+  const [prExercise, setPRExercise] = useState<Exercise | null>(null);
+  const [prType, setPRType] = useState<'weight' | 'reps' | 'volume' | 'e1rm' | null>(null);
+  const [prValue, setPRValue] = useState('');
+
+  // Calculate elapsed time
+  const [elapsedMinutes, setElapsedMinutes] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = Math.floor((now.getTime() - workoutStartTime.getTime()) / 60000);
+      setElapsedMinutes(diff);
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [workoutStartTime]);
+
+  // Initialize workout from scheduled workout data
+  useEffect(() => {
+    if (workout && workout.workout_sets && trackedExercises.length === 0) {
+      // Group sets by exercise (filter out sets with null exercises)
+      const exerciseMap = new Map<string, TrackedExercise>();
+
+      workout.workout_sets.forEach((set) => {
+        // Skip sets that don't have an exercise (e.g., exercise was deleted)
+        if (!set.exercise) {
+          console.warn(`Workout set ${set.id} has no exercise associated`);
+          return;
+        }
+
+        if (!exerciseMap.has(set.exercise_id)) {
+          exerciseMap.set(set.exercise_id, {
+            exercise: set.exercise,
+            sets: [],
+            targetReps: set.target_reps || undefined,
+            targetRPE: set.target_rpe || undefined,
+            targetLoad: set.target_load || undefined,
+          });
+        }
+        exerciseMap.get(set.exercise_id)!.sets.push(set.set_order);
+      });
+
+      setTrackedExercises(Array.from(exerciseMap.values()));
+      setCurrentWorkoutId(workout.id);
+
+      // Start workout tracking in store
+      if (!activeWorkout) {
+        startWorkout(workout.id);
+      }
+    }
+  }, [workout, trackedExercises.length, activeWorkout, startWorkout]);
+
+  // Create new ad-hoc workout
+  const createNewWorkout = useCallback(async () => {
+    if (currentWorkoutId) return currentWorkoutId;
+
+    try {
+      const newWorkout = await createWorkoutMutation.mutateAsync({
+        focus: focusParam || 'Quick Workout',
+        scheduled_date: new Date().toISOString().split('T')[0],
+      });
+      setCurrentWorkoutId(newWorkout.id);
+      startWorkout(newWorkout.id);
+      return newWorkout.id;
+    } catch (error) {
+      console.error('Failed to create workout:', error);
+      Alert.alert('Error', 'Failed to create workout. Please try again.');
+      return null;
+    }
+  }, [currentWorkoutId, createWorkoutMutation, startWorkout, focusParam]);
+
+  // Add exercise to workout
+  const handleAddExercise = useCallback(
+    async (exercise: Exercise) => {
+      // Ensure workout exists
+      const workoutId = await createNewWorkout();
+      if (!workoutId) return;
+
+      // Add to tracked exercises
+      setTrackedExercises((prev) => [
+        ...prev,
+        {
+          exercise,
+          sets: [1], // Start with one set
+        },
+      ]);
+
+      // Track as recent
+      setRecentExerciseIds((prev) => {
+        const filtered = prev.filter((id) => id !== exercise.id);
+        return [exercise.id, ...filtered].slice(0, 10);
+      });
+    },
+    [createNewWorkout]
+  );
+
+  // Add another set to an exercise
+  const handleAddSet = useCallback((exerciseIndex: number) => {
+    setTrackedExercises((prev) => {
+      const updated = [...prev];
+      const nextSetNumber = Math.max(...updated[exerciseIndex].sets) + 1;
+      updated[exerciseIndex].sets.push(nextSetNumber);
+      return updated;
+    });
+  }, []);
+
+  // Save a set
+  const handleSaveSet = useCallback(
+    async (
+      exerciseId: string,
+      setOrder: number,
+      setData: Omit<WorkoutSetInsert, 'workout_id' | 'exercise_id' | 'set_order'>
+    ) => {
+      if (!currentWorkoutId) return;
+
+      try {
+        await addSetMutation.mutateAsync({
+          workout_id: currentWorkoutId,
+          exercise_id: exerciseId,
+          set_order: setOrder,
+          ...setData,
+        });
+      } catch (error) {
+        console.error('Failed to save set:', error);
+        Alert.alert('Error', 'Failed to save set. Please try again.');
+      }
+    },
+    [currentWorkoutId, addSetMutation]
+  );
+
+  // Handle PR detection
+  const handlePRDetected = useCallback(
+    (
+      exercise: Exercise,
+      type: 'weight' | 'reps' | 'volume' | 'e1rm',
+      value: string
+    ) => {
+      setPRExercise(exercise);
+      setPRType(type);
+      setPRValue(value);
+      setShowPRCelebration(true);
+    },
+    []
+  );
+
+  // Complete workout
+  const handleFinishWorkout = useCallback(async () => {
+    if (!currentWorkoutId) {
+      router.back();
+      return;
+    }
+
+    const totalSets = trackedExercises.reduce(
+      (acc, ex) => acc + ex.sets.length,
+      0
+    );
+
+    if (totalSets === 0) {
+      Alert.alert(
+        'No Sets Logged',
+        'You haven\'t logged any sets yet. Are you sure you want to finish?',
+        [
+          { text: 'Keep Training', style: 'cancel' },
+          {
+            text: 'Finish Anyway',
+            style: 'destructive',
+            onPress: async () => {
+              await completeWorkoutMutation.mutateAsync({
+                id: currentWorkoutId,
+                durationMinutes: elapsedMinutes,
+              });
+              endWorkout();
+              router.back();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    try {
+      await completeWorkoutMutation.mutateAsync({
+        id: currentWorkoutId,
+        durationMinutes: elapsedMinutes,
+      });
+      endWorkout();
+      
+      // Navigate to workout summary instead of going back
+      router.replace(`/workout-summary/${currentWorkoutId}`);
+    } catch (error) {
+      console.error('Failed to complete workout:', error);
+      Alert.alert('Error', 'Failed to complete workout. Please try again.');
+    }
+  }, [
+    currentWorkoutId,
+    trackedExercises,
+    elapsedMinutes,
+    completeWorkoutMutation,
+    endWorkout,
+  ]);
+
+  // Save & Exit - save progress and return to program
+  const handleSaveAndExit = useCallback(() => {
+    // Simply end the workout tracking in the store and go back
+    // The sets are already saved to the database via handleSaveSet
+    endWorkout();
+    
+    const totalSets = trackedExercises.reduce(
+      (acc, ex) => acc + (ex.sets?.length || 0),
+      0
+    );
+    
+    if (Platform.OS === 'web') {
+      // Simple notification on web
+      alert(`Progress saved! ${totalSets} sets logged. Come back anytime to continue.`);
+    } else {
+      Alert.alert(
+        'Progress Saved',
+        `${totalSets} sets logged. Come back anytime to continue this workout.`,
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+      return;
+    }
+    router.back();
+  }, [endWorkout, trackedExercises]);
+
+  // Discard workout - go back with or without confirmation
+  const handleDiscard = useCallback(() => {
+    try {
+      // Count total sets logged
+      const totalSets = trackedExercises.reduce(
+        (acc, ex) => acc + (ex.sets?.length || 0),
+        0
+      );
+
+      // If no sets have been logged, just go back immediately without confirmation
+      if (totalSets === 0) {
+        endWorkout();
+        router.back();
+        return;
+      }
+
+      // Has logged sets, show confirmation before discarding
+      // On web, use window.confirm for better compatibility
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const confirmed = window.confirm('Discard Workout?\n\nAll logged sets will be lost. This cannot be undone.');
+        if (confirmed) {
+          endWorkout();
+          router.back();
+        }
+        return;
+      }
+
+      // On native, use Alert
+      Alert.alert(
+        'Discard Workout?',
+        'All logged sets will be lost. This cannot be undone.',
+        [
+          { 
+            text: 'Keep Training', 
+            style: 'cancel',
+            onPress: () => {
+              // User chose to keep training, do nothing
+            }
+          },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => {
+              endWorkout();
+              router.back();
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error('Error in handleDiscard:', error);
+      // Fallback: just go back if something fails
+      endWorkout();
+      router.back();
+    }
+  }, [endWorkout, trackedExercises, router]);
+
+  // Format elapsed time
+  const formattedTime = useMemo(() => {
+    const hours = Math.floor(elapsedMinutes / 60);
+    const mins = elapsedMinutes % 60;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  }, [elapsedMinutes]);
+
+  if (!isNewWorkout && workoutLoading) {
+    return (
+      <SafeAreaView
+        className={`flex-1 items-center justify-center ${
+          isDark ? 'bg-steel-950' : 'bg-steel-50'
+        }`}
+      >
+        <ActivityIndicator size="large" color="#ed7411" />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView
+      className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`}
+      edges={['left', 'right', 'bottom']}
+    >
+      {/* Header */}
+      <View
+        className={`px-4 py-3 border-b ${
+          isDark ? 'border-steel-700 bg-steel-900' : 'border-steel-200 bg-white'
+        }`}
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center flex-1">
+            <Pressable 
+              onPress={() => {
+                console.log('Close button pressed');
+                handleDiscard();
+              }}
+              className="p-2 -ml-2"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name="close"
+                size={24}
+                color={isDark ? '#f6f7f9' : '#1e232f'}
+              />
+            </Pressable>
+            <View className="ml-2">
+              <Text
+                className={`font-semibold ${
+                  isDark ? 'text-steel-100' : 'text-steel-900'
+                }`}
+              >
+                {workout?.focus || 'Quick Workout'}
+              </Text>
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="time-outline"
+                  size={14}
+                  color={isDark ? '#808fb0' : '#607296'}
+                />
+                <Text
+                  className={`ml-1 text-sm ${
+                    isDark ? 'text-steel-400' : 'text-steel-500'
+                  }`}
+                >
+                  {formattedTime}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              className={`px-3 py-2 rounded-full border ${
+                isDark ? 'border-steel-600' : 'border-steel-300'
+              }`}
+              onPress={handleSaveAndExit}
+            >
+              <Text
+                className={`font-semibold ${
+                  isDark ? 'text-steel-200' : 'text-steel-700'
+                }`}
+              >
+                Save & Exit
+              </Text>
+            </Pressable>
+            <Pressable
+              className="px-4 py-2 rounded-full bg-forge-500"
+              onPress={handleFinishWorkout}
+            >
+              <Text className="text-white font-semibold">Finish</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        className="flex-1 px-4"
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Exercises */}
+        {trackedExercises
+          .filter((tracked) => tracked.exercise) // Additional safety filter
+          .map((tracked, exerciseIndex) => (
+          <View key={tracked.exercise.id} className="mb-6">
+            {/* Exercise Header */}
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-1">
+                <Text
+                  className={`text-lg font-bold ${
+                    isDark ? 'text-steel-100' : 'text-steel-900'
+                  }`}
+                >
+                  {tracked.exercise?.name || 'Unknown Exercise'}
+                </Text>
+                {tracked.exercise && (
+                  <View className="flex-row items-center mt-1">
+                    <View
+                      className={`px-2 py-0.5 rounded ${
+                        tracked.exercise.modality === 'Strength'
+                          ? 'bg-forge-500/20'
+                          : tracked.exercise.modality === 'Cardio'
+                          ? 'bg-success-500/20'
+                          : 'bg-purple-500/20'
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs ${
+                          tracked.exercise.modality === 'Strength'
+                            ? 'text-forge-500'
+                            : tracked.exercise.modality === 'Cardio'
+                            ? 'text-success-500'
+                            : 'text-purple-500'
+                        }`}
+                      >
+                        {tracked.exercise.modality}
+                      </Text>
+                    </View>
+                    <Text
+                      className={`ml-2 text-xs ${
+                        isDark ? 'text-steel-400' : 'text-steel-500'
+                      }`}
+                    >
+                      {tracked.exercise.muscle_group}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Sets */}
+            {tracked.sets.map((setNumber) => (
+              <SetInput
+                key={`${tracked.exercise.id}-${setNumber}`}
+                exercise={tracked.exercise}
+                setNumber={setNumber}
+                workoutId={currentWorkoutId || ''}
+                targetReps={tracked.targetReps}
+                targetRPE={tracked.targetRPE}
+                targetLoad={tracked.targetLoad}
+                onSave={(setData) =>
+                  handleSaveSet(tracked.exercise.id, setNumber, setData)
+                }
+                onPRDetected={(set, type) => {
+                  const value =
+                    type === 'weight'
+                      ? `${set.actual_weight} lbs`
+                      : type === 'reps'
+                      ? `${set.actual_reps} reps @ ${set.actual_weight} lbs`
+                      : type === 'e1rm'
+                      ? `${Math.round(
+                          (set.actual_weight || 0) *
+                            (1 + (set.actual_reps || 0) / 30)
+                        )} lbs E1RM`
+                      : '';
+                  handlePRDetected(tracked.exercise, type, value);
+                }}
+              />
+            ))}
+
+            {/* Add Set Button */}
+            <Pressable
+              className={`flex-row items-center justify-center py-3 rounded-xl border border-dashed ${
+                isDark ? 'border-steel-600' : 'border-steel-300'
+              }`}
+              onPress={() => handleAddSet(exerciseIndex)}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={20}
+                color={isDark ? '#808fb0' : '#607296'}
+              />
+              <Text
+                className={`ml-2 ${isDark ? 'text-steel-400' : 'text-steel-500'}`}
+              >
+                Add Set
+              </Text>
+            </Pressable>
+          </View>
+        ))}
+
+        {/* Empty State / Add Exercise Button */}
+        {trackedExercises.length === 0 ? (
+          <View className="items-center justify-center py-12">
+            <View
+              className={`w-20 h-20 rounded-full items-center justify-center mb-4 ${
+                isDark ? 'bg-steel-800' : 'bg-steel-100'
+              }`}
+            >
+              <Ionicons
+                name="barbell-outline"
+                size={40}
+                color={isDark ? '#ed7411' : '#de5a09'}
+              />
+            </View>
+            <Text
+              className={`text-lg font-semibold mb-2 ${
+                isDark ? 'text-steel-100' : 'text-steel-900'
+              }`}
+            >
+              Ready to train?
+            </Text>
+            <Text
+              className={`text-center mb-6 ${
+                isDark ? 'text-steel-400' : 'text-steel-500'
+              }`}
+            >
+              Add your first exercise to get started
+            </Text>
+            <Pressable
+              className="px-6 py-3 rounded-xl bg-forge-500"
+              onPress={() => setShowExercisePicker(true)}
+            >
+              <Text className="text-white font-semibold">Add Exercise</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            className={`flex-row items-center justify-center py-4 rounded-xl ${
+              isDark ? 'bg-forge-600' : 'bg-forge-500'
+            }`}
+            onPress={() => setShowExercisePicker(true)}
+          >
+            <Ionicons name="add" size={24} color="#ffffff" />
+            <Text className="text-white font-semibold ml-2">Add Exercise</Text>
+          </Pressable>
+        )}
+      </ScrollView>
+
+      {/* Exercise Picker Modal */}
+      <ExercisePicker
+        visible={showExercisePicker}
+        onClose={() => setShowExercisePicker(false)}
+        onSelectExercise={handleAddExercise}
+        recentExerciseIds={recentExerciseIds}
+      />
+
+      {/* PR Celebration Modal */}
+      <PRCelebration
+        visible={showPRCelebration}
+        onClose={() => setShowPRCelebration(false)}
+        exercise={prExercise}
+        prType={prType}
+        value={prValue}
+      />
+    </SafeAreaView>
+  );
+}

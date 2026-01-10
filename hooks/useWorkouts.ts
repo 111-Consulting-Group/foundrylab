@@ -1,0 +1,427 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { supabase } from '@/lib/supabase';
+import { useAppStore } from '@/stores/useAppStore';
+import type {
+  Workout,
+  WorkoutInsert,
+  WorkoutUpdate,
+  WorkoutWithSets,
+  WorkoutSet,
+  WorkoutSetInsert,
+} from '@/types/database';
+
+// Query keys
+export const workoutKeys = {
+  all: ['workouts'] as const,
+  lists: () => [...workoutKeys.all, 'list'] as const,
+  list: (filters: { blockId?: string; completed?: boolean }) =>
+    [...workoutKeys.lists(), filters] as const,
+  details: () => [...workoutKeys.all, 'detail'] as const,
+  detail: (id: string) => [...workoutKeys.details(), id] as const,
+  history: (limit?: number) => [...workoutKeys.all, 'history', limit] as const,
+  today: () => [...workoutKeys.all, 'today'] as const,
+  next: () => [...workoutKeys.all, 'next'] as const,
+  upcoming: (limit?: number) => [...workoutKeys.all, 'upcoming', limit] as const,
+};
+
+// Fetch workout with all sets and exercise details
+export function useWorkout(id: string) {
+  return useQuery({
+    queryKey: workoutKeys.detail(id),
+    queryFn: async (): Promise<WorkoutWithSets> => {
+      const { data: workout, error: workoutError } = await supabase
+        .from('workouts')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (workoutError) throw workoutError;
+
+      const { data: sets, error: setsError } = await supabase
+        .from('workout_sets')
+        .select(`
+          *,
+          exercise:exercises(*)
+        `)
+        .eq('workout_id', id)
+        .order('set_order');
+
+      if (setsError) throw setsError;
+
+      return {
+        ...(workout as Workout),
+        workout_sets: sets,
+      } as WorkoutWithSets;
+    },
+    enabled: !!id,
+  });
+}
+
+// Fetch today's scheduled workout (legacy - date-based)
+export function useTodaysWorkout() {
+  const userId = useAppStore((state) => state.userId);
+  const today = new Date().toISOString().split('T')[0];
+
+  return useQuery({
+    queryKey: workoutKeys.today(),
+    queryFn: async (): Promise<WorkoutWithSets | null> => {
+      if (!userId) return null;
+
+      const { data, error } = await supabase
+        .from('workouts')
+        .select(`
+          *,
+          workout_sets(
+            *,
+            exercise:exercises(*)
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('scheduled_date', today)
+        .is('date_completed', null)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data as WorkoutWithSets | null;
+    },
+    enabled: !!userId,
+  });
+}
+
+// Fetch next incomplete workout from active block (queue-based - flexible scheduling)
+export function useNextWorkout() {
+  const userId = useAppStore((state) => state.userId);
+
+  return useQuery({
+    queryKey: workoutKeys.next(),
+    queryFn: async (): Promise<WorkoutWithSets | null> => {
+      if (!userId) return null;
+
+      // Get the next incomplete workout ordered by week/day (program order, not date)
+      const { data, error } = await supabase
+        .from('workouts')
+        .select(`
+          *,
+          workout_sets(
+            *,
+            exercise:exercises(*)
+          ),
+          block:training_blocks!inner(
+            id,
+            name,
+            is_active
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('block.is_active', true)
+        .is('date_completed', null)
+        .order('week_number', { ascending: true })
+        .order('day_number', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data as WorkoutWithSets | null;
+    },
+    enabled: !!userId,
+  });
+}
+
+// Fetch upcoming incomplete workouts for swap functionality
+export function useUpcomingWorkouts(limit: number = 5) {
+  const userId = useAppStore((state) => state.userId);
+
+  return useQuery({
+    queryKey: workoutKeys.upcoming(limit),
+    queryFn: async (): Promise<WorkoutWithSets[]> => {
+      if (!userId) return [];
+
+      const { data, error } = await supabase
+        .from('workouts')
+        .select(`
+          *,
+          workout_sets(
+            *,
+            exercise:exercises(*)
+          ),
+          block:training_blocks!inner(
+            id,
+            name,
+            is_active
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('block.is_active', true)
+        .is('date_completed', null)
+        .order('week_number', { ascending: true })
+        .order('day_number', { ascending: true })
+        .limit(limit);
+
+      if (error) throw error;
+      return data as WorkoutWithSets[];
+    },
+    enabled: !!userId,
+  });
+}
+
+// Push all remaining workouts forward by N days
+export function usePushWorkouts() {
+  const queryClient = useQueryClient();
+  const userId = useAppStore((state) => state.userId);
+
+  return useMutation({
+    mutationFn: async ({ days }: { days: number }) => {
+      if (!userId) throw new Error('User not authenticated');
+
+      // First get the active block
+      const { data: activeBlockData } = await supabase
+        .from('training_blocks')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      const activeBlock = activeBlockData as { id: string } | null;
+      if (!activeBlock) return { updated: 0 };
+
+      // Get all incomplete workouts from active block
+      const { data: workouts, error: fetchError } = await supabase
+        .from('workouts')
+        .select('id, scheduled_date')
+        .eq('block_id', activeBlock.id)
+        .is('date_completed', null);
+
+      if (fetchError) throw fetchError;
+      if (!workouts || workouts.length === 0) return { updated: 0 };
+
+      // Update each workout's scheduled_date
+      const updates = (workouts as Array<{ id: string; scheduled_date: string }>).map((w) => {
+        const currentDate = new Date(w.scheduled_date);
+        currentDate.setDate(currentDate.getDate() + days);
+        return {
+          id: w.id,
+          scheduled_date: currentDate.toISOString().split('T')[0],
+        };
+      });
+
+      // Batch update
+      for (const update of updates) {
+        await supabase
+          .from('workouts')
+          .update({ scheduled_date: update.scheduled_date } as never)
+          .eq('id', update.id);
+      }
+
+      return { updated: updates.length };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+    },
+  });
+}
+
+// Fetch workout history
+export function useWorkoutHistory(limit: number = 20) {
+  const userId = useAppStore((state) => state.userId);
+
+  return useQuery({
+    queryKey: workoutKeys.history(limit),
+    queryFn: async (): Promise<Workout[]> => {
+      if (!userId) return [];
+
+      const { data, error } = await supabase
+        .from('workouts')
+        .select('*')
+        .eq('user_id', userId)
+        .not('date_completed', 'is', null)
+        .order('date_completed', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data as Workout[];
+    },
+    enabled: !!userId,
+  });
+}
+
+// Fetch workouts by block
+export function useBlockWorkouts(blockId: string) {
+  return useQuery({
+    queryKey: workoutKeys.list({ blockId }),
+    queryFn: async (): Promise<Workout[]> => {
+      const { data, error } = await supabase
+        .from('workouts')
+        .select('*')
+        .eq('block_id', blockId)
+        .order('week_number')
+        .order('day_number');
+
+      if (error) throw error;
+      return data as Workout[];
+    },
+    enabled: !!blockId,
+  });
+}
+
+// Create a new workout
+export function useCreateWorkout() {
+  const queryClient = useQueryClient();
+  const userId = useAppStore((state) => state.userId);
+
+  return useMutation({
+    mutationFn: async (workout: Omit<WorkoutInsert, 'user_id'>): Promise<Workout> => {
+      if (!userId) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('workouts')
+        .insert({ ...workout, user_id: userId } as WorkoutInsert)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Workout;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+    },
+  });
+}
+
+// Update workout (including marking as completed)
+export function useUpdateWorkout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: WorkoutUpdate & { id: string }): Promise<Workout> => {
+      const { data, error } = await supabase
+        .from('workouts')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Workout;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.detail(data.id) });
+    },
+  });
+}
+
+// Complete a workout
+export function useCompleteWorkout() {
+  const queryClient = useQueryClient();
+  const { endWorkout } = useAppStore();
+
+  return useMutation({
+    mutationFn: async ({ id, durationMinutes }: { id: string; durationMinutes: number }): Promise<Workout> => {
+      const { data, error } = await supabase
+        .from('workouts')
+        .update({
+          date_completed: new Date().toISOString(),
+          duration_minutes: durationMinutes,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Workout;
+    },
+    onSuccess: () => {
+      endWorkout();
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+    },
+  });
+}
+
+// Add a set to a workout
+export function useAddWorkoutSet() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (set: WorkoutSetInsert) => {
+      const { data, error } = await supabase
+        .from('workout_sets')
+        .insert(set as WorkoutSetInsert)
+        .select(`
+          *,
+          exercise:exercises(*)
+        `)
+        .single();
+
+      if (error) throw error;
+      return data as WorkoutSet & { exercise: unknown };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.detail(data.workout_id) });
+    },
+  });
+}
+
+// Update a workout set
+export function useUpdateWorkoutSet() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, workoutId, ...updates }: Partial<WorkoutSet> & { id: string; workoutId: string }) => {
+      const { data, error } = await supabase
+        .from('workout_sets')
+        .update(updates)
+        .eq('id', id)
+        .select(`
+          *,
+          exercise:exercises(*)
+        `)
+        .single();
+
+      if (error) throw error;
+      return { ...(data as WorkoutSet), workoutId };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.detail(data.workoutId) });
+    },
+  });
+}
+
+// Get previous performance for an exercise
+export function usePreviousPerformance(exerciseId: string, currentWorkoutId?: string) {
+  const userId = useAppStore((state) => state.userId);
+
+  return useQuery({
+    queryKey: ['previousPerformance', exerciseId],
+    queryFn: async () => {
+      if (!userId) return [];
+
+      let query = supabase
+        .from('workout_sets')
+        .select(`
+          *,
+          workout:workouts!inner(
+            id,
+            date_completed,
+            user_id
+          )
+        `)
+        .eq('exercise_id', exerciseId)
+        .eq('workout.user_id', userId)
+        .not('workout.date_completed', 'is', null)
+        .eq('is_warmup', false)
+        .order('workout(date_completed)', { ascending: false })
+        .limit(10);
+
+      if (currentWorkoutId) {
+        query = query.neq('workout_id', currentWorkoutId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!exerciseId && !!userId,
+  });
+}

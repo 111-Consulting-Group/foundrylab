@@ -1,40 +1,26 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Text, View } from '@/components/Themed';
+import { useColorScheme } from '@/components/useColorScheme';
 
 export default function NotFoundScreen() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <View style={styles.container}>
-        <Text style={styles.title}>This screen doesn't exist.</Text>
-
-        <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go to home screen!</Text>
-        </Link>
-      </View>
+      <Stack.Screen options={{ title: 'Not Found' }} />
+      <SafeAreaView className={`flex-1 ${isDark ? 'bg-steel-950' : 'bg-steel-50'}`}>
+        <View className="flex-1 items-center justify-center p-5">
+          <Text className={`text-xl font-bold mb-4 ${isDark ? 'text-steel-100' : 'text-steel-900'}`}>
+            This screen doesn&apos;t exist.
+          </Text>
+          <Link href="/" className="mt-4 py-4">
+            <Text className="text-forge-500 text-base">Go to home screen</Text>
+          </Link>
+        </View>
+      </SafeAreaView>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-  linkText: {
-    fontSize: 14,
-    color: '#2e78b7',
-  },
-});
