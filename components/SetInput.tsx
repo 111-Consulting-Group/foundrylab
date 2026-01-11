@@ -10,6 +10,7 @@ import {
 import Slider from '@react-native-community/slider';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { InlineRestTimer } from '@/components/RestTimer';
 import { usePreviousPerformance } from '@/hooks/useWorkouts';
 import { useExerciseMemory } from '@/hooks/useExerciseMemory';
 import { suggestProgression, formatProgressionSuggestion, type SetData as ProgressionSetData } from '@/lib/autoProgress';
@@ -25,6 +26,7 @@ interface SetInputProps {
   targetRPE?: number;
   targetLoad?: number;
   isWarmup?: boolean;
+  restSeconds?: number; // Default rest time after logging set (0 = no timer)
   onSave: (set: Omit<WorkoutSetInsert, 'workout_id' | 'exercise_id' | 'set_order'>) => void;
   onPRDetected?: (set: WorkoutSetInsert, type: 'weight' | 'reps' | 'volume' | 'e1rm') => void;
 }
@@ -46,6 +48,7 @@ export function SetInput({
   targetRPE,
   targetLoad,
   isWarmup = false,
+  restSeconds = 90,
   onSave,
   onPRDetected,
 }: SetInputProps) {
@@ -91,6 +94,7 @@ export function SetInput({
     }
   }, [exerciseMemory?.lastWeight, weight, isBodyweight, isCompleted, targetLoad]);
   const [showRPESlider, setShowRPESlider] = useState(false);
+  const [showRestTimer, setShowRestTimer] = useState(false);
 
   // Animation for completion
   const [scaleAnim] = useState(new Animated.Value(1));
@@ -161,6 +165,10 @@ export function SetInput({
     ]).start();
 
     setIsCompleted(true);
+    // Start rest timer if enabled and not a warmup set
+    if (restSeconds > 0 && !isWarmup) {
+      setShowRestTimer(true);
+    }
     onSave(setData);
   }, [
     weight,
@@ -171,6 +179,7 @@ export function SetInput({
     tempo,
     previousPerformance,
     currentE1RM,
+    restSeconds,
     onSave,
     onPRDetected,
     scaleAnim,
@@ -292,6 +301,17 @@ export function SetInput({
           </View>
         )}
       </View>
+
+      {/* Rest Timer - shown after completing a set */}
+      {showRestTimer && isCompleted && (
+        <View className="mb-3">
+          <InlineRestTimer
+            seconds={restSeconds}
+            onComplete={() => setShowRestTimer(false)}
+            onSkip={() => setShowRestTimer(false)}
+          />
+        </View>
+      )}
 
       {/* Input Row */}
       <View className="flex-row items-center gap-3 mb-3">
@@ -471,7 +491,10 @@ export function SetInput({
         {isCompleted && (
           <Pressable
             className="flex-row items-center"
-            onPress={() => setIsCompleted(false)}
+            onPress={() => {
+              setIsCompleted(false);
+              setShowRestTimer(false);
+            }}
           >
             <Ionicons
               name="create-outline"

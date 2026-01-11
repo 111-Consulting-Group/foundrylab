@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ExercisePicker } from '@/components/ExercisePicker';
 import { PRCelebration } from '@/components/PRCelebration';
+import { RestTimer } from '@/components/RestTimer';
 import { SetInput } from '@/components/SetInput';
 import { useColorScheme } from '@/components/useColorScheme';
 import { detectProgression, getProgressionTypeString, type SetData } from '@/lib/progression';
@@ -38,6 +39,7 @@ interface TrackedExercise {
   targetReps?: number;
   targetRPE?: number;
   targetLoad?: number;
+  supersetGroup?: number; // Exercises with same group number are performed back-to-back
 }
 
 export default function ActiveWorkoutScreen() {
@@ -82,6 +84,13 @@ export default function ActiveWorkoutScreen() {
   const [prExercise, setPRExercise] = useState<Exercise | null>(null);
   const [prType, setPRType] = useState<'weight' | 'reps' | 'volume' | 'e1rm' | null>(null);
   const [prValue, setPRValue] = useState('');
+
+  // Rest timer state
+  const [showRestTimer, setShowRestTimer] = useState(false);
+
+  // Superset/circuit management
+  const nextSupersetGroup = useRef(1);
+  const [supersetMode, setSupersetMode] = useState(false); // When true, next added exercise joins current superset
 
   // Calculate elapsed time
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
@@ -162,19 +171,38 @@ export default function ActiveWorkoutScreen() {
 
   // Add exercise to workout
   const handleAddExercise = useCallback(
-    async (exercise: Exercise) => {
+    async (exercise: Exercise, addAsSuperset = false) => {
       // Ensure workout exists
       const workoutId = await createNewWorkout();
       if (!workoutId) return;
 
-      // Add to tracked exercises
-      setTrackedExercises((prev) => [
-        ...prev,
-        {
-          exercise,
-          sets: [1], // Start with one set
-        },
-      ]);
+      setTrackedExercises((prev) => {
+        const shouldSuperset = addAsSuperset || supersetMode;
+
+        if (shouldSuperset && prev.length > 0) {
+          // Find or create superset group
+          const lastExercise = prev[prev.length - 1];
+          const groupId = lastExercise?.supersetGroup ?? nextSupersetGroup.current++;
+
+          // Update last exercise to join group if it wasn't already in one
+          const updated = [...prev];
+          if (!lastExercise?.supersetGroup) {
+            updated[updated.length - 1] = {
+              ...updated[updated.length - 1],
+              supersetGroup: groupId,
+            };
+          }
+
+          // Add new exercise to the same group
+          return [...updated, { exercise, sets: [1], supersetGroup: groupId }];
+        }
+
+        // Normal add without superset
+        return [...prev, { exercise, sets: [1] }];
+      });
+
+      // Turn off superset mode after adding
+      setSupersetMode(false);
 
       // Track as recent
       setRecentExerciseIds((prev) => {
@@ -182,7 +210,7 @@ export default function ActiveWorkoutScreen() {
         return [exercise.id, ...filtered].slice(0, 10);
       });
     },
-    [createNewWorkout]
+    [createNewWorkout, supersetMode]
   );
 
   // Add another set to an exercise
@@ -191,6 +219,47 @@ export default function ActiveWorkoutScreen() {
       const updated = [...prev];
       const nextSetNumber = Math.max(...updated[exerciseIndex].sets) + 1;
       updated[exerciseIndex].sets.push(nextSetNumber);
+      return updated;
+    });
+  }, []);
+
+  // Toggle superset grouping between two adjacent exercises
+  const handleToggleSuperset = useCallback((exerciseIndex: number) => {
+    setTrackedExercises((prev) => {
+      if (exerciseIndex >= prev.length - 1) return prev; // Can't superset with nothing after
+
+      const updated = [...prev];
+      const current = updated[exerciseIndex];
+      const next = updated[exerciseIndex + 1];
+
+      if (current.supersetGroup && current.supersetGroup === next.supersetGroup) {
+        // They're in the same group - unlink them
+        // Count how many in this group
+        const groupMembers = updated.filter(e => e.supersetGroup === current.supersetGroup);
+        if (groupMembers.length === 2) {
+          // Just 2 members, remove the group entirely
+          updated[exerciseIndex] = { ...current, supersetGroup: undefined };
+          updated[exerciseIndex + 1] = { ...next, supersetGroup: undefined };
+        } else {
+          // More than 2, create a new group for the next one
+          const newGroupId = nextSupersetGroup.current++;
+          updated[exerciseIndex + 1] = { ...next, supersetGroup: newGroupId };
+          // If there are more after, they stay in the new group
+          for (let i = exerciseIndex + 2; i < updated.length; i++) {
+            if (updated[i].supersetGroup === current.supersetGroup) {
+              updated[i] = { ...updated[i], supersetGroup: newGroupId };
+            } else {
+              break;
+            }
+          }
+        }
+      } else {
+        // They're not in the same group - link them
+        const groupId = current.supersetGroup ?? next.supersetGroup ?? nextSupersetGroup.current++;
+        updated[exerciseIndex] = { ...current, supersetGroup: groupId };
+        updated[exerciseIndex + 1] = { ...next, supersetGroup: groupId };
+      }
+
       return updated;
     });
   }, []);
@@ -660,19 +729,54 @@ export default function ActiveWorkoutScreen() {
         {/* Exercises */}
         {trackedExercises
           .filter((tracked) => tracked.exercise) // Additional safety filter
-          .map((tracked, exerciseIndex) => (
+          .map((tracked, exerciseIndex) => {
+            // Check if this exercise is part of a superset
+            const isInSuperset = !!tracked.supersetGroup;
+            const nextExercise = trackedExercises[exerciseIndex + 1];
+            const isLinkedToNext = isInSuperset && nextExercise?.supersetGroup === tracked.supersetGroup;
+            const prevExercise = trackedExercises[exerciseIndex - 1];
+            const isLinkedToPrev = isInSuperset && prevExercise?.supersetGroup === tracked.supersetGroup;
+
+            // Count superset position (A, B, C...)
+            let supersetPosition = '';
+            if (isInSuperset) {
+              const groupStart = trackedExercises.findIndex(e => e.supersetGroup === tracked.supersetGroup);
+              supersetPosition = String.fromCharCode(65 + (exerciseIndex - groupStart)); // A, B, C...
+            }
+
+            return (
           <View key={tracked.exercise.id} className="mb-6">
+            {/* Superset Connector - Top */}
+            {isLinkedToPrev && (
+              <View className="flex-row items-center mb-2 -mt-4">
+                <View className={`w-1 h-4 ml-4 ${isDark ? 'bg-purple-500/50' : 'bg-purple-500/30'}`} />
+                <View className="flex-1 ml-2">
+                  <Text className={`text-xs ${isDark ? 'text-purple-400' : 'text-purple-500'}`}>
+                    No rest
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* Exercise Header */}
             <View className="flex-row items-center justify-between mb-3">
               <View className="flex-1">
                 <View className="flex-row items-center justify-between">
-                  <Text
-                    className={`text-lg font-bold ${
-                      isDark ? 'text-graphite-100' : 'text-graphite-900'
-                    }`}
-                  >
-                    {tracked.exercise?.name || 'Unknown Exercise'}
-                  </Text>
+                  <View className="flex-row items-center flex-1">
+                    {isInSuperset && (
+                      <View className="w-6 h-6 rounded-full bg-purple-500 items-center justify-center mr-2">
+                        <Text className="text-white text-xs font-bold">{supersetPosition}</Text>
+                      </View>
+                    )}
+                    <Text
+                      className={`text-lg font-bold flex-1 ${
+                        isDark ? 'text-graphite-100' : 'text-graphite-900'
+                      }`}
+                      numberOfLines={1}
+                    >
+                      {tracked.exercise?.name || 'Unknown Exercise'}
+                    </Text>
+                  </View>
                   <Pressable
                     onPress={() => handleDeleteExercise(exerciseIndex)}
                     className="p-2 -mr-2"
@@ -715,6 +819,11 @@ export default function ActiveWorkoutScreen() {
                     >
                       {tracked.exercise.muscle_group}
                     </Text>
+                    {isInSuperset && (
+                      <View className="ml-2 px-2 py-0.5 rounded bg-purple-500/20">
+                        <Text className="text-xs text-purple-500">Superset</Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -787,8 +896,60 @@ export default function ActiveWorkoutScreen() {
                 </Text>
               </Pressable>
             </View>
+
+            {/* Superset Controls - shown between exercises or at end */}
+            {exerciseIndex < trackedExercises.length - 1 ? (
+              <Pressable
+                className={`flex-row items-center justify-center py-2 mt-2 rounded-lg ${
+                  isLinkedToNext
+                    ? 'bg-purple-500/20 border border-purple-500/50'
+                    : isDark
+                    ? 'bg-graphite-800'
+                    : 'bg-graphite-100'
+                }`}
+                onPress={() => handleToggleSuperset(exerciseIndex)}
+              >
+                <Ionicons
+                  name={isLinkedToNext ? 'link' : 'link-outline'}
+                  size={16}
+                  color={isLinkedToNext ? '#9333ea' : (isDark ? '#808fb0' : '#607296')}
+                />
+                <Text
+                  className={`ml-2 text-sm ${
+                    isLinkedToNext
+                      ? 'text-purple-500 font-semibold'
+                      : isDark
+                      ? 'text-graphite-400'
+                      : 'text-graphite-500'
+                  }`}
+                >
+                  {isLinkedToNext ? 'Linked as superset' : 'Link as superset'}
+                </Text>
+              </Pressable>
+            ) : (
+              // Last exercise - show option to add as superset
+              <Pressable
+                className={`flex-row items-center justify-center py-2 mt-2 rounded-lg ${
+                  isDark ? 'bg-graphite-800' : 'bg-graphite-100'
+                }`}
+                onPress={() => {
+                  setSupersetMode(true);
+                  setShowExercisePicker(true);
+                }}
+              >
+                <Ionicons
+                  name="add-circle-outline"
+                  size={16}
+                  color="#9333ea"
+                />
+                <Text className="ml-2 text-sm text-purple-500">
+                  Add exercise to superset
+                </Text>
+              </Pressable>
+            )}
           </View>
-        ))}
+        );
+        })}
 
         {/* Empty State / Add Exercise Button */}
         {trackedExercises.length === 0 ? (
@@ -915,6 +1076,48 @@ export default function ActiveWorkoutScreen() {
           </Pressable>
         )}
       </ScrollView>
+
+      {/* Floating Rest Timer Button */}
+      {trackedExercises.length > 0 && !showRestTimer && (
+        <Pressable
+          className={`absolute bottom-24 right-4 w-14 h-14 rounded-full items-center justify-center shadow-lg ${
+            isDark ? 'bg-graphite-800' : 'bg-white'
+          } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+          onPress={() => setShowRestTimer(true)}
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
+            elevation: 5,
+          }}
+        >
+          <Ionicons name="timer-outline" size={24} color="#2F80ED" />
+        </Pressable>
+      )}
+
+      {/* Rest Timer Overlay */}
+      {showRestTimer && (
+        <View
+          className={`absolute bottom-20 left-4 right-4 ${
+            Platform.OS === 'ios' ? 'mb-4' : ''
+          }`}
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 10,
+          }}
+        >
+          <RestTimer
+            initialSeconds={90}
+            onComplete={() => setShowRestTimer(false)}
+            onDismiss={() => setShowRestTimer(false)}
+            autoStart={true}
+          />
+        </View>
+      )}
 
       {/* Exercise Picker Modal */}
       <ExercisePicker
