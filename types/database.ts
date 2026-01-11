@@ -446,6 +446,26 @@ export type RecoverySpeed = 'fast' | 'normal' | 'slow';
 export type AdjustmentTrigger = 'readiness' | 'time_constraint' | 'pain_report' | 'missed_workout' | 'user_request';
 export type AdjustmentType = 'intensity_reduction' | 'volume_reduction' | 'exercise_swap' | 'workout_merge' | 'rest_day' | 'deload';
 export type AdjustmentFeedback = 'too_easy' | 'just_right' | 'too_hard' | 'skipped';
+export type GoalType = 'e1rm' | 'weight' | 'reps' | 'volume' | 'watts' | 'pace' | 'distance' | 'custom';
+export type GoalStatus = 'active' | 'achieved' | 'abandoned' | 'paused';
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  exercise_id: string | null;
+  exercise_name?: string; // Joined from exercises table
+  goal_type: GoalType;
+  target_value: number;
+  target_unit: string;
+  description: string | null;
+  starting_value: number | null;
+  current_value: number | null;
+  target_date: string | null;
+  status: GoalStatus;
+  achieved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface DailyReadiness {
   id: string;
