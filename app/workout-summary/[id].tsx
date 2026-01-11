@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Share,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
@@ -17,6 +18,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { SessionVerdict } from '@/components/SessionVerdict';
 import { useWorkout } from '@/hooks/useWorkouts';
 import { useShareWorkout } from '@/hooks/useSocial';
+import { useIsBlockComplete, useBlockSummary } from '@/hooks/useBlockSummary';
 import { calculateSetVolume } from '@/lib/utils';
 import { Alert } from 'react-native';
 import type { WorkoutSet, WorkoutWithSets } from '@/types/database';
@@ -29,6 +31,11 @@ export default function WorkoutSummaryScreen() {
 
   const { data: workout, isLoading } = useWorkout(id);
   const shareWorkoutMutation = useShareWorkout();
+
+  // Check if this workout completes a block
+  const { isBlockComplete, blockId } = useIsBlockComplete(id);
+  const { data: blockSummary } = useBlockSummary(blockId || '');
+  const [showBlockSummary, setShowBlockSummary] = useState(true);
 
   // Calculate workout stats
   const stats = workout?.workout_sets?.reduce(
@@ -406,6 +413,158 @@ ${Object.values(exerciseSummary)
           </View>
         )}
       </ScrollView>
+
+      {/* Block Completion Modal */}
+      {isBlockComplete && blockSummary && (
+        <Modal
+          visible={showBlockSummary}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowBlockSummary(false)}
+        >
+          <SafeAreaView className="flex-1 bg-black/60">
+            <View className="flex-1 justify-center px-4">
+              <View
+                className={`rounded-3xl p-6 ${isDark ? 'bg-graphite-900' : 'bg-white'}`}
+              >
+                {/* Celebration Header */}
+                <View className="items-center mb-6">
+                  <View className="w-20 h-20 rounded-full bg-progress-500 items-center justify-center mb-4">
+                    <Ionicons name="trophy" size={40} color="#ffffff" />
+                  </View>
+                  <Text
+                    className={`text-2xl font-bold text-center ${isDark ? 'text-graphite-50' : 'text-carbon-950'}`}
+                  >
+                    Block Complete!
+                  </Text>
+                  <Text
+                    className={`text-center mt-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
+                  >
+                    You finished {blockSummary.blockName}
+                  </Text>
+                </View>
+
+                {/* Block Stats */}
+                <View className={`p-4 rounded-xl mb-4 ${isDark ? 'bg-graphite-800' : 'bg-graphite-50'}`}>
+                  <View className="flex-row justify-between">
+                    <View className="items-center flex-1">
+                      <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                        {blockSummary.completedWorkouts}
+                      </Text>
+                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                        Workouts
+                      </Text>
+                    </View>
+                    <View className="items-center flex-1">
+                      <Text className={`text-2xl font-bold text-signal-500`}>
+                        {blockSummary.totalVolume >= 1000
+                          ? `${(blockSummary.totalVolume / 1000).toFixed(0)}k`
+                          : Math.round(blockSummary.totalVolume)}
+                      </Text>
+                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                        lbs Moved
+                      </Text>
+                    </View>
+                    <View className="items-center flex-1">
+                      <Text className={`text-2xl font-bold text-oxide-500`}>
+                        {blockSummary.prsHit.length}
+                      </Text>
+                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                        PRs
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* PRs Hit */}
+                {blockSummary.prsHit.length > 0 && (
+                  <View className="mb-4">
+                    <Text className={`text-sm font-semibold mb-2 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                      PRs Hit This Block
+                    </Text>
+                    <View className="gap-2">
+                      {blockSummary.prsHit.slice(0, 4).map((pr, index) => (
+                        <View
+                          key={index}
+                          className={`flex-row items-center p-2 rounded-lg ${isDark ? 'bg-oxide-500/10' : 'bg-oxide-500/10'}`}
+                        >
+                          <Ionicons name="trophy" size={16} color="#EF4444" />
+                          <Text className={`flex-1 ml-2 ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+                            {pr.exerciseName}
+                          </Text>
+                          <Text className="text-oxide-500 font-semibold">
+                            {pr.value} {pr.unit}
+                          </Text>
+                        </View>
+                      ))}
+                      {blockSummary.prsHit.length > 4 && (
+                        <Text className={`text-xs text-center ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                          +{blockSummary.prsHit.length - 4} more PRs
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {/* Muscle Group Summary */}
+                {blockSummary.muscleGroups.length > 0 && (
+                  <View className="mb-4">
+                    <Text className={`text-sm font-semibold mb-2 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                      Volume Distribution
+                    </Text>
+                    <View className="flex-row flex-wrap gap-2">
+                      {blockSummary.muscleGroups.slice(0, 6).map((group, index) => (
+                        <View
+                          key={index}
+                          className={`px-3 py-1.5 rounded-full ${isDark ? 'bg-graphite-800' : 'bg-graphite-100'}`}
+                        >
+                          <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                            {group.name}: {group.sets}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Duration Info */}
+                <View className={`flex-row items-center justify-center py-3 rounded-xl mb-4 ${isDark ? 'bg-graphite-800' : 'bg-graphite-50'}`}>
+                  <Ionicons name="calendar-outline" size={18} color={isDark ? '#808fb0' : '#607296'} />
+                  <Text className={`ml-2 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                    {blockSummary.durationWeeks} weeks · {Math.round(blockSummary.totalDuration / 60)} hours trained
+                  </Text>
+                </View>
+
+                {/* Action Buttons */}
+                <View className="gap-3">
+                  <Pressable
+                    onPress={() => {
+                      setShowBlockSummary(false);
+                      router.push('/block-builder');
+                    }}
+                    className="bg-signal-500 py-4 rounded-xl items-center"
+                  >
+                    <View className="flex-row items-center">
+                      <Ionicons name="sparkles" size={20} color="#ffffff" />
+                      <Text className="text-white font-semibold ml-2">
+                        Build Next Block
+                      </Text>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setShowBlockSummary(false)}
+                    className={`py-4 rounded-xl items-center ${isDark ? 'bg-graphite-800' : 'bg-graphite-100'}`}
+                  >
+                    <Text className={`font-semibold ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                      View Workout Summary
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </SafeAreaView>
+        </Modal>
+      )}
     </SafeAreaView>
     </>
   );

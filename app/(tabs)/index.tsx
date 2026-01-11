@@ -10,6 +10,7 @@ import { useRecentPRs } from '@/hooks/usePersonalRecords';
 import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
 import { useActiveGoals } from '@/hooks/useGoals';
 import { useExerciseMemory } from '@/hooks/useExerciseMemory';
+import { useWeekSummary } from '@/hooks/useWeekSummary';
 import { GoalCard } from '@/components/GoalCard';
 import { suggestProgression } from '@/lib/autoProgress';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
@@ -25,6 +26,7 @@ export default function DashboardScreen() {
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showPushModal, setShowPushModal] = useState(false);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [showWeekSummary, setShowWeekSummary] = useState(false);
 
   // Quick recovery workout templates
   const recoveryTemplates = [
@@ -62,6 +64,9 @@ export default function DashboardScreen() {
 
   // Fetch active goals
   const { data: activeGoals = [] } = useActiveGoals();
+
+  // Fetch comprehensive week summary
+  const { data: weekSummary } = useWeekSummary();
 
   // Fetch workout history for weekly stats
   const { data: workoutHistory = [] } = useWorkoutHistory(50);
@@ -325,18 +330,30 @@ export default function DashboardScreen() {
 
         {/* Weekly Progress */}
         <View className="mb-6">
-          <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-            This Week
-          </Text>
-          <View className={`p-4 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              This Week
+            </Text>
+            <Pressable
+              onPress={() => setShowWeekSummary(true)}
+              className="flex-row items-center"
+            >
+              <Text className={`text-sm ${isDark ? 'text-signal-400' : 'text-signal-500'}`}>
+                Details
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color="#2F80ED" />
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={() => setShowWeekSummary(true)}
+            className={`p-4 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+          >
             <View className="flex-row justify-between mb-4">
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, dayIndex) => {
-                // Map array index (0-6) to day of week: 0=Sunday, 1=Monday, etc.
-                // Array is ['S', 'M', 'T', 'W', 'T', 'F', 'S'] = [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
                 const dayOfWeek = dayIndex;
-                const hasWorkout = weeklyStats.workoutDays.includes(dayOfWeek);
+                const hasWorkout = (weekSummary?.workoutDays || weeklyStats.workoutDays).includes(dayOfWeek);
                 const isToday = new Date().getDay() === dayOfWeek;
-                
+
                 return (
                   <View key={dayIndex} className="items-center">
                     <Text className={`text-xs mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
@@ -360,27 +377,57 @@ export default function DashboardScreen() {
                 );
               })}
             </View>
-            <View className="flex-row justify-between">
+
+            {/* Stats Row */}
+            <View className="flex-row justify-between mb-3">
               <View>
                 <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                  {weeklyStats.completed}
+                  {weekSummary?.workoutsCompleted || weeklyStats.completed}
                 </Text>
                 <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                  workouts completed
+                  workouts
+                </Text>
+              </View>
+              <View className="items-center">
+                <Text className={`text-2xl font-bold text-signal-500`}>
+                  {(weekSummary?.totalVolume || weeklyStats.totalVolume) >= 1000
+                    ? `${((weekSummary?.totalVolume || weeklyStats.totalVolume) / 1000).toFixed(1)}k`
+                    : Math.round(weekSummary?.totalVolume || weeklyStats.totalVolume).toLocaleString()}
+                </Text>
+                <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                  volume (lbs)
                 </Text>
               </View>
               <View className="items-end">
-                <Text className={`text-2xl font-bold text-signal-500`}>
-                  {weeklyStats.totalVolume >= 1000 
-                    ? `${(weeklyStats.totalVolume / 1000).toFixed(1)}k` 
-                    : Math.round(weeklyStats.totalVolume).toLocaleString()}
+                <Text className={`text-2xl font-bold text-oxide-500`}>
+                  {weekSummary?.prsThisWeek.length || 0}
                 </Text>
                 <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                  total volume (lbs)
+                  PRs
                 </Text>
               </View>
             </View>
-          </View>
+
+            {/* Comparison badge */}
+            {weekSummary?.comparison && weekSummary.comparison.volumeChange !== 0 && (
+              <View className={`flex-row items-center justify-center py-2 rounded-lg ${
+                weekSummary.comparison.isUp
+                  ? 'bg-progress-500/10'
+                  : 'bg-oxide-500/10'
+              }`}>
+                <Ionicons
+                  name={weekSummary.comparison.isUp ? 'trending-up' : 'trending-down'}
+                  size={16}
+                  color={weekSummary.comparison.isUp ? '#22c55e' : '#EF4444'}
+                />
+                <Text className={`text-sm font-semibold ml-1 ${
+                  weekSummary.comparison.isUp ? 'text-progress-500' : 'text-oxide-500'
+                }`}>
+                  {weekSummary.comparison.isUp ? '+' : ''}{weekSummary.comparison.volumeChange.toFixed(0)}% vs last week
+                </Text>
+              </View>
+            )}
+          </Pressable>
         </View>
 
         {/* Active Goals */}
@@ -694,6 +741,194 @@ export default function DashboardScreen() {
             <Text className={`text-xs text-center mt-4 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
               Light days still count toward your progress.
             </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Week Summary Modal */}
+      <Modal
+        visible={showWeekSummary}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowWeekSummary(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/50 justify-end"
+          onPress={() => setShowWeekSummary(false)}
+        >
+          <Pressable
+            className={`rounded-t-3xl ${isDark ? 'bg-graphite-900' : 'bg-white'} p-6 max-h-[85%]`}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View className="w-10 h-1 bg-graphite-400 rounded-full self-center mb-4" />
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className={`text-xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                Week Summary
+              </Text>
+              <Pressable onPress={() => setShowWeekSummary(false)}>
+                <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Overview Stats */}
+              <View className={`p-4 rounded-xl mb-4 ${isDark ? 'bg-graphite-800' : 'bg-graphite-50'}`}>
+                <View className="flex-row justify-between">
+                  <View className="items-center flex-1">
+                    <Text className={`text-3xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                      {weekSummary?.workoutsCompleted || 0}
+                    </Text>
+                    <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                      Workouts
+                    </Text>
+                  </View>
+                  <View className="items-center flex-1">
+                    <Text className={`text-3xl font-bold text-signal-500`}>
+                      {weekSummary?.totalSets || 0}
+                    </Text>
+                    <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                      Sets
+                    </Text>
+                  </View>
+                  <View className="items-center flex-1">
+                    <Text className={`text-3xl font-bold text-progress-500`}>
+                      {weekSummary?.totalDuration || 0}
+                    </Text>
+                    <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                      Minutes
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* PRs This Week */}
+              {weekSummary?.prsThisWeek && weekSummary.prsThisWeek.length > 0 && (
+                <View className="mb-4">
+                  <Text className={`text-sm font-semibold mb-2 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                    PRs This Week
+                  </Text>
+                  <View className="gap-2">
+                    {weekSummary.prsThisWeek.map((pr, index) => (
+                      <View
+                        key={index}
+                        className={`p-3 rounded-xl flex-row items-center ${isDark ? 'bg-oxide-500/10 border-oxide-500/30' : 'bg-oxide-500/10 border-oxide-500/30'} border`}
+                      >
+                        <Ionicons name="trophy" size={20} color="#EF4444" />
+                        <View className="flex-1 ml-3">
+                          <Text className={`font-medium ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                            {pr.exerciseName}
+                          </Text>
+                          <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            {pr.prType}
+                          </Text>
+                        </View>
+                        <Text className="text-oxide-500 font-bold">
+                          {pr.value} {pr.unit}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Muscle Groups Breakdown */}
+              {weekSummary?.muscleGroups && weekSummary.muscleGroups.length > 0 && (
+                <View className="mb-4">
+                  <Text className={`text-sm font-semibold mb-2 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                    Volume by Muscle Group
+                  </Text>
+                  <View className="gap-2">
+                    {weekSummary.muscleGroups.slice(0, 6).map((group, index) => {
+                      const maxVolume = weekSummary.muscleGroups[0]?.volume || 1;
+                      const percentage = (group.volume / maxVolume) * 100;
+
+                      return (
+                        <View key={index} className={`p-3 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-graphite-50'}`}>
+                          <View className="flex-row items-center justify-between mb-1">
+                            <Text className={`font-medium ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                              {group.name}
+                            </Text>
+                            <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                              {group.sets} sets · {group.volume >= 1000 ? `${(group.volume / 1000).toFixed(1)}k` : group.volume} lbs
+                            </Text>
+                          </View>
+                          <View className={`h-2 rounded-full ${isDark ? 'bg-graphite-700' : 'bg-graphite-200'}`}>
+                            <View
+                              className="h-2 rounded-full bg-signal-500"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Comparison to Last Week */}
+              {weekSummary?.comparison && (
+                <View className={`p-4 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-graphite-50'}`}>
+                  <Text className={`text-sm font-semibold mb-3 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                    vs Last Week
+                  </Text>
+                  <View className="flex-row justify-between">
+                    <View className="items-center flex-1">
+                      <View className="flex-row items-center">
+                        <Ionicons
+                          name={weekSummary.comparison.isUp ? 'arrow-up' : 'arrow-down'}
+                          size={16}
+                          color={weekSummary.comparison.isUp ? '#22c55e' : '#EF4444'}
+                        />
+                        <Text className={`text-xl font-bold ml-1 ${
+                          weekSummary.comparison.isUp ? 'text-progress-500' : 'text-oxide-500'
+                        }`}>
+                          {Math.abs(weekSummary.comparison.volumeChange).toFixed(0)}%
+                        </Text>
+                      </View>
+                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                        Volume
+                      </Text>
+                    </View>
+                    <View className="items-center flex-1">
+                      <View className="flex-row items-center">
+                        <Ionicons
+                          name={weekSummary.comparison.workoutChange >= 0 ? 'arrow-up' : 'arrow-down'}
+                          size={16}
+                          color={weekSummary.comparison.workoutChange >= 0 ? '#22c55e' : '#EF4444'}
+                        />
+                        <Text className={`text-xl font-bold ml-1 ${
+                          weekSummary.comparison.workoutChange >= 0 ? 'text-progress-500' : 'text-oxide-500'
+                        }`}>
+                          {Math.abs(weekSummary.comparison.workoutChange)}
+                        </Text>
+                      </View>
+                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                        Workouts
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Empty State */}
+              {!weekSummary || weekSummary.workoutsCompleted === 0 ? (
+                <View className="items-center py-8">
+                  <Ionicons
+                    name="calendar-outline"
+                    size={48}
+                    color={isDark ? '#607296' : '#808fb0'}
+                  />
+                  <Text className={`mt-3 font-medium ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                    No workouts this week yet
+                  </Text>
+                  <Text className={`text-sm mt-1 text-center ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                    Start training to see your weekly stats!
+                  </Text>
+                </View>
+              ) : null}
+
+              <View className="h-6" />
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
