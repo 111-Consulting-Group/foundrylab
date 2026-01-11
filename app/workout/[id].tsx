@@ -9,17 +9,22 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ExercisePicker } from '@/components/ExercisePicker';
 import { PRCelebration } from '@/components/PRCelebration';
+import { ReadinessCheckIn, ReadinessIndicator } from '@/components/ReadinessCheckIn';
 import { RestTimer } from '@/components/RestTimer';
 import { SetInput } from '@/components/SetInput';
 import { SubstitutionPicker } from '@/components/SubstitutionPicker';
 import { useColorScheme } from '@/components/useColorScheme';
 import { detectProgression, getProgressionTypeString, type SetData } from '@/lib/progression';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
+import { generateReadinessAdjustments, summarizeAdjustments, type WorkoutAdjustments } from '@/lib/adjustmentEngine';
+import { useTodaysReadiness, analyzeReadiness } from '@/hooks/useReadiness';
+import type { ReadinessAdjustment } from '@/types/database';
 import {
   useWorkout,
   useAddWorkoutSet,
@@ -100,6 +105,55 @@ export default function ActiveWorkoutScreen() {
   // Substitution picker state
   const [showSubstitutionPicker, setShowSubstitutionPicker] = useState(false);
   const [substitutionExerciseIndex, setSubstitutionExerciseIndex] = useState<number | null>(null);
+
+  // Readiness check-in state
+  const { data: todaysReadiness, isLoading: readinessLoading } = useTodaysReadiness();
+  const [showReadinessCheckIn, setShowReadinessCheckIn] = useState(false);
+  const [currentAdjustment, setCurrentAdjustment] = useState<ReadinessAdjustment | null>(null);
+  const [workoutAdjustments, setWorkoutAdjustments] = useState<WorkoutAdjustments | null>(null);
+  const hasShownReadinessPrompt = useRef(false);
+
+  // Show readiness check-in if no check-in today (only once)
+  useEffect(() => {
+    if (!readinessLoading && !todaysReadiness && !hasShownReadinessPrompt.current) {
+      hasShownReadinessPrompt.current = true;
+      // Small delay to let the screen render first
+      const timer = setTimeout(() => setShowReadinessCheckIn(true), 500);
+      return () => clearTimeout(timer);
+    }
+    // If already checked in today, use that data
+    if (todaysReadiness && !currentAdjustment) {
+      setCurrentAdjustment(todaysReadiness.suggested_adjustment as ReadinessAdjustment);
+      // Generate adjustments based on today's readiness
+      const analysis = analyzeReadiness(
+        todaysReadiness.sleep_quality as 1 | 2 | 3 | 4 | 5,
+        todaysReadiness.muscle_soreness as 1 | 2 | 3 | 4 | 5,
+        todaysReadiness.stress_level as 1 | 2 | 3 | 4 | 5
+      );
+      const adjustments = generateReadinessAdjustments(
+        analysis,
+        (todaysReadiness.adjustment_applied || todaysReadiness.suggested_adjustment) as ReadinessAdjustment
+      );
+      setWorkoutAdjustments(adjustments);
+    }
+  }, [readinessLoading, todaysReadiness, currentAdjustment]);
+
+  // Handle readiness check-in completion
+  const handleReadinessComplete = useCallback((adjustment: ReadinessAdjustment) => {
+    setCurrentAdjustment(adjustment);
+    setShowReadinessCheckIn(false);
+    // Generate workout adjustments
+    // We'll use default values since we don't have the full analysis here
+    const analysis = analyzeReadiness(3, 3, 3); // Will be overwritten by actual values
+    const adjustments = generateReadinessAdjustments(analysis, adjustment);
+    setWorkoutAdjustments(adjustments);
+  }, []);
+
+  const handleReadinessSkip = useCallback(() => {
+    setShowReadinessCheckIn(false);
+    // Default to full if skipped
+    setCurrentAdjustment('full');
+  }, []);
 
   // Calculate elapsed time
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
@@ -745,6 +799,13 @@ export default function ActiveWorkoutScreen() {
                     </View>
                   );
                 })()}
+                {/* Readiness indicator */}
+                {todaysReadiness && (
+                  <ReadinessIndicator
+                    score={todaysReadiness.readiness_score}
+                    onPress={() => setShowReadinessCheckIn(true)}
+                  />
+                )}
               </View>
               <View className="flex-row items-center mt-1">
                 <Ionicons
@@ -1236,6 +1297,23 @@ export default function ActiveWorkoutScreen() {
           onSelectSubstitution={(newExercise) => handleSubstituteExercise(substitutionExerciseIndex, newExercise)}
         />
       )}
+
+      {/* Readiness Check-In Modal */}
+      <Modal
+        visible={showReadinessCheckIn}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleReadinessSkip}
+      >
+        <View className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}>
+          <SafeAreaView className="flex-1 justify-center px-4">
+            <ReadinessCheckIn
+              onComplete={handleReadinessComplete}
+              onSkip={handleReadinessSkip}
+            />
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

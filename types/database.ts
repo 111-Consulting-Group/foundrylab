@@ -434,6 +434,128 @@ export interface WorkoutTemplateExercise {
 
 export type WorkoutTemplateInsert = Omit<WorkoutTemplate, 'id' | 'created_at' | 'updated_at' | 'use_count'>;
 
+// ============================================================================
+// AI Coach System Types
+// ============================================================================
+
+export type ReadinessAdjustment = 'full' | 'moderate' | 'light' | 'rest';
+export type TrainingExperience = 'beginner' | 'intermediate' | 'advanced';
+export type TrainingGoal = 'strength' | 'hypertrophy' | 'athletic' | 'general' | 'powerlifting' | 'bodybuilding';
+export type TrainingPhase = 'accumulation' | 'intensification' | 'realization' | 'deload' | 'maintenance';
+export type RecoverySpeed = 'fast' | 'normal' | 'slow';
+export type AdjustmentTrigger = 'readiness' | 'time_constraint' | 'pain_report' | 'missed_workout' | 'user_request';
+export type AdjustmentType = 'intensity_reduction' | 'volume_reduction' | 'exercise_swap' | 'workout_merge' | 'rest_day' | 'deload';
+export type AdjustmentFeedback = 'too_easy' | 'just_right' | 'too_hard' | 'skipped';
+
+export interface DailyReadiness {
+  id: string;
+  user_id: string;
+  check_in_date: string;
+  sleep_quality: 1 | 2 | 3 | 4 | 5;
+  muscle_soreness: 1 | 2 | 3 | 4 | 5;
+  stress_level: 1 | 2 | 3 | 4 | 5;
+  notes: string | null;
+  readiness_score: number;
+  suggested_adjustment: ReadinessAdjustment | null;
+  adjustment_applied: ReadinessAdjustment | 'skipped' | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyReadinessInsert {
+  user_id?: string; // Will be set by RLS
+  check_in_date?: string;
+  sleep_quality: 1 | 2 | 3 | 4 | 5;
+  muscle_soreness: 1 | 2 | 3 | 4 | 5;
+  stress_level: 1 | 2 | 3 | 4 | 5;
+  notes?: string | null;
+  adjustment_applied?: ReadinessAdjustment | 'skipped' | null;
+}
+
+export interface TrainingProfile {
+  id: string;
+  user_id: string;
+  training_experience: TrainingExperience | null;
+  primary_goal: TrainingGoal | null;
+  typical_weekly_days: number | null;
+  average_session_minutes: number | null;
+  avg_sleep_quality: number | null;
+  avg_soreness_level: number | null;
+  avg_stress_level: number | null;
+  recovery_speed: RecoverySpeed | null;
+  preferred_exercises: string[];
+  avoided_exercises: string[];
+  preferred_rep_ranges: Record<string, string>;
+  available_equipment: string[];
+  current_training_phase: TrainingPhase | null;
+  weeks_in_current_phase: number;
+  annual_goals: AnnualGoal[];
+  competition_dates: string[];
+  total_workouts_logged: number;
+  total_volume_logged: number;
+  check_ins_completed: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnualGoal {
+  goal: string;
+  targetDate?: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface TrainingProfileUpdate {
+  training_experience?: TrainingExperience | null;
+  primary_goal?: TrainingGoal | null;
+  typical_weekly_days?: number | null;
+  available_equipment?: string[];
+  current_training_phase?: TrainingPhase | null;
+  annual_goals?: AnnualGoal[];
+  competition_dates?: string[];
+}
+
+export interface WorkoutAdjustment {
+  id: string;
+  user_id: string;
+  workout_id: string | null;
+  readiness_id: string | null;
+  trigger_type: AdjustmentTrigger;
+  trigger_context: Record<string, unknown> | null;
+  adjustment_type: AdjustmentType;
+  adjustment_details: AdjustmentDetails;
+  accepted: boolean | null;
+  modified: boolean;
+  user_override: Record<string, unknown> | null;
+  workout_completed: boolean | null;
+  user_feedback: AdjustmentFeedback | null;
+  created_at: string;
+}
+
+export interface AdjustmentDetails {
+  message: string;
+  changes: AdjustmentChange[];
+}
+
+export interface AdjustmentChange {
+  type: 'intensity' | 'volume' | 'exercise' | 'rest';
+  original?: string | number;
+  suggested?: string | number;
+  reason: string;
+}
+
+// Computed readiness analysis
+export interface ReadinessAnalysis {
+  score: number; // 0-100
+  suggestion: ReadinessAdjustment;
+  message: string;
+  details: {
+    sleepImpact: 'positive' | 'neutral' | 'negative';
+    sorenessImpact: 'positive' | 'neutral' | 'negative';
+    stressImpact: 'positive' | 'neutral' | 'negative';
+  };
+  recommendations: string[];
+}
+
 // Extended types with relations
 export interface WorkoutWithSets extends Workout {
   workout_sets: (WorkoutSet & { exercise: Exercise })[];
