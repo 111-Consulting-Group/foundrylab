@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { useSignup } from '@/hooks/useAuth';
 import { validateEmail, getPasswordStrength, validatePassword } from '@/lib/validation';
 import { Colors } from '@/constants/Colors';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -22,12 +23,16 @@ export default function SignupScreen() {
   const passwordsMatch = password === confirmPassword;
   // Only validate password if it has content
   let passwordValid = true;
+  let passwordError: string | undefined = undefined;
   if (password.length > 0) {
     try {
-      passwordValid = validatePassword(password).valid;
+      const validationResult = validatePassword(password);
+      passwordValid = validationResult.valid;
+      passwordError = validationResult.error;
     } catch (error) {
       console.error('Password validation error:', error);
       passwordValid = false;
+      passwordError = 'Password validation failed';
     }
   }
   // Allow submission if password is valid according to requirements, even if strength is 'weak'
@@ -153,7 +158,10 @@ export default function SignupScreen() {
             </TouchableOpacity>
           )}
         </View>
-        {password.length > 0 && (
+        {password.length > 0 && passwordError && (
+          <Text className="text-regression-500 text-sm mt-2">{passwordError}</Text>
+        )}
+        {password.length > 0 && !passwordError && (
           <View className="mt-2">
             <View className="flex-row items-center justify-between mb-1">
               <Text className="text-graphite-400 text-sm">Strength: {getPasswordStrengthLabel()}</Text>
