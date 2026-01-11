@@ -61,11 +61,17 @@ export const SetInput = React.memo(function SetInput({
   // Fetch exercise memory (last performance)
   const { data: exerciseMemory } = useExerciseMemory(exercise.id, workoutId);
 
+  // Check if this is a cardio exercise
+  const isCardio = exercise.modality === 'Cardio';
+
   // Type assertion for previous performance data
   const previousPerformance = rawPreviousPerformance as Array<{
     actual_weight?: number | null;
     actual_reps?: number | null;
     actual_rpe?: number | null;
+    duration_seconds?: number | null;
+    avg_pace?: string | null;
+    avg_hr?: number | null;
     is_warmup: boolean;
     set_order: number;
   }>;
@@ -75,24 +81,38 @@ export const SetInput = React.memo(function SetInput({
     (p) => !p.is_warmup && p.set_order === setNumber
   );
 
-  // Local state for inputs
+  // Local state for inputs - Strength
   const [weight, setWeight] = useState(
     targetLoad?.toString() || lastSessionSet?.actual_weight?.toString() || ''
   );
   const [reps, setReps] = useState(
     targetReps?.toString() || lastSessionSet?.actual_reps?.toString() || ''
   );
-  const [rpe, setRpe] = useState(targetRPE || lastSessionSet?.actual_rpe || 8);
   const [tempo, setTempo] = useState<string>('');
   const [isBodyweight, setIsBodyweight] = useState(false);
+
+  // Local state for inputs - Cardio
+  const [durationMinutes, setDurationMinutes] = useState<string>(
+    lastSessionSet?.duration_seconds 
+      ? Math.round(lastSessionSet.duration_seconds / 60).toString()
+      : ''
+  );
+  const [pace, setPace] = useState<string>(
+    lastSessionSet?.avg_pace || ''
+  );
+  const [heartRate, setHeartRate] = useState<string>(
+    lastSessionSet?.avg_hr?.toString() || ''
+  );
+
+  const [rpe, setRpe] = useState(targetRPE || lastSessionSet?.actual_rpe || 8);
   const [isCompleted, setIsCompleted] = useState(false);
   
-  // Use exercise memory for auto-populating weight if not already set
+  // Use exercise memory for auto-populating weight if not already set (strength only)
   useEffect(() => {
-    if (exerciseMemory?.lastWeight && !weight && !isBodyweight && !isCompleted && !targetLoad) {
+    if (!isCardio && exerciseMemory?.lastWeight && !weight && !isBodyweight && !isCompleted && !targetLoad) {
       setWeight(exerciseMemory.lastWeight.toString());
     }
-  }, [exerciseMemory?.lastWeight, weight, isBodyweight, isCompleted, targetLoad]);
+  }, [exerciseMemory?.lastWeight, weight, isBodyweight, isCompleted, targetLoad, isCardio]);
   const [showRPESlider, setShowRPESlider] = useState(false);
   const [showRestTimer, setShowRestTimer] = useState(false);
 
@@ -105,6 +125,43 @@ export const SetInput = React.memo(function SetInput({
 
   // Check for PR when set is logged
   const handleSaveSet = useCallback(() => {
+    if (isCardio) {
+      // Cardio validation: require duration (pace and HR are optional)
+      const durationMin = parseFloat(durationMinutes) || 0;
+      if (durationMin <= 0) return;
+
+      const setData: Omit<WorkoutSetInsert, 'workout_id' | 'exercise_id' | 'set_order'> = {
+        duration_seconds: Math.round(durationMin * 60),
+        avg_pace: pace.trim() || null,
+        avg_hr: heartRate ? parseInt(heartRate, 10) : null,
+        actual_rpe: rpe,
+        is_warmup: isWarmup,
+        is_pr: false, // TODO: Add PR detection for cardio (pace, duration)
+      };
+
+      // TODO: Add PR detection for cardio exercises
+      
+      // Animate completion
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      setIsCompleted(true);
+      // No rest timer for cardio
+      onSave(setData);
+      return;
+    }
+
+    // Strength exercise logic
     const weightNum = isBodyweight ? 0 : (parseFloat(weight) || 0);
     const repsNum = parseInt(reps, 10) || 0;
 
@@ -165,8 +222,8 @@ export const SetInput = React.memo(function SetInput({
     ]).start();
 
     setIsCompleted(true);
-    // Start rest timer if enabled and not a warmup set
-    if (restSeconds > 0 && !isWarmup) {
+    // Start rest timer if enabled and not a warmup set (strength only)
+    if (restSeconds > 0 && !isWarmup && !isCardio) {
       setShowRestTimer(true);
     }
     onSave(setData);
@@ -186,6 +243,10 @@ export const SetInput = React.memo(function SetInput({
     workoutId,
     exercise.id,
     setNumber,
+    isCardio,
+    durationMinutes,
+    pace,
+    heartRate,
   ]);
 
   return (
@@ -207,8 +268,8 @@ export const SetInput = React.memo(function SetInput({
           : 'border-graphite-200'
       }`}
     >
-      {/* Exercise Memory - Last Time */}
-      {exerciseMemory && !isWarmup && !isCompleted && (
+      {/* Exercise Memory - Last Time (Strength only) */}
+      {!isCardio && exerciseMemory && !isWarmup && !isCompleted && (
         <View
           className={`mb-3 p-3 rounded-lg ${
             isDark ? 'bg-signal-500/10 border-signal-500/30' : 'bg-signal-500/5 border-signal-500/20'
@@ -224,8 +285,8 @@ export const SetInput = React.memo(function SetInput({
         </View>
       )}
 
-      {/* Progression Suggestion */}
-      {(() => {
+      {/* Progression Suggestion (Strength only) */}
+      {!isCardio && (() => {
         // Convert previous performance to SetData format for suggestProgression
         const historyForSuggestion: ProgressionSetData[] = previousPerformance
           .filter(p => !p.is_warmup && p.actual_weight && p.actual_reps)
@@ -314,108 +375,195 @@ export const SetInput = React.memo(function SetInput({
       )}
 
       {/* Input Row */}
-      <View className="flex-row items-center gap-3 mb-3">
-        {/* Weight Input */}
-        <View className="flex-1">
-          <View className="flex-row items-center justify-between mb-1">
-            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-              Weight (lbs)
+      {isCardio ? (
+        // Cardio Inputs
+        <View className="gap-3 mb-3">
+          {/* Duration and Pace Row */}
+          <View className="flex-row items-center gap-3">
+            {/* Duration Input */}
+            <View className="flex-1">
+              <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                Duration (min)
+              </Text>
+              <TextInput
+                className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
+                  isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
+                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                value={durationMinutes}
+                onChangeText={setDurationMinutes}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+                editable={!isCompleted}
+              />
+            </View>
+
+            {/* Pace Input */}
+            <View className="flex-1">
+              <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                Pace (optional)
+              </Text>
+              <TextInput
+                className={`px-3 py-2 rounded-lg text-center text-base font-semibold ${
+                  isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
+                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                value={pace}
+                onChangeText={setPace}
+                placeholder="7:30/mile"
+                placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+                editable={!isCompleted}
+              />
+            </View>
+          </View>
+
+          {/* Heart Rate and RPE Row */}
+          <View className="flex-row items-center gap-3">
+            {/* Heart Rate Input */}
+            <View className="flex-1">
+              <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                Heart Rate (bpm)
+              </Text>
+              <TextInput
+                className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
+                  isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
+                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                value={heartRate}
+                onChangeText={setHeartRate}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+                editable={!isCompleted}
+              />
+            </View>
+
+            {/* RPE Button/Display */}
+            <View className="flex-1">
+              <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                RPE
+              </Text>
+              <Pressable
+                className={`px-3 py-2 rounded-lg items-center ${
+                  isDark ? 'bg-graphite-900' : 'bg-graphite-50'
+                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                onPress={() => !isCompleted && setShowRPESlider(!showRPESlider)}
+                disabled={isCompleted}
+              >
+                <Text
+                  className={`text-lg font-semibold ${
+                    rpe >= 9 ? 'text-oxide-500' : isDark ? 'text-graphite-100' : 'text-graphite-900'
+                  }`}
+                >
+                  {rpe}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      ) : (
+        // Strength Inputs
+        <View className="flex-row items-center gap-3 mb-3">
+          {/* Weight Input */}
+          <View className="flex-1">
+            <View className="flex-row items-center justify-between mb-1">
+              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                Weight (lbs)
+              </Text>
+              <Pressable
+                onPress={() => {
+                  if (!isCompleted) {
+                    setIsBodyweight(!isBodyweight);
+                    if (!isBodyweight) {
+                      setWeight('0');
+                    }
+                  }
+                }}
+                disabled={isCompleted}
+              >
+                <View className={`flex-row items-center px-2 py-0.5 rounded ${
+                  isBodyweight 
+                    ? 'bg-signal-500/20' 
+                    : isDark 
+                      ? 'bg-graphite-700' 
+                      : 'bg-graphite-100'
+                }`}>
+                  <Ionicons 
+                    name={isBodyweight ? 'checkmark-circle' : 'ellipse-outline'} 
+                    size={14} 
+                    color={isBodyweight ? '#2F80ED' : (isDark ? '#808fb0' : '#607296')} 
+                  />
+                  <Text className={`text-xs ml-1 ${
+                    isBodyweight 
+                      ? 'text-signal-500 font-semibold' 
+                      : isDark 
+                        ? 'text-graphite-400' 
+                        : 'text-graphite-500'
+                  }`}>
+                    BW
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+            <TextInput
+              className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
+                isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
+              } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+              value={isBodyweight ? 'BW' : weight}
+              onChangeText={(text) => {
+                if (isBodyweight) return;
+                setWeight(text);
+              }}
+              keyboardType="decimal-pad"
+              placeholder={isBodyweight ? 'BW' : '0'}
+              placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+              editable={!isCompleted && !isBodyweight}
+            />
+          </View>
+
+          <Text className={`text-xl ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>x</Text>
+
+          {/* Reps Input */}
+          <View className="flex-1">
+            <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              Reps
+            </Text>
+            <TextInput
+              className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
+                isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
+              } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+              value={reps}
+              onChangeText={setReps}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+              editable={!isCompleted}
+            />
+          </View>
+
+          <Text className={`text-xl ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>@</Text>
+
+          {/* RPE Button/Display */}
+          <View className="flex-1">
+            <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              RPE
             </Text>
             <Pressable
-              onPress={() => {
-                if (!isCompleted) {
-                  setIsBodyweight(!isBodyweight);
-                  if (!isBodyweight) {
-                    setWeight('0');
-                  }
-                }
-              }}
+              className={`px-3 py-2 rounded-lg items-center ${
+                isDark ? 'bg-graphite-900' : 'bg-graphite-50'
+              } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+              onPress={() => !isCompleted && setShowRPESlider(!showRPESlider)}
               disabled={isCompleted}
             >
-              <View className={`flex-row items-center px-2 py-0.5 rounded ${
-                isBodyweight 
-                  ? 'bg-signal-500/20' 
-                  : isDark 
-                    ? 'bg-graphite-700' 
-                    : 'bg-graphite-100'
-              }`}>
-                <Ionicons 
-                  name={isBodyweight ? 'checkmark-circle' : 'ellipse-outline'} 
-                  size={14} 
-                  color={isBodyweight ? '#2F80ED' : (isDark ? '#808fb0' : '#607296')} 
-                />
-                <Text className={`text-xs ml-1 ${
-                  isBodyweight 
-                    ? 'text-signal-500 font-semibold' 
-                    : isDark 
-                      ? 'text-graphite-400' 
-                      : 'text-graphite-500'
-                }`}>
-                  BW
-                </Text>
-              </View>
+              <Text
+                className={`text-lg font-semibold ${
+                  rpe >= 9 ? 'text-oxide-500' : isDark ? 'text-graphite-100' : 'text-graphite-900'
+                }`}
+              >
+                {rpe}
+              </Text>
             </Pressable>
           </View>
-          <TextInput
-            className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
-              isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-            value={isBodyweight ? 'BW' : weight}
-            onChangeText={(text) => {
-              if (isBodyweight) return;
-              setWeight(text);
-            }}
-            keyboardType="decimal-pad"
-            placeholder={isBodyweight ? 'BW' : '0'}
-            placeholderTextColor={isDark ? '#607296' : '#808fb0'}
-            editable={!isCompleted && !isBodyweight}
-          />
         </View>
-
-        <Text className={`text-xl ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>x</Text>
-
-        {/* Reps Input */}
-        <View className="flex-1">
-          <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-            Reps
-          </Text>
-          <TextInput
-            className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
-              isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-            value={reps}
-            onChangeText={setReps}
-            keyboardType="number-pad"
-            placeholder="0"
-            placeholderTextColor={isDark ? '#607296' : '#808fb0'}
-            editable={!isCompleted}
-          />
-        </View>
-
-        <Text className={`text-xl ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>@</Text>
-
-        {/* RPE Button/Display */}
-        <View className="flex-1">
-          <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-            RPE
-          </Text>
-          <Pressable
-            className={`px-3 py-2 rounded-lg items-center ${
-              isDark ? 'bg-graphite-900' : 'bg-graphite-50'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-            onPress={() => !isCompleted && setShowRPESlider(!showRPESlider)}
-            disabled={isCompleted}
-          >
-            <Text
-              className={`text-lg font-semibold ${
-                rpe >= 9 ? 'text-oxide-500' : isDark ? 'text-graphite-100' : 'text-graphite-900'
-              }`}
-            >
-              {rpe}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
+      )}
 
       {/* RPE Slider (expandable) */}
       {showRPESlider && !isCompleted && (
@@ -441,8 +589,8 @@ export const SetInput = React.memo(function SetInput({
         </View>
       )}
 
-      {/* Tempo Input */}
-      {!isCompleted && (
+      {/* Tempo Input (Strength only) */}
+      {!isCardio && !isCompleted && (
         <View className="flex-row items-center mb-3">
           <Text className={`text-xs mr-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
             Tempo:
@@ -463,7 +611,7 @@ export const SetInput = React.memo(function SetInput({
 
       {/* E1RM and Save Button */}
       <View className="flex-row items-center justify-between">
-        {currentE1RM > 0 && (
+        {!isCardio && currentE1RM > 0 && (
           <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
             Est. 1RM: <Text className="font-semibold text-signal-500">{currentE1RM} lbs</Text>
           </Text>
@@ -473,14 +621,38 @@ export const SetInput = React.memo(function SetInput({
         {!isCompleted && (
           <Pressable
             className={`px-6 py-2 rounded-full ${
-              (isBodyweight || weight) && reps ? 'bg-signal-500' : isDark ? 'bg-graphite-700' : 'bg-graphite-200'
+              isCardio
+                ? durationMinutes && parseFloat(durationMinutes) > 0
+                  ? 'bg-signal-500'
+                  : isDark
+                  ? 'bg-graphite-700'
+                  : 'bg-graphite-200'
+                : (isBodyweight || weight) && reps
+                ? 'bg-signal-500'
+                : isDark
+                ? 'bg-graphite-700'
+                : 'bg-graphite-200'
             }`}
             onPress={handleSaveSet}
-            disabled={(!isBodyweight && !weight) || !reps}
+            disabled={
+              isCardio
+                ? !durationMinutes || parseFloat(durationMinutes) <= 0
+                : (!isBodyweight && !weight) || !reps
+            }
           >
             <Text
               className={`font-semibold ${
-                (isBodyweight || weight) && reps ? 'text-white' : isDark ? 'text-graphite-500' : 'text-graphite-400'
+                isCardio
+                  ? durationMinutes && parseFloat(durationMinutes) > 0
+                    ? 'text-white'
+                    : isDark
+                    ? 'text-graphite-500'
+                    : 'text-graphite-400'
+                  : (isBodyweight || weight) && reps
+                  ? 'text-white'
+                  : isDark
+                  ? 'text-graphite-500'
+                  : 'text-graphite-400'
               }`}
             >
               Log Set

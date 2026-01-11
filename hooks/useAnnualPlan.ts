@@ -8,7 +8,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
-import { useAuth } from '@/components/AuthProvider';
+import { useAppStore } from '@/stores/useAppStore';
 import {
   generateBlockRecommendations,
   generateAnnualTimeline,
@@ -53,18 +53,18 @@ const GC_TIME = 10 * 60 * 1000; // 10 minutes
  * Fetch active annual plan for the current year
  */
 export function useActiveAnnualPlan() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const currentYear = new Date().getFullYear();
 
   return useQuery({
-    queryKey: [ANNUAL_QUERIES.activePlan, user?.id, currentYear],
+    queryKey: [ANNUAL_QUERIES.activePlan, userId, currentYear],
     queryFn: async (): Promise<AnnualPlan | null> => {
-      if (!user?.id) return null;
+      if (!userId) return null;
 
       const { data, error } = await supabase
         .from('annual_plans')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('year', currentYear)
         .eq('is_active', true)
         .single();
@@ -72,7 +72,7 @@ export function useActiveAnnualPlan() {
       if (error && error.code !== 'PGRST116') throw error;
       return data as AnnualPlan | null;
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
     staleTime: STALE_TIME,
     gcTime: GC_TIME,
   });
@@ -82,23 +82,23 @@ export function useActiveAnnualPlan() {
  * Fetch all annual plans for user
  */
 export function useAnnualPlans() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: [ANNUAL_QUERIES.plans, user?.id],
+    queryKey: [ANNUAL_QUERIES.plans, userId],
     queryFn: async (): Promise<AnnualPlan[]> => {
-      if (!user?.id) return [];
+      if (!userId) return [];
 
       const { data, error } = await supabase
         .from('annual_plans')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('year', { ascending: false });
 
       if (error) throw error;
       return data as AnnualPlan[];
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
     staleTime: STALE_TIME,
     gcTime: GC_TIME,
   });
@@ -108,7 +108,7 @@ export function useAnnualPlans() {
  * Create a new annual plan
  */
 export function useCreateAnnualPlan() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -119,12 +119,12 @@ export function useCreateAnnualPlan() {
       target_metrics?: TargetMetrics;
       competition_focus?: boolean;
     }) => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('annual_plans')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name: params.name || `${params.year || new Date().getFullYear()} Training Plan`,
           year: params.year || new Date().getFullYear(),
           primary_goal: params.primary_goal,
@@ -149,7 +149,7 @@ export function useCreateAnnualPlan() {
  * Update annual plan
  */
 export function useUpdateAnnualPlan() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -157,13 +157,13 @@ export function useUpdateAnnualPlan() {
       id: string;
       updates: Partial<AnnualPlan>;
     }) => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('annual_plans')
         .update({ ...params.updates, updated_at: new Date().toISOString() })
         .eq('id', params.id)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -185,17 +185,17 @@ export function useUpdateAnnualPlan() {
  * Fetch competitions for a plan or all user competitions
  */
 export function useCompetitions(planId?: string) {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: [ANNUAL_QUERIES.competitions, user?.id, planId],
+    queryKey: [ANNUAL_QUERIES.competitions, userId, planId],
     queryFn: async (): Promise<Competition[]> => {
-      if (!user?.id) return [];
+      if (!userId) return [];
 
       let query = supabase
         .from('competitions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('event_date', { ascending: true });
 
       if (planId) {
@@ -206,7 +206,7 @@ export function useCompetitions(planId?: string) {
       if (error) throw error;
       return data as Competition[];
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
     staleTime: STALE_TIME,
     gcTime: GC_TIME,
   });
@@ -216,17 +216,17 @@ export function useCompetitions(planId?: string) {
  * Fetch upcoming competitions
  */
 export function useUpcomingCompetitions() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: [ANNUAL_QUERIES.competitions, user?.id, 'upcoming'],
+    queryKey: [ANNUAL_QUERIES.competitions, userId, 'upcoming'],
     queryFn: async (): Promise<Competition[]> => {
-      if (!user?.id) return [];
+      if (!userId) return [];
 
       const { data, error } = await supabase
         .from('competitions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('status', 'upcoming')
         .gte('event_date', new Date().toISOString().split('T')[0])
         .order('event_date', { ascending: true });
@@ -234,7 +234,7 @@ export function useUpcomingCompetitions() {
       if (error) throw error;
       return data as Competition[];
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
     staleTime: STALE_TIME,
     gcTime: GC_TIME,
   });
@@ -244,7 +244,7 @@ export function useUpcomingCompetitions() {
  * Create a new competition
  */
 export function useCreateCompetition() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -257,12 +257,12 @@ export function useCreateCompetition() {
       weight_class?: string;
       annual_plan_id?: string;
     }) => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('competitions')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           ...params,
           priority: params.priority || 'primary',
         })
@@ -284,7 +284,7 @@ export function useCreateCompetition() {
  * Update a competition
  */
 export function useUpdateCompetition() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -292,13 +292,13 @@ export function useUpdateCompetition() {
       id: string;
       updates: Partial<Competition>;
     }) => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('competitions')
         .update({ ...params.updates, updated_at: new Date().toISOString() })
         .eq('id', params.id)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -316,18 +316,18 @@ export function useUpdateCompetition() {
  * Delete a competition
  */
 export function useDeleteCompetition() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (competitionId: string) => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { error } = await supabase
         .from('competitions')
         .delete()
         .eq('id', competitionId)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
     },
@@ -346,17 +346,17 @@ export function useDeleteCompetition() {
  * Fetch planned blocks for a plan
  */
 export function usePlannedBlocks(planId?: string) {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: [ANNUAL_QUERIES.plannedBlocks, user?.id, planId],
+    queryKey: [ANNUAL_QUERIES.plannedBlocks, userId, planId],
     queryFn: async (): Promise<PlannedBlock[]> => {
-      if (!user?.id) return [];
+      if (!userId) return [];
 
       let query = supabase
         .from('planned_blocks')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('planned_start_date', { ascending: true });
 
       if (planId) {
@@ -367,7 +367,7 @@ export function usePlannedBlocks(planId?: string) {
       if (error) throw error;
       return data as PlannedBlock[];
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
     staleTime: STALE_TIME,
     gcTime: GC_TIME,
   });
@@ -377,18 +377,18 @@ export function usePlannedBlocks(planId?: string) {
  * Create a planned block
  */
 export function useCreatePlannedBlock() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (block: Omit<PlannedBlock, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('planned_blocks')
         .insert({
           ...block,
-          user_id: user.id,
+          user_id: userId,
         })
         .select()
         .single();
@@ -407,7 +407,7 @@ export function useCreatePlannedBlock() {
  * Update a planned block
  */
 export function useUpdatePlannedBlock() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -415,13 +415,13 @@ export function useUpdatePlannedBlock() {
       id: string;
       updates: Partial<PlannedBlock>;
     }) => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('planned_blocks')
         .update({ ...params.updates, updated_at: new Date().toISOString() })
         .eq('id', params.id)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -439,18 +439,18 @@ export function useUpdatePlannedBlock() {
  * Delete a planned block
  */
 export function useDeletePlannedBlock() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (blockId: string) => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { error } = await supabase
         .from('planned_blocks')
         .delete()
         .eq('id', blockId)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
     },
@@ -469,24 +469,24 @@ export function useDeletePlannedBlock() {
  * Get intelligent block recommendations based on context
  */
 export function useBlockRecommendations() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: [ANNUAL_QUERIES.recommendations, user?.id],
+    queryKey: [ANNUAL_QUERIES.recommendations, userId],
     queryFn: async (): Promise<BlockRecommendation[]> => {
-      if (!user?.id) return [];
+      if (!userId) return [];
 
       // Gather context
       const [profileResult, competitionsResult, blocksResult] = await Promise.all([
         supabase
           .from('training_profiles')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .single(),
         supabase
           .from('competitions')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('status', 'upcoming')
           .gte('event_date', new Date().toISOString().split('T')[0])
           .order('event_date', { ascending: true })
@@ -494,7 +494,7 @@ export function useBlockRecommendations() {
         supabase
           .from('planned_blocks')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('planned_start_date', { ascending: false })
           .limit(5),
       ]);
@@ -514,7 +514,7 @@ export function useBlockRecommendations() {
 
       return generateBlockRecommendations(context);
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
     staleTime: STALE_TIME,
     gcTime: GC_TIME,
   });
@@ -528,7 +528,7 @@ export function useBlockRecommendations() {
  * Generate or fetch annual timeline
  */
 export function useAnnualTimeline(planId?: string) {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const { data: plan } = useActiveAnnualPlan();
   const { data: competitions = [] } = useCompetitions(planId);
   const { data: plannedBlocks = [] } = usePlannedBlocks(planId);

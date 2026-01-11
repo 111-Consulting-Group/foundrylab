@@ -8,7 +8,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useAuth } from '@/components/AuthProvider';
+import { useAppStore } from '@/stores/useAppStore';
 import {
   buildContextSnapshot,
   buildSystemPrompt,
@@ -64,12 +64,12 @@ const MESSAGES_STALE_TIME = 30 * 1000; // 30 seconds
  * Gather all relevant training context for the AI coach
  */
 export function useCoachContext() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: [COACH_QUERIES.context, user?.id],
+    queryKey: [COACH_QUERIES.context, userId],
     queryFn: async (): Promise<CoachContext> => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       // Fetch all context data in parallel
       const [
@@ -84,14 +84,14 @@ export function useCoachContext() {
         supabase
           .from('training_profiles')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .single(),
 
         // Active training block
         supabase
           .from('training_blocks')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('is_active', true)
           .single(),
 
@@ -99,7 +99,7 @@ export function useCoachContext() {
         supabase
           .from('daily_readiness')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('check_in_date', new Date().toISOString().split('T')[0])
           .single(),
 
@@ -107,7 +107,7 @@ export function useCoachContext() {
         supabase
           .from('workouts')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('date_completed', { ascending: false, nullsFirst: false })
           .limit(10),
 
@@ -115,7 +115,7 @@ export function useCoachContext() {
         supabase
           .from('personal_records')
           .select('*, exercises(name)')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('is_current', true)
           .order('achieved_at', { ascending: false })
           .limit(5),
@@ -124,7 +124,7 @@ export function useCoachContext() {
         supabase
           .from('goals')
           .select('*, exercises(name)')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('status', 'active'),
       ]);
 
@@ -169,7 +169,7 @@ export function useCoachContext() {
         goals: goalsWithNames as Goal[],
       };
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
     staleTime: CONTEXT_STALE_TIME,
     gcTime: CONTEXT_STALE_TIME * 2,
   });
@@ -183,17 +183,17 @@ export function useCoachContext() {
  * Fetch user's coach conversations
  */
 export function useCoachConversations() {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: [COACH_QUERIES.conversations, user?.id],
+    queryKey: [COACH_QUERIES.conversations, userId],
     queryFn: async (): Promise<CoachConversation[]> => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('coach_conversations')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
         .limit(20);
@@ -201,7 +201,7 @@ export function useCoachConversations() {
       if (error) throw error;
       return data as CoachConversation[];
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
     staleTime: MESSAGES_STALE_TIME,
   });
 }
@@ -210,7 +210,7 @@ export function useCoachConversations() {
  * Fetch messages for a specific conversation
  */
 export function useConversationMessages(conversationId: string | null) {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
 
   return useQuery({
     queryKey: [COACH_QUERIES.messages, conversationId],
@@ -226,7 +226,7 @@ export function useConversationMessages(conversationId: string | null) {
       if (error) throw error;
       return data as CoachMessage[];
     },
-    enabled: !!user?.id && !!conversationId,
+    enabled: !!userId && !!conversationId,
     staleTime: MESSAGES_STALE_TIME,
   });
 }
@@ -243,7 +243,7 @@ interface UseCoachOptions {
 }
 
 export function useCoach(options: UseCoachOptions = {}) {
-  const { user } = useAuth();
+  const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
 
   // Local state for current conversation
@@ -282,12 +282,12 @@ export function useCoach(options: UseCoachOptions = {}) {
   // Create new conversation mutation
   const createConversation = useMutation({
     mutationFn: async (contextType: ConversationContextType = 'general') => {
-      if (!user?.id) throw new Error('Not authenticated');
+      if (!userId) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('coach_conversations')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           context_type: contextType,
           workout_id: options.workoutId || null,
           block_id: options.blockId || null,
@@ -313,18 +313,18 @@ export function useCoach(options: UseCoachOptions = {}) {
       contextSnapshot?: ContextSnapshot,
       suggestedAction?: ChatMessage['suggestedAction']
     ) => {
-      if (!user?.id) return;
+      if (!userId) return;
 
       await supabase.from('coach_messages').insert({
         conversation_id: conversationId,
-        user_id: user.id,
+        user_id: userId,
         role,
         content,
         context_snapshot: contextSnapshot || null,
         suggested_action: suggestedAction || null,
       });
     },
-    [user?.id]
+    [userId]
   );
 
   // AbortController ref for cleanup
@@ -340,7 +340,7 @@ export function useCoach(options: UseCoachOptions = {}) {
   // Send message to AI
   const sendMessage = useCallback(
     async (userMessage: string) => {
-      if (!user?.id || !context) return;
+      if (!userId || !context) return;
 
       // Input validation
       const trimmedMessage = userMessage.trim();
@@ -479,7 +479,7 @@ export function useCoach(options: UseCoachOptions = {}) {
       }
     },
     [
-      user?.id,
+      userId,
       context,
       currentConversationId,
       createConversation,
