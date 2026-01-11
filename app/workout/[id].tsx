@@ -16,6 +16,7 @@ import { ExercisePicker } from '@/components/ExercisePicker';
 import { PRCelebration } from '@/components/PRCelebration';
 import { RestTimer } from '@/components/RestTimer';
 import { SetInput } from '@/components/SetInput';
+import { SubstitutionPicker } from '@/components/SubstitutionPicker';
 import { useColorScheme } from '@/components/useColorScheme';
 import { detectProgression, getProgressionTypeString, type SetData } from '@/lib/progression';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
@@ -91,6 +92,10 @@ export default function ActiveWorkoutScreen() {
   // Superset/circuit management
   const nextSupersetGroup = useRef(1);
   const [supersetMode, setSupersetMode] = useState(false); // When true, next added exercise joins current superset
+
+  // Substitution picker state
+  const [showSubstitutionPicker, setShowSubstitutionPicker] = useState(false);
+  const [substitutionExerciseIndex, setSubstitutionExerciseIndex] = useState<number | null>(null);
 
   // Calculate elapsed time
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
@@ -262,6 +267,22 @@ export default function ActiveWorkoutScreen() {
 
       return updated;
     });
+  }, []);
+
+  // Handle exercise substitution
+  const handleSubstituteExercise = useCallback((exerciseIndex: number, newExercise: Exercise) => {
+    setTrackedExercises((prev) => {
+      const updated = [...prev];
+      const old = updated[exerciseIndex];
+      updated[exerciseIndex] = {
+        ...old,
+        exercise: newExercise,
+        sets: [1], // Reset sets for new exercise
+      };
+      return updated;
+    });
+    setShowSubstitutionPicker(false);
+    setSubstitutionExerciseIndex(null);
   }, []);
 
   // Save a set
@@ -778,6 +799,20 @@ export default function ActiveWorkoutScreen() {
                     </Text>
                   </View>
                   <Pressable
+                    onPress={() => {
+                      setSubstitutionExerciseIndex(exerciseIndex);
+                      setShowSubstitutionPicker(true);
+                    }}
+                    className="p-2"
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name="swap-horizontal"
+                      size={20}
+                      color={isDark ? '#808fb0' : '#607296'}
+                    />
+                  </Pressable>
+                  <Pressable
                     onPress={() => handleDeleteExercise(exerciseIndex)}
                     className="p-2 -mr-2"
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -1135,6 +1170,19 @@ export default function ActiveWorkoutScreen() {
         prType={prType}
         value={prValue}
       />
+
+      {/* Substitution Picker Modal */}
+      {substitutionExerciseIndex !== null && trackedExercises[substitutionExerciseIndex] && (
+        <SubstitutionPicker
+          visible={showSubstitutionPicker}
+          onClose={() => {
+            setShowSubstitutionPicker(false);
+            setSubstitutionExerciseIndex(null);
+          }}
+          exercise={trackedExercises[substitutionExerciseIndex].exercise}
+          onSelectSubstitution={(newExercise) => handleSubstituteExercise(substitutionExerciseIndex, newExercise)}
+        />
+      )}
     </SafeAreaView>
   );
 }
