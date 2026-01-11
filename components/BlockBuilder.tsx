@@ -38,6 +38,11 @@ type BuilderStep = 'goal' | 'config' | 'preview' | 'saving';
 interface BlockBuilderProps {
   onComplete: (blockId: string) => void;
   onCancel: () => void;
+  initialConfig?: {
+    goal?: TrainingGoal;
+    durationWeeks?: number;
+    daysPerWeek?: number;
+  };
 }
 
 // ============================================================================
@@ -560,6 +565,7 @@ function PreviewStep({
 export const BlockBuilder = React.memo(function BlockBuilder({
   onComplete,
   onCancel,
+  initialConfig,
 }: BlockBuilderProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -574,10 +580,18 @@ export const BlockBuilder = React.memo(function BlockBuilder({
     generatedBlock,
   } = useBlockBuilder();
 
-  const [step, setStep] = useState<BuilderStep>('goal');
-  const [config, setConfig] = useState<Partial<BlockConfig>>(() =>
-    getRecommendedConfig(profile)
-  );
+  // Determine initial step based on initialConfig
+  const [step, setStep] = useState<BuilderStep>(() => {
+    if (initialConfig?.goal && initialConfig?.durationWeeks) {
+      return 'config'; // Skip goal if pre-filled
+    }
+    return 'goal';
+  });
+
+  const [config, setConfig] = useState<Partial<BlockConfig>>(() => ({
+    ...getRecommendedConfig(profile),
+    ...initialConfig,
+  }));
 
   const updateConfig = useCallback((updates: Partial<BlockConfig>) => {
     setConfig((prev) => ({ ...prev, ...updates }));

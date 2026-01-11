@@ -86,11 +86,21 @@ export default function ProgramScreen() {
             Generate a training block with AI or create one manually to get started
           </Text>
           <Link href="/block-builder" asChild>
-            <Pressable className="px-6 py-3 rounded-xl bg-signal-500">
+            <Pressable className="px-6 py-3 rounded-xl bg-signal-500 mb-3">
               <View className="flex-row items-center">
                 <Ionicons name="sparkles" size={20} color="#ffffff" />
                 <Text className="text-white font-semibold ml-2">
                   Build with AI
+                </Text>
+              </View>
+            </Pressable>
+          </Link>
+          <Link href="/annual-plan" asChild>
+            <Pressable className={`px-6 py-3 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-graphite-100'}`}>
+              <View className="flex-row items-center">
+                <Ionicons name="calendar" size={20} color={isDark ? '#808fb0' : '#607296'} />
+                <Text className={`font-medium ml-2 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                  Plan Your Year
                 </Text>
               </View>
             </Pressable>
@@ -129,15 +139,26 @@ export default function ProgramScreen() {
                   {activeBlock?.description ? ` • ${activeBlock.description.slice(0, 30)}...` : ''}
                 </Text>
               </View>
-              <Link href="/block-builder" asChild>
-                <Pressable className="p-2">
-                  <Ionicons
-                    name="add-circle"
-                    size={28}
-                    color={isDark ? '#2F80ED' : '#2F80ED'}
-                  />
-                </Pressable>
-              </Link>
+              <View className="flex-row items-center">
+                <Link href="/annual-plan" asChild>
+                  <Pressable className="p-2 mr-1">
+                    <Ionicons
+                      name="calendar"
+                      size={24}
+                      color={isDark ? '#808fb0' : '#607296'}
+                    />
+                  </Pressable>
+                </Link>
+                <Link href="/block-builder" asChild>
+                  <Pressable className="p-2">
+                    <Ionicons
+                      name="add-circle"
+                      size={28}
+                      color={isDark ? '#2F80ED' : '#2F80ED'}
+                    />
+                  </Pressable>
+                </Link>
+              </View>
             </View>
 
             {/* Progress Bar */}

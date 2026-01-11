@@ -725,3 +725,158 @@ export interface CoachContext {
   recentPRs: PersonalRecord[];
   goals: Goal[];
 }
+
+// ============================================================================
+// ANNUAL PERIODIZATION TYPES
+// ============================================================================
+
+export type EventType = 'powerlifting_meet' | 'weightlifting_meet' | 'strongman' | 'crossfit_comp' | 'sport_season' | 'photo_shoot' | 'vacation' | 'other';
+export type EventPriority = 'primary' | 'secondary' | 'tune_up';
+export type EventStatus = 'upcoming' | 'completed' | 'cancelled';
+export type BlockType = 'accumulation' | 'intensification' | 'realization' | 'peaking' | 'deload' | 'transition' | 'base_building' | 'hypertrophy' | 'strength' | 'power';
+export type VolumeLevel = 'low' | 'moderate' | 'high' | 'very_high';
+export type PlannedBlockStatus = 'planned' | 'active' | 'completed' | 'skipped';
+export type TransitionTrigger = 'scheduled' | 'user_initiated' | 'ai_recommended' | 'competition_prep' | 'recovery_needed';
+
+export interface AnnualPlan {
+  id: string;
+  user_id: string;
+  name: string;
+  year: number;
+  description: string | null;
+  primary_goal: TrainingGoal | null;
+  secondary_goals: string[];
+  target_metrics: TargetMetrics;
+  preferred_block_length: number;
+  deload_frequency: number;
+  competition_focus: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TargetMetrics {
+  squat?: number;
+  bench?: number;
+  deadlift?: number;
+  bodyweight?: number;
+  [key: string]: number | undefined;
+}
+
+export interface Competition {
+  id: string;
+  user_id: string;
+  annual_plan_id: string | null;
+  name: string;
+  event_type: EventType;
+  event_date: string;
+  priority: EventPriority;
+  target_lifts: TargetMetrics | null;
+  weight_class: string | null;
+  status: EventStatus;
+  result_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlannedBlock {
+  id: string;
+  user_id: string;
+  annual_plan_id: string | null;
+  name: string;
+  description: string | null;
+  block_type: BlockType;
+  planned_start_date: string;
+  duration_weeks: number;
+  primary_focus: 'strength' | 'hypertrophy' | 'power' | 'conditioning' | 'technique' | 'recovery' | null;
+  target_metrics: TargetMetrics | null;
+  volume_level: VolumeLevel;
+  intensity_level: VolumeLevel;
+  training_block_id: string | null;
+  sequence_order: number;
+  depends_on_competition: string | null;
+  status: PlannedBlockStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PhaseTransition {
+  id: string;
+  user_id: string;
+  from_phase: TrainingPhase | null;
+  to_phase: TrainingPhase;
+  from_block_id: string | null;
+  to_block_id: string | null;
+  trigger_type: TransitionTrigger;
+  trigger_reason: string | null;
+  recommendation_context: Record<string, unknown> | null;
+  alternatives_considered: BlockRecommendation[] | null;
+  accepted: boolean | null;
+  user_modification: string | null;
+  transition_date: string;
+  created_at: string;
+}
+
+export interface BlockRecommendation {
+  block_type: BlockType;
+  duration_weeks: number;
+  reasoning: string;
+  confidence: number;
+  volume_level: VolumeLevel;
+  intensity_level: VolumeLevel;
+  primary_focus: string;
+}
+
+export interface AnnualOverview {
+  plan_id: string;
+  user_id: string;
+  year: number;
+  plan_name: string;
+  primary_goal: TrainingGoal | null;
+  is_active: boolean;
+  competition_count: number;
+  next_competition: {
+    id: string;
+    name: string;
+    date: string;
+    days_until: number;
+  } | null;
+  planned_blocks_count: number;
+  current_block: {
+    id: string;
+    name: string;
+    type: BlockType;
+    weeks_remaining: number;
+  } | null;
+  next_block: {
+    id: string;
+    name: string;
+    type: BlockType;
+    starts_in_days: number;
+  } | null;
+}
+
+// Calendar visualization types
+export interface CalendarMonth {
+  year: number;
+  month: number;
+  weeks: CalendarWeek[];
+}
+
+export interface CalendarWeek {
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  block?: PlannedBlock;
+  competition?: Competition;
+  phase?: TrainingPhase;
+}
+
+export interface PeriodizationTimeline {
+  startDate: string;
+  endDate: string;
+  blocks: PlannedBlock[];
+  competitions: Competition[];
+  currentWeek: number;
+  totalWeeks: number;
+}
