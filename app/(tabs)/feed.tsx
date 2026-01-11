@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useFeed, useLikePost, useSearchUsers } from '@/hooks/useSocial';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
+import { summarizeWorkoutExercises, formatExerciseForFeed, getProgressionBadge, getModalityIcon } from '@/lib/feedUtils';
 import { formatDistanceToNow } from 'date-fns';
 import type { WorkoutWithSets } from '@/types/database';
 
@@ -88,11 +89,9 @@ export default function FeedScreen() {
                 const context = detectWorkoutContext(workout);
                 const contextInfo = getContextInfo(context);
 
-                // Calculate progression deltas (simplified - show first exercise with PR)
-                const prSet = workout.workout_sets?.find((set) => set.is_pr && !set.is_warmup);
-                const progressionText = prSet
-                  ? `${prSet.exercise?.name}: ${prSet.actual_weight} × ${prSet.actual_reps} (PR)`
-                  : null;
+                // Get all exercises with their progression summaries
+                const exerciseSummaries = summarizeWorkoutExercises(workout.workout_sets || []);
+                const prCount = exerciseSummaries.filter(e => e.isPR).length;
 
                 return (
                   <Pressable
@@ -117,20 +116,23 @@ export default function FeedScreen() {
                           {formatDate(post.created_at)}
                         </Text>
                       </View>
+                      {prCount > 0 && (
+                        <View className="flex-row items-center px-2 py-1 rounded-full bg-signal-500/20">
+                          <Ionicons name="trophy" size={12} color="#2F80ED" />
+                          <Text className="text-xs font-semibold ml-1 text-signal-500">
+                            {prCount} PR{prCount > 1 ? 's' : ''}
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
-                    {/* Workout content */}
+                    {/* Workout title and context */}
                     <View className="mb-3">
-                      <Text className={`text-lg font-bold mb-2 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                        {workout.focus}
-                      </Text>
-                      {progressionText && (
-                        <Text className={`text-sm mb-2 ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
-                          {progressionText}
+                      <View className="flex-row items-center gap-2 mb-2">
+                        <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                          {workout.focus}
                         </Text>
-                      )}
-                      {workout.week_number && workout.day_number && (
-                        <View className="flex-row items-center gap-2 mb-2">
+                        {workout.week_number && (
                           <View
                             className="px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: contextInfo.bgColor }}
@@ -139,21 +141,78 @@ export default function FeedScreen() {
                               className="text-xs font-semibold"
                               style={{ color: contextInfo.color }}
                             >
-                              Week {workout.week_number} of block
+                              Wk {workout.week_number}
                             </Text>
                           </View>
-                        </View>
-                      )}
+                        )}
+                      </View>
+
+                      {/* All exercises with progression */}
+                      <View className="gap-2 mt-2">
+                        {exerciseSummaries.slice(0, 5).map((summary) => {
+                          const badge = getProgressionBadge(summary);
+                          const iconName = getModalityIcon(summary.modality);
+
+                          return (
+                            <View
+                              key={summary.exerciseId}
+                              className={`flex-row items-center justify-between py-1.5 px-2 rounded-lg ${
+                                isDark ? 'bg-graphite-700/50' : 'bg-graphite-100'
+                              }`}
+                            >
+                              <View className="flex-row items-center flex-1 mr-2">
+                                <Ionicons
+                                  name={iconName as any}
+                                  size={14}
+                                  color={isDark ? '#808fb0' : '#607296'}
+                                  style={{ marginRight: 8 }}
+                                />
+                                <Text
+                                  className={`text-sm flex-1 ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}
+                                  numberOfLines={1}
+                                >
+                                  {summary.exerciseName}
+                                </Text>
+                              </View>
+                              <View className="flex-row items-center">
+                                <Text className={`text-sm font-semibold mr-2 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                                  {formatExerciseForFeed(summary)}
+                                </Text>
+                                {badge && (
+                                  <View
+                                    className="px-1.5 py-0.5 rounded"
+                                    style={{ backgroundColor: badge.bgColor }}
+                                  >
+                                    <Text
+                                      className="text-xs font-semibold"
+                                      style={{ color: badge.color }}
+                                    >
+                                      {badge.text}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
+                        {exerciseSummaries.length > 5 && (
+                          <Text className={`text-xs text-center ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                            +{exerciseSummaries.length - 5} more exercises
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Caption */}
                       {post.caption && (
-                        <Text className={`text-sm mt-2 ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
-                          {post.caption}
+                        <Text className={`text-sm mt-3 ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
+                          "{post.caption}"
                         </Text>
                       )}
                     </View>
 
                     {/* Like button */}
                     <Pressable
-                      className="flex-row items-center"
+                      className="flex-row items-center pt-2 border-t border-graphite-700/30"
                       onPress={(e) => {
                         e.stopPropagation();
                         handleLike(post.id, post.is_liked || false);
