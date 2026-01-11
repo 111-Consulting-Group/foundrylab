@@ -44,6 +44,12 @@ export function RestTimer({
   const [totalSeconds, setTotalSeconds] = useState(initialSeconds);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const onCompleteRef = useRef(onComplete);
+
+  // Keep callback ref updated
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   // Format time as MM:SS
   const formatTime = (secs: number) => {
@@ -83,7 +89,7 @@ export function RestTimer({
             if (Platform.OS !== 'web') {
               Vibration.vibrate([0, 200, 100, 200]);
             }
-            onComplete?.();
+            onCompleteRef.current?.();
             return 0;
           }
           return prev - 1;
@@ -96,7 +102,7 @@ export function RestTimer({
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, onComplete]);
+  }, [isRunning]);
 
   // Stop timer when it reaches 0
   useEffect(() => {
@@ -309,22 +315,28 @@ export function InlineRestTimer({
 
   const [seconds, setSeconds] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(true);
+  const onCompleteRef = useRef(onComplete);
+
+  // Keep callback ref updated
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
-    if (isRunning && seconds > 0) {
-      const interval = setInterval(() => {
-        setSeconds((prev) => {
-          if (prev <= 1) {
-            onComplete?.();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (!isRunning) return;
 
-      return () => clearInterval(interval);
-    }
-  }, [isRunning, seconds, onComplete]);
+    const interval = setInterval(() => {
+      setSeconds((prev) => {
+        if (prev <= 1) {
+          onCompleteRef.current?.();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isRunning]);
 
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60);

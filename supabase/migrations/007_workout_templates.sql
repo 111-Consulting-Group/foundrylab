@@ -63,20 +63,3 @@ CREATE TRIGGER update_workout_template_timestamp
   BEFORE UPDATE ON workout_templates
   FOR EACH ROW
   EXECUTE FUNCTION update_workout_template_timestamp();
-
--- Function to increment use_count when a workout is created from template
-CREATE OR REPLACE FUNCTION increment_template_use_count()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- If the new workout has template metadata, increment the template's use count
-  IF NEW.notes IS NOT NULL AND NEW.notes LIKE '%template_id:%' THEN
-    -- Extract template_id from notes (format: "template_id:UUID")
-    UPDATE workout_templates
-    SET use_count = use_count + 1
-    WHERE id = (
-      SELECT SUBSTRING(NEW.notes FROM 'template_id:([a-f0-9-]+)')::UUID
-    );
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;

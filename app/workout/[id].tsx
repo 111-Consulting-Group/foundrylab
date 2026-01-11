@@ -151,17 +151,19 @@ export default function ActiveWorkoutScreen() {
   // Initialize workout from template
   useEffect(() => {
     if (template && isNewWorkout && trackedExercises.length === 0) {
+      let cancelled = false;
+
       // Load exercises from template
       const loadTemplateExercises = async () => {
         // Fetch exercise details for all template exercises
         const exerciseIds = template.exercises.map((e) => e.exercise_id);
 
-        const { data: exercises } = await supabase
+        const { data: exercises, error } = await supabase
           .from('exercises')
           .select('*')
           .in('id', exerciseIds);
 
-        if (!exercises) return;
+        if (cancelled || error || !exercises) return;
 
         // Map template exercises to tracked exercises
         const exerciseMap = new Map(exercises.map((e) => [e.id, e]));
@@ -182,10 +184,16 @@ export default function ActiveWorkoutScreen() {
           }
         });
 
-        setTrackedExercises(tracked);
+        if (!cancelled) {
+          setTrackedExercises(tracked);
+        }
       };
 
       loadTemplateExercises();
+
+      return () => {
+        cancelled = true;
+      };
     }
   }, [template, isNewWorkout, trackedExercises.length]);
 
