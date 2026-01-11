@@ -230,6 +230,7 @@ const CompetitionMarker = React.memo(function CompetitionMarker({
 // ============================================================================
 
 const Legend = React.memo(function Legend({ isDark }: { isDark: boolean }) {
+  // Show most commonly used block types in the legend
   const blockTypes: BlockType[] = [
     'accumulation',
     'intensification',
@@ -237,6 +238,8 @@ const Legend = React.memo(function Legend({ isDark }: { isDark: boolean }) {
     'peaking',
     'deload',
     'hypertrophy',
+    'strength',
+    'transition',
   ];
 
   return (
