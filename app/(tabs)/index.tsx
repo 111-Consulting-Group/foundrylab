@@ -8,7 +8,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useNextWorkout, useUpcomingWorkouts, usePushWorkouts, usePreviousPerformance, useWorkoutHistory } from '@/hooks/useWorkouts';
 import { useRecentPRs } from '@/hooks/usePersonalRecords';
 import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
+import { useActiveGoals } from '@/hooks/useGoals';
 import { useExerciseMemory } from '@/hooks/useExerciseMemory';
+import { GoalCard } from '@/components/GoalCard';
 import { suggestProgression } from '@/lib/autoProgress';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
 import { calculateSetVolume } from '@/lib/utils';
@@ -57,7 +59,10 @@ export default function DashboardScreen() {
 
   // Fetch recent PRs
   const { data: rawRecentPRs = [] } = useRecentPRs(3);
-  
+
+  // Fetch active goals
+  const { data: activeGoals = [] } = useActiveGoals();
+
   // Fetch workout history for weekly stats
   const { data: workoutHistory = [] } = useWorkoutHistory(50);
 
@@ -377,6 +382,35 @@ export default function DashboardScreen() {
             </View>
           </View>
         </View>
+
+        {/* Active Goals */}
+        {activeGoals.length > 0 && (
+          <View className="mb-6">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                Goals
+              </Text>
+              <Pressable
+                onPress={() => router.push('/goals')}
+                className="flex-row items-center"
+              >
+                <Text className={`text-sm ${isDark ? 'text-signal-400' : 'text-signal-500'}`}>
+                  View All
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color="#2F80ED" />
+              </Pressable>
+            </View>
+            <View className="gap-3">
+              {activeGoals.slice(0, 2).map((goal) => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  onPress={() => router.push('/goals')}
+                />
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Recent PRs */}
         <View className="mb-6">

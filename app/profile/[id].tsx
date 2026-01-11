@@ -5,9 +5,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { GoalCard } from '@/components/GoalCard';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
 import { useFollow } from '@/hooks/useSocial';
+import { calculateGoalProgress, type FitnessGoal } from '@/hooks/useGoals';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -52,6 +54,26 @@ export default function ProfileScreen() {
       return !!data;
     },
     enabled: !!currentUserId && !!id && currentUserId !== id,
+  });
+
+  // Fetch user's goals (visible if following or own profile)
+  const { data: userGoals = [] } = useQuery({
+    queryKey: ['userGoals', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fitness_goals')
+        .select(`
+          *,
+          exercise:exercises(id, name, modality, primary_metric)
+        `)
+        .eq('user_id', id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as FitnessGoal[];
+    },
+    enabled: !!id,
   });
 
   // Fetch stats (simplified - would need more queries for real stats)
@@ -137,6 +159,20 @@ export default function ProfileScreen() {
             </Pressable>
           )}
         </View>
+
+        {/* Goals Section */}
+        {userGoals.length > 0 && (
+          <View className="mb-6">
+            <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              Training Goals
+            </Text>
+            <View className="gap-3">
+              {userGoals.map((goal) => (
+                <GoalCard key={goal.id} goal={goal} compact />
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Progress Metrics */}
         <View className="mb-6">
