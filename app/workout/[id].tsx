@@ -30,6 +30,7 @@ import {
 import { useAppStore, useActiveWorkout } from '@/stores/useAppStore';
 import { supabase } from '@/lib/supabase';
 import { useSmartExerciseSuggestions } from '@/hooks/useProgressionTargets';
+import { useWorkoutTemplate } from '@/hooks/useWorkoutTemplates';
 import type { Exercise, WorkoutSetInsert } from '@/types/database';
 
 // Tracked exercise with local state
@@ -44,12 +45,15 @@ interface TrackedExercise {
 }
 
 export default function ActiveWorkoutScreen() {
-  const { id, focus: focusParam } = useLocalSearchParams<{ id: string; focus?: string }>();
+  const { id, focus: focusParam, templateId } = useLocalSearchParams<{ id: string; focus?: string; templateId?: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
   // Check if this is a new ad-hoc workout or an existing scheduled one
   const isNewWorkout = id === 'new';
+
+  // Fetch template if starting from one
+  const { data: template } = useWorkoutTemplate(templateId || '');
 
   // Store state
   const activeWorkout = useActiveWorkout();
@@ -143,6 +147,47 @@ export default function ActiveWorkoutScreen() {
       }
     }
   }, [workout, trackedExercises.length, activeWorkout, startWorkout]);
+
+  // Initialize workout from template
+  useEffect(() => {
+    if (template && isNewWorkout && trackedExercises.length === 0) {
+      // Load exercises from template
+      const loadTemplateExercises = async () => {
+        // Fetch exercise details for all template exercises
+        const exerciseIds = template.exercises.map((e) => e.exercise_id);
+
+        const { data: exercises } = await supabase
+          .from('exercises')
+          .select('*')
+          .in('id', exerciseIds);
+
+        if (!exercises) return;
+
+        // Map template exercises to tracked exercises
+        const exerciseMap = new Map(exercises.map((e) => [e.id, e]));
+        const tracked: TrackedExercise[] = [];
+
+        template.exercises.forEach((te) => {
+          const exercise = exerciseMap.get(te.exercise_id);
+          if (exercise) {
+            // Create sets array based on template
+            const sets = Array.from({ length: te.sets }, (_, i) => i + 1);
+            tracked.push({
+              exercise,
+              sets,
+              targetReps: te.target_reps,
+              targetRPE: te.target_rpe,
+              targetLoad: te.target_weight,
+            });
+          }
+        });
+
+        setTrackedExercises(tracked);
+      };
+
+      loadTemplateExercises();
+    }
+  }, [template, isNewWorkout, trackedExercises.length]);
 
   // Create new ad-hoc workout
   const createNewWorkout = useCallback(async () => {

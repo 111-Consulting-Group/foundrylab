@@ -16,9 +16,11 @@ import { captureRef } from 'react-native-view-shot';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { SessionVerdict } from '@/components/SessionVerdict';
+import { SaveTemplateModal } from '@/components/TemplatePicker';
 import { useWorkout } from '@/hooks/useWorkouts';
 import { useShareWorkout } from '@/hooks/useSocial';
 import { useIsBlockComplete, useBlockSummary } from '@/hooks/useBlockSummary';
+import { useCreateWorkoutTemplate, workoutToTemplate } from '@/hooks/useWorkoutTemplates';
 import { calculateSetVolume } from '@/lib/utils';
 import { Alert } from 'react-native';
 import type { WorkoutSet, WorkoutWithSets } from '@/types/database';
@@ -31,6 +33,10 @@ export default function WorkoutSummaryScreen() {
 
   const { data: workout, isLoading } = useWorkout(id);
   const shareWorkoutMutation = useShareWorkout();
+  const createTemplateMutation = useCreateWorkoutTemplate();
+
+  // Template modal state
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
 
   // Check if this workout completes a block
   const { isBlockComplete, blockId } = useIsBlockComplete(id);
@@ -147,6 +153,47 @@ ${Object.values(exerciseSummary)
       } catch (error) {
         console.error('Failed to share:', error);
       }
+    }
+  };
+
+  // Handle save as template
+  const handleSaveAsTemplate = async (name: string, description?: string) => {
+    if (!workout?.workout_sets) return;
+
+    // Convert workout sets to exercise list with names
+    const exerciseMap = new Map<string, { exercise_id: string; exercise_name: string; sets: { actual_weight?: number | null; actual_reps?: number | null; actual_rpe?: number | null }[] }>();
+
+    workout.workout_sets.forEach((set: WorkoutSet) => {
+      if (!set.exercise_id || !set.actual_reps) return;
+
+      if (!exerciseMap.has(set.exercise_id)) {
+        exerciseMap.set(set.exercise_id, {
+          exercise_id: set.exercise_id,
+          exercise_name: (set as any).exercise?.name || 'Unknown',
+          sets: [],
+        });
+      }
+      exerciseMap.get(set.exercise_id)?.sets.push({
+        actual_weight: set.actual_weight,
+        actual_reps: set.actual_reps,
+        actual_rpe: set.actual_rpe,
+      });
+    });
+
+    const workoutForTemplate = {
+      focus: workout.focus || 'Workout',
+      exercises: Array.from(exerciseMap.values()),
+      duration_minutes: workout.duration_minutes || undefined,
+    };
+
+    const template = workoutToTemplate(workoutForTemplate, name, description);
+
+    try {
+      await createTemplateMutation.mutateAsync(template);
+      setShowSaveTemplate(false);
+      Alert.alert('Success', 'Workout saved as template!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save template');
     }
   };
 
@@ -398,9 +445,23 @@ ${Object.values(exerciseSummary)
           </View>
         </View>
 
-        {/* Share Button (Mobile) */}
-        {Platform.OS !== 'web' && (
-          <View className="px-4 pb-4">
+        {/* Action Buttons */}
+        <View className="px-4 pb-4 gap-3">
+          {/* Save as Template */}
+          <Pressable
+            onPress={() => setShowSaveTemplate(true)}
+            className={`rounded-xl p-4 flex-row items-center justify-center border ${
+              isDark ? 'border-graphite-700 bg-graphite-800' : 'border-graphite-200 bg-white'
+            }`}
+          >
+            <Ionicons name="bookmark-outline" size={20} color="#2F80ED" />
+            <Text className="text-signal-500 font-semibold ml-2">
+              Save as Template
+            </Text>
+          </Pressable>
+
+          {/* Share Button (Mobile) */}
+          {Platform.OS !== 'web' && (
             <Pressable
               onPress={handleShare}
               className="bg-signal-500 rounded-xl p-4 flex-row items-center justify-center"
@@ -410,8 +471,8 @@ ${Object.values(exerciseSummary)
                 Share Workout
               </Text>
             </Pressable>
-          </View>
-        )}
+          )}
+        </View>
       </ScrollView>
 
       {/* Block Completion Modal */}
@@ -565,6 +626,16 @@ ${Object.values(exerciseSummary)
           </SafeAreaView>
         </Modal>
       )}
+
+      {/* Save Template Modal */}
+      <SaveTemplateModal
+        visible={showSaveTemplate}
+        onClose={() => setShowSaveTemplate(false)}
+        onSave={handleSaveAsTemplate}
+        defaultName=""
+        defaultFocus={workout?.focus || ''}
+        isSaving={createTemplateMutation.isPending}
+      />
     </SafeAreaView>
     </>
   );

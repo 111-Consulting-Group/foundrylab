@@ -407,6 +407,33 @@ export type PersonalRecord = Database['public']['Tables']['personal_records']['R
 export type PersonalRecordInsert = Database['public']['Tables']['personal_records']['Insert'];
 export type PersonalRecordUpdate = Database['public']['Tables']['personal_records']['Update'];
 
+// Workout Template types (not in main Database interface yet)
+export interface WorkoutTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  focus: string | null;
+  exercises: WorkoutTemplateExercise[];
+  estimated_duration: number | null;
+  is_public: boolean;
+  use_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkoutTemplateExercise {
+  exercise_id: string;
+  exercise_name?: string; // For display
+  sets: number;
+  target_reps?: number;
+  target_rpe?: number;
+  target_weight?: number;
+  rest_seconds?: number;
+}
+
+export type WorkoutTemplateInsert = Omit<WorkoutTemplate, 'id' | 'created_at' | 'updated_at' | 'use_count'>;
+
 // Extended types with relations
 export interface WorkoutWithSets extends Workout {
   workout_sets: (WorkoutSet & { exercise: Exercise })[];

@@ -5,13 +5,16 @@ import { View, Text, ScrollView, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { TemplatePicker } from '@/components/TemplatePicker';
 import { useNextWorkout, useUpcomingWorkouts, usePushWorkouts, usePreviousPerformance, useWorkoutHistory } from '@/hooks/useWorkouts';
 import { useRecentPRs } from '@/hooks/usePersonalRecords';
 import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
 import { useActiveGoals } from '@/hooks/useGoals';
 import { useExerciseMemory } from '@/hooks/useExerciseMemory';
 import { useWeekSummary } from '@/hooks/useWeekSummary';
+import { useWorkoutTemplates } from '@/hooks/useWorkoutTemplates';
 import { GoalCard } from '@/components/GoalCard';
+import type { WorkoutTemplate } from '@/types/database';
 import { suggestProgression } from '@/lib/autoProgress';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
 import { calculateSetVolume } from '@/lib/utils';
@@ -27,6 +30,7 @@ export default function DashboardScreen() {
   const [showPushModal, setShowPushModal] = useState(false);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [showWeekSummary, setShowWeekSummary] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   // Quick recovery workout templates
   const recoveryTemplates = [
@@ -67,6 +71,24 @@ export default function DashboardScreen() {
 
   // Fetch comprehensive week summary
   const { data: weekSummary } = useWeekSummary();
+
+  // Fetch user's workout templates
+  const { data: templates = [] } = useWorkoutTemplates();
+
+  // Handler to start workout from template
+  const handleStartFromTemplate = (template: WorkoutTemplate) => {
+    // Navigate to new workout with template data in params
+    // The workout screen will read these and populate exercises
+    router.push({
+      pathname: '/workout/new',
+      params: {
+        templateId: template.id,
+        templateName: template.name,
+        focus: template.focus || template.name,
+      },
+    });
+    setShowTemplatePicker(false);
+  };
 
   // Fetch workout history for weekly stats
   const { data: workoutHistory = [] } = useWorkoutHistory(50);
@@ -170,6 +192,28 @@ export default function DashboardScreen() {
               </Pressable>
             </Link>
           </View>
+          {/* Templates Section */}
+          {templates.length > 0 && (
+            <Pressable
+              onPress={() => setShowTemplatePicker(true)}
+              className={`flex-row items-center justify-between p-4 rounded-xl mt-3 ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+            >
+              <View className="flex-row items-center">
+                <View className={`w-10 h-10 rounded-full items-center justify-center ${isDark ? 'bg-signal-500/20' : 'bg-signal-500/10'}`}>
+                  <Ionicons name="bookmark" size={20} color="#2F80ED" />
+                </View>
+                <View className="ml-3">
+                  <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                    From Template
+                  </Text>
+                  <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                    {templates.length} saved workout{templates.length > 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={isDark ? '#808fb0' : '#607296'} />
+            </Pressable>
+          )}
         </View>
 
         {/* Next Workout Card - Flexible Queue-Based */}
@@ -932,6 +976,13 @@ export default function DashboardScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Template Picker Modal */}
+      <TemplatePicker
+        visible={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onSelectTemplate={handleStartFromTemplate}
+      />
     </SafeAreaView>
   );
 }
