@@ -19,7 +19,6 @@ export default function ProfileScreen() {
   const isDark = colorScheme === 'dark';
   const currentUserId = useAppStore((state) => state.userId);
   const followMutation = useFollow();
-  const [isFollowing, setIsFollowing] = useState(false);
 
   // Fetch user profile
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -88,9 +87,8 @@ export default function ProfileScreen() {
     if (!id) return;
     try {
       await followMutation.mutateAsync({ followingId: id, follow: !followStatus });
-      setIsFollowing(!followStatus);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update follow status');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to update follow status');
     }
   };
 

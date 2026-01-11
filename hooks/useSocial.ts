@@ -177,7 +177,7 @@ export function useFollow() {
           .from('follows')
           .insert({ follower_id: userId, following_id: followingId });
 
-        if (error) throw error;
+        if (error && error.code !== '23505') throw error; // Ignore duplicate follow
       } else {
         const { error } = await supabase
           .from('follows')
@@ -188,8 +188,11 @@ export function useFollow() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // Invalidate feed and follow status queries
       queryClient.invalidateQueries({ queryKey: socialKeys.feed() });
+      queryClient.invalidateQueries({ queryKey: ['followStatus', userId, variables.followingId] });
+      queryClient.invalidateQueries({ queryKey: socialKeys.following(userId) });
     },
   });
 }
