@@ -623,3 +623,105 @@ export function calculateE1RM(weight: number, reps: number): number {
 export function calculateVolume(weight: number, reps: number, sets: number = 1): number {
   return weight * reps * sets;
 }
+
+// ============================================================================
+// AI COACH CONVERSATION TYPES
+// ============================================================================
+
+export type ConversationContextType = 'general' | 'workout' | 'block_planning' | 'recovery' | 'technique';
+export type MessageRole = 'user' | 'assistant' | 'system';
+export type QuickActionType = 'adjust_intensity' | 'swap_exercise' | 'add_deload' | 'modify_volume' | 'change_split' | 'custom';
+export type SuggestedActionType = 'adjust_workout' | 'swap_exercise' | 'modify_block' | 'add_note' | 'set_goal' | 'schedule_deload';
+
+export interface CoachConversation {
+  id: string;
+  user_id: string;
+  title: string | null;
+  context_type: ConversationContextType | null;
+  workout_id: string | null;
+  block_id: string | null;
+  is_active: boolean;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string | null;
+}
+
+export interface CoachMessage {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  role: MessageRole;
+  content: string;
+  context_snapshot: ContextSnapshot | null;
+  suggested_action: SuggestedAction | null;
+  action_taken: boolean;
+  created_at: string;
+}
+
+export interface ContextSnapshot {
+  readiness?: {
+    score: number;
+    sleep: number;
+    soreness: number;
+    stress: number;
+  };
+  currentBlock?: {
+    name: string;
+    week: number;
+    phase: string;
+  };
+  recentWorkouts?: {
+    date: string;
+    focus: string;
+    completed: boolean;
+  }[];
+  upcomingWorkout?: {
+    focus: string;
+    exercises: string[];
+  };
+  prs?: {
+    exercise: string;
+    weight: number;
+    reps: number;
+  }[];
+}
+
+export interface SuggestedAction {
+  type: SuggestedActionType;
+  label: string;
+  details: Record<string, unknown>;
+  applied?: boolean;
+}
+
+export interface CoachQuickAction {
+  id: string;
+  user_id: string;
+  action_type: QuickActionType;
+  label: string;
+  prompt_template: string;
+  times_used: number;
+  last_used_at: string | null;
+  is_system_default: boolean;
+  created_at: string;
+}
+
+// Chat UI types
+export interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+  suggestedAction?: SuggestedAction;
+}
+
+export interface CoachContext {
+  profile: TrainingProfile | null;
+  currentBlock: TrainingBlock | null;
+  todayReadiness: DailyReadiness | null;
+  recentWorkouts: Workout[];
+  upcomingWorkout: WorkoutWithSets | null;
+  recentPRs: PersonalRecord[];
+  goals: Goal[];
+}

@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CoachButton } from '@/components/CoachChat';
 import { useColorScheme } from '@/components/useColorScheme';
 import { TemplatePicker } from '@/components/TemplatePicker';
 import { useNextWorkout, useUpcomingWorkouts, usePushWorkouts, usePreviousPerformance, useWorkoutHistory } from '@/hooks/useWorkouts';
@@ -984,6 +985,13 @@ export default function DashboardScreen() {
         onClose={() => setShowTemplatePicker(false)}
         onSelectTemplate={handleStartFromTemplate}
       />
+
+      {/* AI Coach FAB */}
+      <View className="absolute bottom-6 right-4">
+        <CoachButton
+          onPress={() => router.push('/coach')}
+        />
+      </View>
     </SafeAreaView>
   );
 }
