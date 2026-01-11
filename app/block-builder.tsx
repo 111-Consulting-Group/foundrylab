@@ -17,7 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useExercises } from '@/hooks/useExercises';
 import { useCreateTrainingBlock, useCreateBlockWorkouts } from '@/hooks/useTrainingBlocks';
-import { generateTrainingBlock, PROMPT_SUGGESTIONS } from '@/lib/openai';
+import { useMainLiftPRs } from '@/hooks/usePRs';
+import { useActiveGoals } from '@/hooks/useGoals';
+import { generateTrainingBlock, PROMPT_SUGGESTIONS, type UserPR } from '@/lib/openai';
 import type { AIGeneratedBlock, Exercise } from '@/types/database';
 
 export default function BlockBuilderScreen() {
@@ -33,6 +35,23 @@ export default function BlockBuilderScreen() {
 
   // Fetch exercises for context
   const { data: exercises = [] } = useExercises();
+
+  // Fetch user's PRs and active goals for smarter generation
+  const { data: userPRData = [] } = useMainLiftPRs();
+  const { data: activeGoals = [] } = useActiveGoals();
+
+  // Transform PR data to the format expected by the generator
+  const userPRs: UserPR[] = userPRData.map((pr) => ({
+    exerciseName: pr.exerciseName,
+    e1rm: pr.estimatedMax,
+  }));
+
+  // Transform goals to the format expected by the generator
+  const goalsForAI = activeGoals.map((goal) => ({
+    exerciseName: goal.exercise?.name || 'Unknown',
+    targetValue: goal.target_value,
+    currentValue: goal.current_value,
+  }));
 
   // Mutations
   const createBlockMutation = useCreateTrainingBlock();
@@ -58,6 +77,8 @@ export default function BlockBuilderScreen() {
         prompt: prompt.trim(),
         exercises: exercises as Exercise[],
         durationWeeks,
+        userPRs,
+        activeGoals: goalsForAI,
       });
       setGeneratedBlock(block);
     } catch (error) {
@@ -69,7 +90,7 @@ export default function BlockBuilderScreen() {
     } finally {
       setIsGenerating(false);
     }
-  }, [prompt, exercises, durationWeeks]);
+  }, [prompt, exercises, durationWeeks, userPRs, goalsForAI]);
 
   // Save block to database
   const handleSaveBlock = useCallback(async () => {

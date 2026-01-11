@@ -153,45 +153,74 @@ export default function FeedScreen() {
                           const badge = getProgressionBadge(summary);
                           const iconName = getModalityIcon(summary.modality);
 
+                          // Check if this exercise has an active goal
+                          const matchingGoal = post.user_goals?.find(
+                            (g) => g.exercise_id === summary.exerciseId
+                          );
+                          const goalProgress = matchingGoal && matchingGoal.target_value > 0
+                            ? Math.min(100, Math.round(((matchingGoal.current_value || 0) / matchingGoal.target_value) * 100))
+                            : null;
+
                           return (
-                            <View
-                              key={summary.exerciseId}
-                              className={`flex-row items-center justify-between py-1.5 px-2 rounded-lg ${
-                                isDark ? 'bg-graphite-700/50' : 'bg-graphite-100'
-                              }`}
-                            >
-                              <View className="flex-row items-center flex-1 mr-2">
-                                <Ionicons
-                                  name={iconName as any}
-                                  size={14}
-                                  color={isDark ? '#808fb0' : '#607296'}
-                                  style={{ marginRight: 8 }}
-                                />
-                                <Text
-                                  className={`text-sm flex-1 ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}
-                                  numberOfLines={1}
-                                >
-                                  {summary.exerciseName}
-                                </Text>
-                              </View>
-                              <View className="flex-row items-center">
-                                <Text className={`text-sm font-semibold mr-2 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                                  {formatExerciseForFeed(summary)}
-                                </Text>
-                                {badge && (
-                                  <View
-                                    className="px-1.5 py-0.5 rounded"
-                                    style={{ backgroundColor: badge.bgColor }}
+                            <View key={summary.exerciseId}>
+                              <View
+                                className={`flex-row items-center justify-between py-1.5 px-2 rounded-lg ${
+                                  isDark ? 'bg-graphite-700/50' : 'bg-graphite-100'
+                                }`}
+                              >
+                                <View className="flex-row items-center flex-1 mr-2">
+                                  <Ionicons
+                                    name={iconName as any}
+                                    size={14}
+                                    color={isDark ? '#808fb0' : '#607296'}
+                                    style={{ marginRight: 8 }}
+                                  />
+                                  <Text
+                                    className={`text-sm flex-1 ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}
+                                    numberOfLines={1}
                                   >
-                                    <Text
-                                      className="text-xs font-semibold"
-                                      style={{ color: badge.color }}
+                                    {summary.exerciseName}
+                                  </Text>
+                                </View>
+                                <View className="flex-row items-center">
+                                  <Text className={`text-sm font-semibold mr-2 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                                    {formatExerciseForFeed(summary)}
+                                  </Text>
+                                  {badge && (
+                                    <View
+                                      className="px-1.5 py-0.5 rounded"
+                                      style={{ backgroundColor: badge.bgColor }}
                                     >
-                                      {badge.text}
-                                    </Text>
-                                  </View>
-                                )}
+                                      <Text
+                                        className="text-xs font-semibold"
+                                        style={{ color: badge.color }}
+                                      >
+                                        {badge.text}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
                               </View>
+                              {/* Goal Progress Bar */}
+                              {matchingGoal && goalProgress !== null && (
+                                <View className="flex-row items-center mt-1 px-2">
+                                  <Ionicons
+                                    name="flag"
+                                    size={10}
+                                    color="#9B59B6"
+                                    style={{ marginRight: 4 }}
+                                  />
+                                  <View className={`flex-1 h-1.5 rounded-full mr-2 ${isDark ? 'bg-graphite-700' : 'bg-graphite-200'}`}>
+                                    <View
+                                      className="h-1.5 rounded-full bg-purple-500"
+                                      style={{ width: `${goalProgress}%` }}
+                                    />
+                                  </View>
+                                  <Text className="text-xs text-purple-500 font-medium">
+                                    {matchingGoal.current_value || 0}/{matchingGoal.target_value}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
                           );
                         })}

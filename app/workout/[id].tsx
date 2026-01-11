@@ -27,6 +27,7 @@ import {
 } from '@/hooks/useWorkouts';
 import { useAppStore, useActiveWorkout } from '@/stores/useAppStore';
 import { supabase } from '@/lib/supabase';
+import { useSmartExerciseSuggestions } from '@/hooks/useProgressionTargets';
 import type { Exercise, WorkoutSetInsert } from '@/types/database';
 
 // Tracked exercise with local state
@@ -57,6 +58,9 @@ export default function ActiveWorkoutScreen() {
   const addSetMutation = useAddWorkoutSet();
   const completeWorkoutMutation = useCompleteWorkout();
   const deleteSetMutation = useDeleteWorkoutSet();
+
+  // Smart suggestions for ad-hoc workouts
+  const { data: smartSuggestions = [] } = useSmartExerciseSuggestions(5);
 
   // Track saved set data for multiply feature
   const [savedSetData, setSavedSetData] = useState<Map<string, Omit<WorkoutSetInsert, 'workout_id' | 'exercise_id' | 'set_order'>>>(new Map());
@@ -788,7 +792,7 @@ export default function ActiveWorkoutScreen() {
 
         {/* Empty State / Add Exercise Button */}
         {trackedExercises.length === 0 ? (
-          <View className="items-center justify-center py-12">
+          <View className="items-center justify-center py-8">
             <View
               className={`w-20 h-20 rounded-full items-center justify-center mb-4 ${
                 isDark ? 'bg-graphite-800' : 'bg-graphite-100'
@@ -812,13 +816,91 @@ export default function ActiveWorkoutScreen() {
                 isDark ? 'text-graphite-400' : 'text-graphite-500'
               }`}
             >
-              Add your first exercise to get started
+              {isNewWorkout && smartSuggestions.length > 0
+                ? 'Pick from your go-to exercises or browse the full library'
+                : 'Add your first exercise to get started'}
             </Text>
+
+            {/* Smart Suggestions for ad-hoc workouts */}
+            {isNewWorkout && smartSuggestions.length > 0 && (
+              <View className="w-full mb-6">
+                <Text
+                  className={`text-sm font-semibold mb-3 ${
+                    isDark ? 'text-graphite-300' : 'text-graphite-600'
+                  }`}
+                >
+                  Suggested for you
+                </Text>
+                <View className="gap-2">
+                  {smartSuggestions.map((suggestion) => (
+                    <Pressable
+                      key={suggestion.exercise.id}
+                      className={`flex-row items-center p-3 rounded-xl ${
+                        isDark ? 'bg-graphite-800' : 'bg-white'
+                      } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                      onPress={() => handleAddExercise(suggestion.exercise)}
+                    >
+                      <View
+                        className={`w-10 h-10 rounded-full items-center justify-center ${
+                          suggestion.exercise.modality === 'Strength'
+                            ? 'bg-signal-500/20'
+                            : suggestion.exercise.modality === 'Cardio'
+                            ? 'bg-progress-500/20'
+                            : 'bg-purple-500/20'
+                        }`}
+                      >
+                        <Ionicons
+                          name={
+                            suggestion.exercise.modality === 'Strength'
+                              ? 'barbell-outline'
+                              : suggestion.exercise.modality === 'Cardio'
+                              ? 'bicycle-outline'
+                              : 'fitness-outline'
+                          }
+                          size={20}
+                          color={
+                            suggestion.exercise.modality === 'Strength'
+                              ? '#2F80ED'
+                              : suggestion.exercise.modality === 'Cardio'
+                              ? '#27AE60'
+                              : '#9B59B6'
+                          }
+                        />
+                      </View>
+                      <View className="flex-1 ml-3">
+                        <Text
+                          className={`font-semibold ${
+                            isDark ? 'text-graphite-100' : 'text-graphite-900'
+                          }`}
+                        >
+                          {suggestion.exercise.name}
+                        </Text>
+                        <Text
+                          className={`text-xs ${
+                            isDark ? 'text-graphite-400' : 'text-graphite-500'
+                          }`}
+                        >
+                          {suggestion.message}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="add-circle"
+                        size={24}
+                        color="#2F80ED"
+                      />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
             <Pressable
               className="px-6 py-3 rounded-xl bg-signal-500"
               onPress={() => setShowExercisePicker(true)}
             >
-              <Text className="text-white font-semibold">Add Exercise</Text>
+              <Text className="text-white font-semibold">
+                {isNewWorkout && smartSuggestions.length > 0 ? 'Browse All Exercises' : 'Add Exercise'}
+              </Text>
             </Pressable>
           </View>
         ) : (

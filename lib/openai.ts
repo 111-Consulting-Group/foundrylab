@@ -13,6 +13,8 @@ When generating a training block:
 4. Include warm-up guidance where appropriate
 5. Balance volume and intensity appropriately for the training phase
 6. Consider recovery and progressive overload principles
+7. If the user's current PRs are provided, use them to set appropriate starting loads
+8. For exercises with known PRs, calculate working weights as percentages (e.g., 70-85% of e1RM for working sets)
 
 Output Format:
 Return ONLY valid JSON matching this structure:
@@ -51,16 +53,25 @@ Important rules:
 - For hypertrophy: 8-12 reps at moderate RPE
 - For conditioning: specify duration or rounds`;
 
+export interface UserPR {
+  exerciseName: string;
+  e1rm: number | null;
+}
+
 export interface GenerateBlockParams {
   prompt: string;
   exercises: Exercise[];
   durationWeeks?: number;
+  userPRs?: UserPR[];
+  activeGoals?: { exerciseName: string; targetValue: number; currentValue: number | null }[];
 }
 
 export async function generateTrainingBlock({
   prompt,
   exercises,
   durationWeeks = 4,
+  userPRs = [],
+  activeGoals = [],
 }: GenerateBlockParams): Promise<AIGeneratedBlock> {
   if (!OPENAI_API_KEY) {
     throw new Error('OpenAI API key not configured');
@@ -71,14 +82,38 @@ export async function generateTrainingBlock({
     .map((e) => `- ${e.name} (${e.modality}, ${e.muscle_group})`)
     .join('\n');
 
+  // Format user's current PRs for context
+  let prSection = '';
+  if (userPRs.length > 0) {
+    const prList = userPRs
+      .filter((pr) => pr.e1rm !== null)
+      .map((pr) => `- ${pr.exerciseName}: ${pr.e1rm} lbs (estimated 1RM)`)
+      .join('\n');
+    if (prList) {
+      prSection = `\n\nUser's Current PRs (use these to set appropriate working weights):\n${prList}`;
+    }
+  }
+
+  // Format active goals for context
+  let goalsSection = '';
+  if (activeGoals.length > 0) {
+    const goalList = activeGoals
+      .map((g) => {
+        const current = g.currentValue !== null ? `${g.currentValue} lbs` : 'no current data';
+        return `- ${g.exerciseName}: Target ${g.targetValue} lbs (currently ${current})`;
+      })
+      .join('\n');
+    goalsSection = `\n\nUser's Active Training Goals (prioritize exercises related to these goals):\n${goalList}`;
+  }
+
   const userMessage = `Generate a ${durationWeeks}-week training block for the following goal:
 
 "${prompt}"
 
 Available exercises:
-${exerciseList}
+${exerciseList}${prSection}${goalsSection}
 
-Remember to use ONLY exercises from this list.`;
+Remember to use ONLY exercises from this list. If PRs are provided, calculate working weights as percentages of e1RM (typically 70-85% for working sets).`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',

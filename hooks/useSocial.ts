@@ -19,6 +19,18 @@ export const socialKeys = {
   userSearch: (query: string) => [...socialKeys.all, 'userSearch', query] as const,
 };
 
+interface UserGoal {
+  id: string;
+  exercise_id: string;
+  target_value: number;
+  current_value: number | null;
+  status: string;
+  exercise?: {
+    id: string;
+    name: string;
+  };
+}
+
 interface WorkoutPost {
   id: string;
   workout_id: string;
@@ -32,6 +44,7 @@ interface WorkoutPost {
     display_name: string | null;
     email: string | null;
   };
+  user_goals?: UserGoal[];
   like_count?: number;
   is_liked?: boolean;
 }
@@ -83,12 +96,44 @@ export function useFeed(limit: number = 20) {
 
       // Get like counts and user's likes
       const postIds = posts?.map((p) => p.id) || [];
-      
+      const postUserIds = [...new Set(posts?.map((p) => p.user_id) || [])];
+
       if (postIds.length > 0) {
+        // Fetch likes
         const { data: likes } = await supabase
           .from('post_likes')
           .select('post_id, user_id')
           .in('post_id', postIds);
+
+        // Fetch active goals for all users in the feed
+        const { data: goals } = await supabase
+          .from('fitness_goals')
+          .select(`
+            id,
+            user_id,
+            exercise_id,
+            target_value,
+            current_value,
+            status,
+            exercise:exercises(id, name)
+          `)
+          .in('user_id', postUserIds)
+          .eq('status', 'active');
+
+        // Group goals by user
+        const goalsByUser = new Map<string, UserGoal[]>();
+        goals?.forEach((goal) => {
+          const userGoals = goalsByUser.get(goal.user_id) || [];
+          userGoals.push({
+            id: goal.id,
+            exercise_id: goal.exercise_id,
+            target_value: goal.target_value,
+            current_value: goal.current_value,
+            status: goal.status,
+            exercise: goal.exercise as { id: string; name: string } | undefined,
+          });
+          goalsByUser.set(goal.user_id, userGoals);
+        });
 
         // Count likes per post
         const likeCounts = new Map<string, number>();
@@ -101,11 +146,12 @@ export function useFeed(limit: number = 20) {
           }
         });
 
-        // Add like counts and is_liked to posts
+        // Add like counts, is_liked, and user_goals to posts
         return (posts || []).map((post) => ({
           ...post,
           like_count: likeCounts.get(post.id) || 0,
           is_liked: userLikes.has(post.id),
+          user_goals: goalsByUser.get(post.user_id) || [],
         })) as WorkoutPost[];
       }
 
