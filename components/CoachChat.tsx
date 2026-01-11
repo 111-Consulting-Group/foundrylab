@@ -284,11 +284,13 @@ export const CoachChat = React.memo(function CoachChat({
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
+    if (messages.length === 0) return;
+
+    const timeoutId = setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [messages.length]);
 
   const handleSend = useCallback(() => {

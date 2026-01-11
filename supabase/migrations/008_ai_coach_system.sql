@@ -46,14 +46,15 @@ CREATE OR REPLACE FUNCTION calculate_readiness_score()
 RETURNS TRIGGER AS $$
 BEGIN
   -- Formula: Higher sleep = better, Lower soreness = better, Lower stress = better
-  -- sleep_quality: 1-5 (higher is better) -> contributes 0-40 points
-  -- muscle_soreness: 1-5 (lower is better, inverted) -> contributes 0-30 points
-  -- stress_level: 1-5 (lower is better, inverted) -> contributes 0-30 points
-  NEW.readiness_score := (
+  -- sleep_quality: 1-5 (higher is better) -> contributes 8-40 points
+  -- muscle_soreness: 1-5 (lower is better, inverted) -> contributes 6-30 points
+  -- stress_level: 1-5 (lower is better, inverted) -> contributes 6-30 points
+  -- Total range: 20-100, but we clamp to 0-100 for safety
+  NEW.readiness_score := GREATEST(0, LEAST(100,
     (NEW.sleep_quality * 8) +           -- 8-40 points
     ((6 - NEW.muscle_soreness) * 6) +   -- 6-30 points (inverted)
     ((6 - NEW.stress_level) * 6)        -- 6-30 points (inverted)
-  );
+  ));
 
   -- Determine suggested adjustment based on score
   NEW.suggested_adjustment := CASE

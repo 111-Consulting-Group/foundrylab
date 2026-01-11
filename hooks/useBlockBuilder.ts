@@ -333,32 +333,40 @@ export function useBlockBuilder() {
       if (workoutError) throw workoutError;
 
       // Create workout sets for each exercise
-      for (let i = 0; i < workouts.length; i++) {
-        const workoutData = workouts[i];
-        const weekIndex = Math.floor(i / block.weeks[0].workouts.length);
-        const dayIndex = i % block.weeks[0].workouts.length;
-        const generatedWorkout = block.weeks[weekIndex].workouts[dayIndex];
-
-        const setInserts = [];
-        let setOrder = 1;
-
-        for (const exercise of generatedWorkout.exercises) {
-          for (const set of exercise.sets) {
-            setInserts.push({
-              workout_id: workoutData.id,
-              exercise_id: exercise.exerciseId,
-              set_order: setOrder++,
-              target_reps: set.targetReps,
-              target_rpe: set.targetRPE,
-              is_warmup: set.isWarmup,
-              rest_seconds: set.restSeconds,
-            });
+      // Build a flat mapping of workouts to their generated counterparts
+      // This handles cases where weeks may have different workout counts
+      let workoutIndex = 0;
+      for (const week of block.weeks) {
+        for (const generatedWorkout of week.workouts) {
+          if (workoutIndex >= workouts.length) {
+            console.warn('Workout count mismatch: more generated workouts than saved');
+            break;
           }
-        }
+          const workoutData = workouts[workoutIndex];
 
-        if (setInserts.length > 0) {
-          const { error: setError } = await supabase.from('workout_sets').insert(setInserts);
-          if (setError) throw setError;
+          const setInserts = [];
+          let setOrder = 1;
+
+          for (const exercise of generatedWorkout.exercises) {
+            for (const set of exercise.sets) {
+              setInserts.push({
+                workout_id: workoutData.id,
+                exercise_id: exercise.exerciseId,
+                set_order: setOrder++,
+                target_reps: set.targetReps,
+                target_rpe: set.targetRPE,
+                is_warmup: set.isWarmup,
+                rest_seconds: set.restSeconds,
+              });
+            }
+          }
+
+          if (setInserts.length > 0) {
+            const { error: setError } = await supabase.from('workout_sets').insert(setInserts);
+            if (setError) throw setError;
+          }
+
+          workoutIndex++;
         }
       }
 

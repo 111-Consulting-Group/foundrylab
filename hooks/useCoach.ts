@@ -6,7 +6,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/components/AuthProvider';
 import {
@@ -37,7 +37,14 @@ import type {
 // Constants
 // ============================================================================
 
+// WARNING: This API key is exposed in client-side code.
+// TODO: Move to a backend proxy (Supabase Edge Function) before production.
+// The proxy should validate user authentication and rate-limit requests.
 const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+
+// Input validation constants
+const MAX_MESSAGE_LENGTH = 2000;
+const MIN_MESSAGE_LENGTH = 1;
 
 const COACH_QUERIES = {
   conversations: 'coach-conversations',
@@ -320,10 +327,35 @@ export function useCoach(options: UseCoachOptions = {}) {
     [user?.id]
   );
 
+  // AbortController ref for cleanup
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   // Send message to AI
   const sendMessage = useCallback(
     async (userMessage: string) => {
       if (!user?.id || !context) return;
+
+      // Input validation
+      const trimmedMessage = userMessage.trim();
+      if (trimmedMessage.length < MIN_MESSAGE_LENGTH) {
+        console.warn('Message too short');
+        return;
+      }
+      if (trimmedMessage.length > MAX_MESSAGE_LENGTH) {
+        console.warn('Message too long, truncating');
+      }
+      const sanitizedMessage = trimmedMessage.slice(0, MAX_MESSAGE_LENGTH);
+
+      // Cancel any pending request
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
 
       // Create conversation if needed
       let convId = currentConversationId;
@@ -339,14 +371,14 @@ export function useCoach(options: UseCoachOptions = {}) {
       const userChatMessage: ChatMessage = {
         id: `user-${Date.now()}`,
         role: 'user',
-        content: userMessage,
+        content: sanitizedMessage,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, userChatMessage]);
 
       // Save user message
-      await saveMessage(convId, 'user', userMessage, contextSnapshot);
+      await saveMessage(convId, 'user', sanitizedMessage, contextSnapshot);
 
       // Add streaming placeholder
       const streamingId = `assistant-${Date.now()}`;
@@ -381,15 +413,17 @@ export function useCoach(options: UseCoachOptions = {}) {
             messages: [
               { role: 'system', content: buildSystemPrompt(context) },
               ...historyMessages,
-              { role: 'user', content: userMessage },
+              { role: 'user', content: sanitizedMessage },
             ],
             temperature: 0.7,
             max_tokens: 1000,
           }),
+          signal: abortControllerRef.current.signal,
         });
 
         if (!response.ok) {
-          throw new Error('Failed to get coach response');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error?.message || 'Failed to get coach response');
         }
 
         const data = await response.json();
@@ -417,13 +451,17 @@ export function useCoach(options: UseCoachOptions = {}) {
 
         // Update conversation title if first message
         if (chatMessages.length === 0) {
-          const title = userMessage.slice(0, 50) + (userMessage.length > 50 ? '...' : '');
+          const title = sanitizedMessage.slice(0, 50) + (sanitizedMessage.length > 50 ? '...' : '');
           await supabase
             .from('coach_conversations')
             .update({ title })
             .eq('id', convId);
         }
       } catch (error) {
+        // Don't show error for aborted requests
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
         console.error('Coach API error:', error);
         setMessages((prev) =>
           prev.map((m) =>
@@ -487,6 +525,10 @@ export function useCoach(options: UseCoachOptions = {}) {
 
 /**
  * Hook for applying suggested actions from coach
+ *
+ * NOTE: Action handlers are not yet fully implemented.
+ * Currently logs the action and marks it as acknowledged.
+ * Full implementation would integrate with workout/block mutations.
  */
 export function useApplyCoachAction() {
   const queryClient = useQueryClient();
@@ -495,30 +537,58 @@ export function useApplyCoachAction() {
     mutationFn: async (action: ChatMessage['suggestedAction']) => {
       if (!action) throw new Error('No action to apply');
 
-      // Handle different action types
-      switch (action.type) {
-        case 'adjust_workout':
-          // TODO: Implement workout adjustment
-          console.log('Adjusting workout:', action.details);
-          break;
-        case 'swap_exercise':
-          // TODO: Implement exercise swap
-          console.log('Swapping exercise:', action.details);
-          break;
-        case 'schedule_deload':
-          // TODO: Implement deload scheduling
-          console.log('Scheduling deload:', action.details);
-          break;
-        default:
-          console.log('Unknown action type:', action.type);
+      // Validate action has required fields
+      if (!action.type || !action.label) {
+        throw new Error('Invalid action: missing type or label');
       }
 
-      return action;
+      // Handle different action types
+      // NOTE: These are placeholder implementations that acknowledge the action
+      // Full implementations would modify workouts/blocks in the database
+      switch (action.type) {
+        case 'adjust_workout':
+          // Future: Apply intensity/volume adjustments to workout sets
+          console.log('[Coach Action] Workout adjustment acknowledged:', action.details);
+          // Mark action as applied (UI feedback)
+          return { ...action, applied: true };
+
+        case 'swap_exercise':
+          // Future: Swap exercise in workout template
+          console.log('[Coach Action] Exercise swap acknowledged:', action.details);
+          return { ...action, applied: true };
+
+        case 'schedule_deload':
+          // Future: Insert deload week into training block
+          console.log('[Coach Action] Deload scheduling acknowledged:', action.details);
+          return { ...action, applied: true };
+
+        case 'modify_block':
+          // Future: Modify training block parameters
+          console.log('[Coach Action] Block modification acknowledged:', action.details);
+          return { ...action, applied: true };
+
+        case 'add_note':
+          // Future: Add note to workout or exercise
+          console.log('[Coach Action] Note addition acknowledged:', action.details);
+          return { ...action, applied: true };
+
+        case 'set_goal':
+          // Future: Create a new goal
+          console.log('[Coach Action] Goal setting acknowledged:', action.details);
+          return { ...action, applied: true };
+
+        default:
+          console.warn('[Coach Action] Unknown action type:', action.type);
+          throw new Error(`Unknown action type: ${action.type}`);
+      }
     },
     onSuccess: () => {
-      // Invalidate relevant queries
+      // Invalidate relevant queries to refresh UI
       queryClient.invalidateQueries({ queryKey: ['workouts'] });
       queryClient.invalidateQueries({ queryKey: ['training-blocks'] });
+    },
+    onError: (error) => {
+      console.error('[Coach Action] Failed to apply action:', error);
     },
   });
 }
