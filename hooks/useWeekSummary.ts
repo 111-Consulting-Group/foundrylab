@@ -124,7 +124,7 @@ export function useWeekSummary(): {
           exercise_id,
           value,
           unit,
-          pr_type,
+          record_type,
           exercise:exercises(name)
         `)
         .eq('user_id', userId)
@@ -195,7 +195,7 @@ export function useWeekSummary(): {
         exerciseName: pr.exercise?.name || 'Unknown',
         value: pr.value,
         unit: pr.unit,
-        prType: pr.pr_type,
+        prType: pr.record_type,
       }));
 
       // Format goals progress (simplified - would need workout history for true weekly gain)
