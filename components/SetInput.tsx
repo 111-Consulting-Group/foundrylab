@@ -75,6 +75,8 @@ export function SetInput({
     targetReps?.toString() || lastSessionSet?.actual_reps?.toString() || ''
   );
   const [rpe, setRpe] = useState(targetRPE || lastSessionSet?.actual_rpe || 8);
+  const [tempo, setTempo] = useState<string>('');
+  const [isBodyweight, setIsBodyweight] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [showRPESlider, setShowRPESlider] = useState(false);
 
@@ -83,25 +85,27 @@ export function SetInput({
 
   // Calculate current E1RM
   const currentE1RM =
-    weight && reps ? calculateE1RM(parseFloat(weight), parseInt(reps, 10)) : 0;
+    !isBodyweight && weight && reps ? calculateE1RM(parseFloat(weight), parseInt(reps, 10)) : 0;
 
   // Check for PR when set is logged
   const handleSaveSet = useCallback(() => {
-    const weightNum = parseFloat(weight) || 0;
+    const weightNum = isBodyweight ? 0 : (parseFloat(weight) || 0);
     const repsNum = parseInt(reps, 10) || 0;
 
-    if (weightNum <= 0 || repsNum <= 0) return;
+    // Allow 0 weight (bodyweight) or require weight > 0
+    if ((!isBodyweight && weightNum <= 0) || repsNum <= 0) return;
 
     const setData: Omit<WorkoutSetInsert, 'workout_id' | 'exercise_id' | 'set_order'> = {
-      actual_weight: weightNum,
+      actual_weight: isBodyweight ? 0 : weightNum,
       actual_reps: repsNum,
       actual_rpe: rpe,
+      tempo: tempo || null,
       is_warmup: isWarmup,
       is_pr: false, // Will be updated if PR is detected
     };
 
-    // Check for PRs (only for non-warmup sets)
-    if (!isWarmup && previousPerformance.length > 0) {
+    // Check for PRs (only for non-warmup sets with weight > 0)
+    if (!isWarmup && weightNum > 0 && previousPerformance.length > 0) {
       const maxWeight = Math.max(
         ...previousPerformance.map((p) => p.actual_weight || 0)
       );
@@ -151,6 +155,8 @@ export function SetInput({
     reps,
     rpe,
     isWarmup,
+    isBodyweight,
+    tempo,
     previousPerformance,
     currentE1RM,
     onSave,
@@ -236,19 +242,58 @@ export function SetInput({
       <View className="flex-row items-center gap-3 mb-3">
         {/* Weight Input */}
         <View className="flex-1">
-          <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-            Weight (lbs)
-          </Text>
+          <View className="flex-row items-center justify-between mb-1">
+            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              Weight (lbs)
+            </Text>
+            <Pressable
+              onPress={() => {
+                if (!isCompleted) {
+                  setIsBodyweight(!isBodyweight);
+                  if (!isBodyweight) {
+                    setWeight('0');
+                  }
+                }
+              }}
+              disabled={isCompleted}
+            >
+              <View className={`flex-row items-center px-2 py-0.5 rounded ${
+                isBodyweight 
+                  ? 'bg-signal-500/20' 
+                  : isDark 
+                    ? 'bg-graphite-700' 
+                    : 'bg-graphite-100'
+              }`}>
+                <Ionicons 
+                  name={isBodyweight ? 'checkmark-circle' : 'ellipse-outline'} 
+                  size={14} 
+                  color={isBodyweight ? '#2F80ED' : (isDark ? '#808fb0' : '#607296')} 
+                />
+                <Text className={`text-xs ml-1 ${
+                  isBodyweight 
+                    ? 'text-signal-500 font-semibold' 
+                    : isDark 
+                      ? 'text-graphite-400' 
+                      : 'text-graphite-500'
+                }`}>
+                  BW
+                </Text>
+              </View>
+            </Pressable>
+          </View>
           <TextInput
             className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
               isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
             } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-            value={weight}
-            onChangeText={setWeight}
+            value={isBodyweight ? 'BW' : weight}
+            onChangeText={(text) => {
+              if (isBodyweight) return;
+              setWeight(text);
+            }}
             keyboardType="decimal-pad"
-            placeholder="0"
+            placeholder={isBodyweight ? 'BW' : '0'}
             placeholderTextColor={isDark ? '#607296' : '#808fb0'}
-            editable={!isCompleted}
+            editable={!isCompleted && !isBodyweight}
           />
         </View>
 
@@ -321,7 +366,27 @@ export function SetInput({
         </View>
       )}
 
-      {/* E1RM and Target Display */}
+      {/* Tempo Input */}
+      {!isCompleted && (
+        <View className="flex-row items-center mb-3">
+          <Text className={`text-xs mr-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            Tempo:
+          </Text>
+          <TextInput
+            className={`px-3 py-2 rounded-lg text-center text-sm flex-1 ${
+              isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
+            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+            value={tempo}
+            onChangeText={setTempo}
+            placeholder="3-0-1-0"
+            placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+            editable={!isCompleted}
+            style={{ maxWidth: 120 }}
+          />
+        </View>
+      )}
+
+      {/* E1RM and Save Button */}
       <View className="flex-row items-center justify-between">
         {currentE1RM > 0 && (
           <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
@@ -333,14 +398,14 @@ export function SetInput({
         {!isCompleted && (
           <Pressable
             className={`px-6 py-2 rounded-full ${
-              weight && reps ? 'bg-signal-500' : isDark ? 'bg-graphite-700' : 'bg-graphite-200'
+              (isBodyweight || weight) && reps ? 'bg-signal-500' : isDark ? 'bg-graphite-700' : 'bg-graphite-200'
             }`}
             onPress={handleSaveSet}
-            disabled={!weight || !reps}
+            disabled={(!isBodyweight && !weight) || !reps}
           >
             <Text
               className={`font-semibold ${
-                weight && reps ? 'text-white' : isDark ? 'text-graphite-500' : 'text-graphite-400'
+                (isBodyweight || weight) && reps ? 'text-white' : isDark ? 'text-graphite-500' : 'text-graphite-400'
               }`}
             >
               Log Set

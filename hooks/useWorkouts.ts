@@ -20,6 +20,7 @@ export const workoutKeys = {
   details: () => [...workoutKeys.all, 'detail'] as const,
   detail: (id: string) => [...workoutKeys.details(), id] as const,
   history: (limit?: number) => [...workoutKeys.all, 'history', limit] as const,
+  incomplete: () => [...workoutKeys.all, 'incomplete'] as const,
   today: () => [...workoutKeys.all, 'today'] as const,
   next: () => [...workoutKeys.all, 'next'] as const,
   upcoming: (limit?: number) => [...workoutKeys.all, 'upcoming', limit] as const,
@@ -221,25 +222,31 @@ export function usePushWorkouts() {
   });
 }
 
-// Fetch workout history
+// Fetch workout history with sets for stats calculation
 export function useWorkoutHistory(limit: number = 20) {
   const userId = useAppStore((state) => state.userId);
 
   return useQuery({
     queryKey: workoutKeys.history(limit),
-    queryFn: async (): Promise<Workout[]> => {
+    queryFn: async (): Promise<WorkoutWithSets[]> => {
       if (!userId) return [];
 
       const { data, error } = await supabase
         .from('workouts')
-        .select('*')
+        .select(`
+          *,
+          workout_sets(
+            *,
+            exercise:exercises(*)
+          )
+        `)
         .eq('user_id', userId)
         .not('date_completed', 'is', null)
         .order('date_completed', { ascending: false })
         .limit(limit);
 
       if (error) throw error;
-      return data as Workout[];
+      return data as WorkoutWithSets[];
     },
     enabled: !!userId,
   });
@@ -383,6 +390,52 @@ export function useUpdateWorkoutSet() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: workoutKeys.detail(data.workoutId) });
+    },
+  });
+}
+
+// Fetch incomplete ad-hoc workouts (for workout visibility fix)
+export function useIncompleteWorkouts() {
+  const userId = useAppStore((state) => state.userId);
+
+  return useQuery({
+    queryKey: workoutKeys.incomplete(),
+    queryFn: async (): Promise<WorkoutWithSets[]> => {
+      if (!userId) return [];
+
+      const { data, error } = await supabase
+        .from('workouts')
+        .select(`
+          *,
+          workout_sets(
+            *,
+            exercise:exercises(*)
+          )
+        `)
+        .eq('user_id', userId)
+        .is('block_id', null)
+        .is('date_completed', null)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      return data as WorkoutWithSets[];
+    },
+    enabled: !!userId,
+  });
+}
+
+// Delete a workout set
+export function useDeleteWorkoutSet() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, workoutId }: { id: string; workoutId: string }): Promise<void> => {
+      const { error } = await supabase.from('workout_sets').delete().eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.detail(variables.workoutId) });
     },
   });
 }

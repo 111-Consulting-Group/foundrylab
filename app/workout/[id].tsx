@@ -21,6 +21,7 @@ import {
   useAddWorkoutSet,
   useCompleteWorkout,
   useCreateWorkout,
+  useDeleteWorkoutSet,
 } from '@/hooks/useWorkouts';
 import { useAppStore, useActiveWorkout } from '@/stores/useAppStore';
 import type { Exercise, WorkoutSetInsert } from '@/types/database';
@@ -52,6 +53,10 @@ export default function ActiveWorkoutScreen() {
   const createWorkoutMutation = useCreateWorkout();
   const addSetMutation = useAddWorkoutSet();
   const completeWorkoutMutation = useCompleteWorkout();
+  const deleteSetMutation = useDeleteWorkoutSet();
+
+  // Track saved set data for multiply feature
+  const [savedSetData, setSavedSetData] = useState<Map<string, Omit<WorkoutSetInsert, 'workout_id' | 'exercise_id' | 'set_order'>>>(new Map());
 
   // Local state
   const [trackedExercises, setTrackedExercises] = useState<TrackedExercise[]>([]);
@@ -186,6 +191,15 @@ export default function ActiveWorkoutScreen() {
           set_order: setOrder,
           ...setData,
         });
+        
+        // Store set data for multiply feature (if this is the first set)
+        if (setOrder === 1) {
+          setSavedSetData((prev) => {
+            const updated = new Map(prev);
+            updated.set(exerciseId, setData);
+            return updated;
+          });
+        }
       } catch (error) {
         console.error('Failed to save set:', error);
         Alert.alert('Error', 'Failed to save set. Please try again.');
@@ -193,6 +207,102 @@ export default function ActiveWorkoutScreen() {
     },
     [currentWorkoutId, addSetMutation]
   );
+
+  // Multiply sets - duplicate first set data to 3 more sets
+  const handleMultiplySets = useCallback(async (exerciseIndex: number) => {
+    const exercise = trackedExercises[exerciseIndex];
+    if (!exercise || !currentWorkoutId) return;
+
+    const setData = savedSetData.get(exercise.exercise.id);
+    if (!setData) {
+      Alert.alert('Error', 'Please save the first set before multiplying.');
+      return;
+    }
+
+    try {
+      const currentMaxSet = Math.max(...exercise.sets);
+      const newSets: number[] = [];
+      const count = 3; // Add 3 more sets
+      
+      // Create multiple sets with same data
+      for (let i = 0; i < count; i++) {
+        const setOrder = currentMaxSet + i + 1;
+        await addSetMutation.mutateAsync({
+          workout_id: currentWorkoutId,
+          exercise_id: exercise.exercise.id,
+          set_order: setOrder,
+          ...setData,
+        });
+        newSets.push(setOrder);
+      }
+
+      // Add new sets to tracked exercises
+      setTrackedExercises((prev) => {
+        const updated = [...prev];
+        updated[exerciseIndex].sets.push(...newSets);
+        return updated;
+      });
+    } catch (error) {
+      console.error('Failed to multiply sets:', error);
+      Alert.alert('Error', 'Failed to multiply sets. Please try again.');
+    }
+  }, [trackedExercises, currentWorkoutId, savedSetData, addSetMutation]);
+
+  // Delete exercise (remove all sets and exercise from workout)
+  const handleDeleteExercise = useCallback(async (exerciseIndex: number) => {
+    const exercise = trackedExercises[exerciseIndex];
+    if (!exercise || !currentWorkoutId) return;
+
+    const confirmDelete = () => {
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        return window.confirm(`Delete ${exercise.exercise.name}?\n\nThis will remove all sets for this exercise.`);
+      } else {
+        return new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Delete Exercise',
+            `Delete ${exercise.exercise.name}? This will remove all sets for this exercise.`,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: () => resolve(true),
+              },
+            ]
+          );
+        });
+      }
+    };
+
+    const confirmed = await confirmDelete();
+    if (!confirmed) return;
+
+    try {
+      // Get all set IDs for this exercise from the workout
+      const exerciseSets = workout?.workout_sets?.filter(
+        (set) => set.exercise_id === exercise.exercise.id
+      ) || [];
+
+      // Delete all sets
+      for (const set of exerciseSets) {
+        await deleteSetMutation.mutateAsync({
+          id: set.id,
+          workoutId: currentWorkoutId,
+        });
+      }
+
+      // Remove exercise from tracked exercises
+      setTrackedExercises((prev) => prev.filter((_, idx) => idx !== exerciseIndex));
+      setSavedSetData((prev) => {
+        const updated = new Map(prev);
+        updated.delete(exercise.exercise.id);
+        return updated;
+      });
+    } catch (error) {
+      console.error('Failed to delete exercise:', error);
+      Alert.alert('Error', 'Failed to delete exercise. Please try again.');
+    }
+  }, [trackedExercises, currentWorkoutId, workout, deleteSetMutation]);
 
   // Handle PR detection
   const handlePRDetected = useCallback(
@@ -457,13 +567,26 @@ export default function ActiveWorkoutScreen() {
             {/* Exercise Header */}
             <View className="flex-row items-center justify-between mb-3">
               <View className="flex-1">
-                <Text
-                  className={`text-lg font-bold ${
-                    isDark ? 'text-graphite-100' : 'text-graphite-900'
-                  }`}
-                >
-                  {tracked.exercise?.name || 'Unknown Exercise'}
-                </Text>
+                <View className="flex-row items-center justify-between">
+                  <Text
+                    className={`text-lg font-bold ${
+                      isDark ? 'text-graphite-100' : 'text-graphite-900'
+                    }`}
+                  >
+                    {tracked.exercise?.name || 'Unknown Exercise'}
+                  </Text>
+                  <Pressable
+                    onPress={() => handleDeleteExercise(exerciseIndex)}
+                    className="p-2 -mr-2"
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={20}
+                      color={isDark ? '#ef4444' : '#dc2626'}
+                    />
+                  </Pressable>
+                </View>
                 {tracked.exercise && (
                   <View className="flex-row items-center mt-1">
                     <View
@@ -529,24 +652,43 @@ export default function ActiveWorkoutScreen() {
               />
             ))}
 
-            {/* Add Set Button */}
-            <Pressable
-              className={`flex-row items-center justify-center py-3 rounded-xl border border-dashed ${
-                isDark ? 'border-graphite-600' : 'border-graphite-300'
-              }`}
-              onPress={() => handleAddSet(exerciseIndex)}
-            >
-              <Ionicons
-                name="add-circle-outline"
-                size={20}
-                color={isDark ? '#808fb0' : '#607296'}
-              />
-              <Text
-                className={`ml-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
+            {/* Add Set / Multiply Sets Buttons */}
+            <View className="flex-row gap-2">
+              {savedSetData.has(tracked.exercise.id) && tracked.sets.length > 0 && (
+                <Pressable
+                  className={`flex-1 flex-row items-center justify-center py-3 rounded-xl border ${
+                    isDark ? 'border-signal-500/50 bg-signal-500/10' : 'border-signal-500/50 bg-signal-500/10'
+                  }`}
+                  onPress={() => handleMultiplySets(exerciseIndex)}
+                >
+                  <Ionicons
+                    name="copy-outline"
+                    size={18}
+                    color="#2F80ED"
+                  />
+                  <Text className="ml-2 text-signal-500 font-semibold text-sm">
+                    +3 Sets
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                className={`flex-1 flex-row items-center justify-center py-3 rounded-xl border border-dashed ${
+                  isDark ? 'border-graphite-600' : 'border-graphite-300'
+                }`}
+                onPress={() => handleAddSet(exerciseIndex)}
               >
-                Add Set
-              </Text>
-            </Pressable>
+                <Ionicons
+                  name="add-circle-outline"
+                  size={20}
+                  color={isDark ? '#808fb0' : '#607296'}
+                />
+                <Text
+                  className={`ml-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
+                >
+                  Add Set
+                </Text>
+              </Pressable>
+            </View>
           </View>
         ))}
 

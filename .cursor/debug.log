@@ -73,3 +73,5 @@
 {"location":"_layout.tsx:top","message":"App _layout.tsx loaded - code is executing","data":{"platform":"native"},"timestamp":1768076955311,"sessionId":"debug-session","hypothesisId":"B"}
 {"location":"_layout.tsx:top","message":"App _layout.tsx loaded - code is executing","data":{"platform":"web"},"timestamp":1768076955620,"sessionId":"debug-session","hypothesisId":"B"}
 {"location":"_layout.tsx:top","message":"App _layout.tsx loaded - code is executing","data":{"platform":"web"},"timestamp":1768077107637,"sessionId":"debug-session","hypothesisId":"B"}
+{"location":"_layout.tsx:top","message":"App _layout.tsx loaded - code is executing","data":{"platform":"native"},"timestamp":1768077961419,"sessionId":"debug-session","hypothesisId":"B"}
+{"location":"_layout.tsx:top","message":"App _layout.tsx loaded - code is executing","data":{"platform":"web"},"timestamp":1768077961715,"sessionId":"debug-session","hypothesisId":"B"}
