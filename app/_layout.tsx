@@ -200,6 +200,13 @@ function RootLayoutNav() {
               headerTitle: 'Exercise History',
             }}
           />
+          <Stack.Screen
+            name="profile/[id]"
+            options={{
+              presentation: 'card',
+              headerShown: false,
+            }}
+          />
         </Stack>
       </GestureHandlerRootView>
     </ThemeProvider>
