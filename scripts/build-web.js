@@ -8,6 +8,15 @@
 const { execSync } = require('child_process');
 const { existsSync } = require('fs');
 const { resolve } = require('path');
+const path = require('path');
+
+// Load environment variables from .env file (if it exists)
+try {
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+} catch (e) {
+  // dotenv might not be installed or .env might not exist - that's okay
+  // Environment variables should be set in the environment in production
+}
 
 const DIST_DIR = resolve(__dirname, '..', 'dist');
 
