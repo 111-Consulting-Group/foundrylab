@@ -76,6 +76,8 @@ export function useActiveGoals() {
       return (data || []) as FitnessGoal[];
     },
     enabled: !!userId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 
@@ -104,6 +106,8 @@ export function useAllGoals() {
       return (data || []) as FitnessGoal[];
     },
     enabled: !!userId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 
@@ -133,6 +137,8 @@ export function useGoalForExercise(exerciseId: string) {
       return data as FitnessGoal | null;
     },
     enabled: !!userId && !!exerciseId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 

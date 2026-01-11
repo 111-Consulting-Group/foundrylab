@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -39,7 +39,7 @@ const RPE_DESCRIPTIONS: Record<number, string> = {
   10: 'Max effort',
 };
 
-export function SetInput({
+export const SetInput = React.memo(function SetInput({
   exercise,
   setNumber,
   workoutId,
@@ -509,4 +509,4 @@ export function SetInput({
       </View>
     </Animated.View>
   );
-}
+});

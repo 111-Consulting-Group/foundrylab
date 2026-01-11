@@ -41,6 +41,8 @@ export function useExercises(filters?: {
       if (error) throw error;
       return data as Exercise[];
     },
+    staleTime: 30 * 60 * 1000, // 30 minutes - exercise data rarely changes
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 }
 
@@ -59,6 +61,8 @@ export function useExercise(id: string) {
       return data as Exercise;
     },
     enabled: !!id,
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 }
 
@@ -77,6 +81,8 @@ export function useMuscleGroups() {
       const uniqueGroups = [...new Set((data as { muscle_group: string }[]).map((e) => e.muscle_group))];
       return uniqueGroups;
     },
+    staleTime: 60 * 60 * 1000, // 1 hour - almost never changes
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
   });
 }
 
@@ -121,5 +127,7 @@ export function useExerciseSearch(searchTerm: string) {
       return data as Exercise[];
     },
     enabled: searchTerm.length >= 2,
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 }

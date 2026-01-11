@@ -69,6 +69,8 @@ export function useWorkout(id: string) {
       }
     },
     enabled: !!id,
+    staleTime: 30 * 1000, // 30 seconds - workout data changes during active sessions
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -100,6 +102,8 @@ export function useTodaysWorkout() {
       return data as WorkoutWithSets | null;
     },
     enabled: !!userId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -139,6 +143,8 @@ export function useNextWorkout() {
       return data as WorkoutWithSets | null;
     },
     enabled: !!userId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -176,6 +182,8 @@ export function useUpcomingWorkouts(limit: number = 5) {
       return data as WorkoutWithSets[];
     },
     enabled: !!userId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -227,10 +235,16 @@ export function usePushWorkouts() {
           .eq('id', update.id);
       }
 
-      return { updated: updates.length };
+      return { updated: updates.length, blockId: activeBlock.id };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+    onSuccess: (result) => {
+      // Only invalidate queries that show scheduled workouts
+      queryClient.invalidateQueries({ queryKey: workoutKeys.next() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.upcoming() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.today() });
+      if (result.blockId) {
+        queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: result.blockId }) });
+      }
     },
   });
 }
@@ -262,6 +276,8 @@ export function useWorkoutHistory(limit: number = 20) {
       return data as WorkoutWithSets[];
     },
     enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - history doesn't change often
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
@@ -281,6 +297,8 @@ export function useBlockWorkouts(blockId: string) {
       return data as Workout[];
     },
     enabled: !!blockId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 
@@ -302,8 +320,14 @@ export function useCreateWorkout() {
       if (error) throw error;
       return data as Workout;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+    onSuccess: (data) => {
+      // Only invalidate relevant queries, not all workout queries
+      queryClient.invalidateQueries({ queryKey: workoutKeys.incomplete() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.next() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.upcoming() });
+      if (data.block_id) {
+        queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: data.block_id }) });
+      }
     },
   });
 }
@@ -325,8 +349,13 @@ export function useUpdateWorkout() {
       return data as Workout;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+      // Invalidate specific workout detail and related list queries
       queryClient.invalidateQueries({ queryKey: workoutKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.next() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.upcoming() });
+      if (data.block_id) {
+        queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: data.block_id }) });
+      }
     },
   });
 }
@@ -351,9 +380,17 @@ export function useCompleteWorkout() {
       if (error) throw error;
       return data as Workout;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       endWorkout();
-      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+      // Invalidate queries that would be affected by workout completion
+      queryClient.invalidateQueries({ queryKey: workoutKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.incomplete() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.next() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.upcoming() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.history() });
+      if (data.block_id) {
+        queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: data.block_id }) });
+      }
     },
   });
 }
@@ -434,6 +471,8 @@ export function useIncompleteWorkouts() {
       return data as WorkoutWithSets[];
     },
     enabled: !!userId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -489,5 +528,7 @@ export function usePreviousPerformance(exerciseId: string, currentWorkoutId?: st
       return data;
     },
     enabled: !!exerciseId && !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - historical data
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }

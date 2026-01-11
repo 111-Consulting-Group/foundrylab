@@ -132,6 +132,21 @@ export default function DashboardScreen() {
     };
   }, [workoutHistory]);
 
+  // Memoize today's day of week (to avoid new Date() in render loop)
+  const todayDayOfWeek = useMemo(() => new Date().getDay(), []);
+
+  // Memoize unique exercises from next workout
+  const nextWorkoutExercises = useMemo(() => {
+    if (!nextWorkout?.workout_sets) return [];
+    const uniqueExercises = new Map<string, Exercise>();
+    nextWorkout.workout_sets.forEach((set) => {
+      if (set.exercise && !uniqueExercises.has(set.exercise_id)) {
+        uniqueExercises.set(set.exercise_id, set.exercise as Exercise);
+      }
+    });
+    return Array.from(uniqueExercises.values()).slice(0, 2);
+  }, [nextWorkout?.workout_sets]);
+
   // Handle starting a different workout from the queue
   const handleSwapWorkout = (workout: WorkoutWithSets) => {
     setShowSwapModal(false);
@@ -301,33 +316,20 @@ export default function DashboardScreen() {
                 </View>
                 
                 {/* Progression Targets Preview - Show first 2 exercises */}
-                {(() => {
-                  const uniqueExercises = new Map();
-                  nextWorkout.workout_sets?.forEach((set) => {
-                    if (set.exercise && !uniqueExercises.has(set.exercise_id)) {
-                      uniqueExercises.set(set.exercise_id, set.exercise);
-                    }
-                  });
-                  const exercises = Array.from(uniqueExercises.values()).slice(0, 2);
-                  
-                  if (exercises.length > 0) {
-                    return (
-                      <View className={`mt-3 pt-3 border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
-                        <Text className={`text-xs font-semibold mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                          Key Exercises
+                {nextWorkoutExercises.length > 0 && (
+                  <View className={`mt-3 pt-3 border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+                    <Text className={`text-xs font-semibold mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                      Key Exercises
+                    </Text>
+                    {nextWorkoutExercises.map((exercise) => (
+                      <View key={exercise.id} className="mb-2">
+                        <Text className={`text-sm ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+                          {exercise.name}
                         </Text>
-                        {exercises.map((exercise: any) => (
-                          <View key={exercise.id} className="mb-2">
-                            <Text className={`text-sm ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
-                              {exercise.name}
-                            </Text>
-                          </View>
-                        ))}
                       </View>
-                    );
-                  }
-                  return null;
-                })()}
+                    ))}
+                  </View>
+                )}
               </Pressable>
 
               {/* Flexible action buttons */}
@@ -394,9 +396,8 @@ export default function DashboardScreen() {
           >
             <View className="flex-row justify-between mb-4">
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, dayIndex) => {
-                const dayOfWeek = dayIndex;
-                const hasWorkout = (weekSummary?.workoutDays || weeklyStats.workoutDays).includes(dayOfWeek);
-                const isToday = new Date().getDay() === dayOfWeek;
+                const hasWorkout = (weekSummary?.workoutDays || weeklyStats.workoutDays).includes(dayIndex);
+                const isToday = todayDayOfWeek === dayIndex;
 
                 return (
                   <View key={dayIndex} className="items-center">

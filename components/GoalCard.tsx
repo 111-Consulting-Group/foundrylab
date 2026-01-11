@@ -5,6 +5,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo } from 'react';
 import { View, Text, Pressable } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -16,11 +17,12 @@ interface GoalCardProps {
   onPress?: () => void;
 }
 
-export function GoalCard({ goal, compact = false, onPress }: GoalCardProps) {
+export const GoalCard = React.memo(function GoalCard({ goal, compact = false, onPress }: GoalCardProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const progress = calculateGoalProgress(goal);
+  // Memoize expensive progress calculation
+  const progress = useMemo(() => calculateGoalProgress(goal), [goal]);
   const isAchieved = goal.status === 'achieved';
   const isPaused = goal.status === 'paused';
 
@@ -184,17 +186,17 @@ export function GoalCard({ goal, compact = false, onPress }: GoalCardProps) {
       </View>
     </Container>
   );
-}
+});
 
 /**
  * Compact goal display for feed posts
  */
-export function GoalProgressBadge({
+export const GoalProgressBadge = React.memo(function GoalProgressBadge({
   goal,
 }: {
   goal: FitnessGoal;
 }) {
-  const progress = calculateGoalProgress(goal);
+  const progress = useMemo(() => calculateGoalProgress(goal), [goal]);
   const isAchieved = goal.status === 'achieved';
 
   const progressColor = isAchieved ? '#27AE60' : '#2F80ED';
@@ -214,4 +216,4 @@ export function GoalProgressBadge({
       </Text>
     </View>
   );
-}
+});

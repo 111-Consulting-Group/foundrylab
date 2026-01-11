@@ -35,6 +35,8 @@ export function useExercisePRs(exerciseId: string) {
       return data;
     },
     enabled: !!userId && !!exerciseId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 
@@ -61,6 +63,8 @@ export function useRecentPRs(limit: number = 10) {
       return data;
     },
     enabled: !!userId,
+    staleTime: 1 * 60 * 1000, // 1 minute - recent PRs change more frequently
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -220,57 +224,83 @@ export function useCheckAndRecordPR() {
   });
 }
 
-// Get PR leaderboard for main lifts
+// Main lift names for PR leaderboard
+const mainLifts = [
+  'Barbell Back Squat',
+  'Barbell Bench Press',
+  'Conventional Deadlift',
+  'Overhead Press',
+  'Barbell Row',
+];
+
+// Get PR leaderboard for main lifts - single query with join
 export function useMainLiftPRs() {
   const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: ['mainLiftPRs'],
+    queryKey: ['mainLiftPRs', userId],
     queryFn: async () => {
       if (!userId) return [];
 
-      const mainLifts = [
-        'Barbell Back Squat',
-        'Barbell Bench Press',
-        'Conventional Deadlift',
-        'Overhead Press',
-        'Barbell Row',
-      ];
+      // Single query: fetch all e1rm PRs for main lifts with exercise data
+      const { data, error } = await supabase
+        .from('personal_records')
+        .select(`
+          *,
+          exercise:exercises!inner(id, name)
+        `)
+        .eq('user_id', userId)
+        .eq('record_type', 'e1rm')
+        .in('exercise.name', mainLifts)
+        .order('value', { ascending: false });
 
-      const { data: exercises, error: exerciseError } = await supabase
+      if (error) throw error;
+
+      // Group by exercise and take the best PR for each
+      const prsByExercise = new Map<string, {
+        exerciseId: string;
+        exerciseName: string;
+        e1rm: number | null;
+        achievedAt: string | null;
+      }>();
+
+      type PRWithExercise = PersonalRecord & {
+        exercise: { id: string; name: string };
+      };
+
+      for (const pr of (data as PRWithExercise[]) || []) {
+        const exerciseId = pr.exercise.id;
+        // Since we ordered by value desc, first one for each exercise is the best
+        if (!prsByExercise.has(exerciseId)) {
+          prsByExercise.set(exerciseId, {
+            exerciseId,
+            exerciseName: pr.exercise.name,
+            e1rm: pr.value,
+            achievedAt: pr.achieved_at,
+          });
+        }
+      }
+
+      // Ensure all main lifts are represented (even with null values)
+      const { data: allMainExercises } = await supabase
         .from('exercises')
         .select('id, name')
         .in('name', mainLifts);
 
-      if (exerciseError) throw exerciseError;
+      const result = (allMainExercises || []).map((ex) => {
+        const existing = prsByExercise.get(ex.id);
+        return existing || {
+          exerciseId: ex.id,
+          exerciseName: ex.name,
+          e1rm: null,
+          achievedAt: null,
+        };
+      });
 
-      const typedExercises = exercises as { id: string; name: string }[];
-
-      const prs = await Promise.all(
-        typedExercises.map(async (exercise) => {
-          const { data: pr } = await supabase
-            .from('personal_records')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('exercise_id', exercise.id)
-            .eq('record_type', 'e1rm' as RecordType)
-            .order('value', { ascending: false })
-            .limit(1)
-            .single();
-
-          const typedPR = pr as PersonalRecord | null;
-
-          return {
-            exerciseId: exercise.id,
-            exerciseName: exercise.name,
-            e1rm: typedPR?.value || null,
-            achievedAt: typedPR?.achieved_at || null,
-          };
-        })
-      );
-
-      return prs;
+      return result;
     },
     enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }

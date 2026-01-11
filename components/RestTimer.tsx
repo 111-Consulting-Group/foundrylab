@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,7 @@ export const REST_PRESETS = [
   { label: '5m', seconds: 300 },
 ];
 
-export function RestTimer({
+export const RestTimer = React.memo(function RestTimer({
   initialSeconds = 90,
   onComplete,
   onDismiss,
@@ -296,12 +296,12 @@ export function RestTimer({
       </View>
     </View>
   );
-}
+});
 
 /**
  * Compact inline rest timer for use within SetInput
  */
-export function InlineRestTimer({
+export const InlineRestTimer = React.memo(function InlineRestTimer({
   seconds: initialSeconds,
   onComplete,
   onSkip,
@@ -385,4 +385,4 @@ export function InlineRestTimer({
       </Pressable>
     </View>
   );
-}
+});

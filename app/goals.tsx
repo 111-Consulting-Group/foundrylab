@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -38,16 +38,16 @@ export default function GoalsScreen() {
   const [targetValue, setTargetValue] = useState('');
   const [targetDate, setTargetDate] = useState('');
 
-  // Separate active and completed goals
-  const activeGoals = goals.filter((g) => g.status === 'active');
-  const achievedGoals = goals.filter((g) => g.status === 'achieved');
+  // Memoize filtered goals to avoid recomputation on every render
+  const activeGoals = useMemo(() => goals.filter((g) => g.status === 'active'), [goals]);
+  const achievedGoals = useMemo(() => goals.filter((g) => g.status === 'achieved'), [goals]);
 
-  // Get exercises available for goal setting (main lifts with their current PRs)
-  const exerciseOptions = mainLiftPRs.map((lift) => ({
+  // Memoize exercise options (main lifts with their current PRs)
+  const exerciseOptions = useMemo(() => mainLiftPRs.map((lift) => ({
     id: lift.exerciseId,
     name: lift.exerciseName,
     currentPR: lift.e1rm,
-  }));
+  })), [mainLiftPRs]);
 
   const handleCreateGoal = async () => {
     if (!selectedExercise || !targetValue) return;
