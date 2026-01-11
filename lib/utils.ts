@@ -126,9 +126,15 @@ export function calculateE1RM(weight: number, reps: number): number {
   return Math.round(weight * (1 + reps / 30));
 }
 
-// Calculate total volume
+// Calculate total volume (for multiple sets)
 export function calculateVolume(weight: number, reps: number, sets: number = 1): number {
   return weight * reps * sets;
+}
+
+// Calculate volume for a single set (handles null values)
+export function calculateSetVolume(weight: number | null | undefined, reps: number | null | undefined): number {
+  if (!weight || !reps || weight <= 0 || reps <= 0) return 0;
+  return weight * reps;
 }
 
 // Calculate percentage of 1RM

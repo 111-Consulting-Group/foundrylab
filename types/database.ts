@@ -13,6 +13,7 @@ export type ExerciseModality = 'Strength' | 'Cardio' | 'Hybrid';
 export type PrimaryMetric = 'Weight' | 'Watts' | 'Pace' | 'Distance';
 export type RecordType = 'weight' | 'reps' | 'volume' | 'e1rm' | 'watts' | 'pace';
 export type UnitsPreference = 'imperial' | 'metric';
+export type WorkoutContext = 'building' | 'maintaining' | 'deloading' | 'testing' | 'unstructured';
 
 // Core database types matching Supabase schema
 export interface Database {
@@ -69,6 +70,7 @@ export interface Database {
           start_date: string;
           duration_weeks: number;
           is_active: boolean;
+          phase: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -81,6 +83,7 @@ export interface Database {
           start_date: string;
           duration_weeks?: number;
           is_active?: boolean;
+          phase?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -93,6 +96,7 @@ export interface Database {
           start_date?: string;
           duration_weeks?: number;
           is_active?: boolean;
+          phase?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -109,6 +113,7 @@ export interface Database {
           scheduled_date: string | null;
           date_completed: string | null;
           duration_minutes: number | null;
+          context: WorkoutContext;
           created_at: string;
           updated_at: string;
         };
@@ -123,6 +128,7 @@ export interface Database {
           scheduled_date?: string | null;
           date_completed?: string | null;
           duration_minutes?: number | null;
+          context?: WorkoutContext;
           created_at?: string;
           updated_at?: string;
         };
@@ -137,6 +143,7 @@ export interface Database {
           scheduled_date?: string | null;
           date_completed?: string | null;
           duration_minutes?: number | null;
+          context?: WorkoutContext;
           created_at?: string;
           updated_at?: string;
         };
@@ -162,6 +169,8 @@ export interface Database {
           notes: string | null;
           is_warmup: boolean;
           is_pr: boolean;
+          progression_type: string | null;
+          previous_set_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -185,6 +194,8 @@ export interface Database {
           notes?: string | null;
           is_warmup?: boolean;
           is_pr?: boolean;
+          progression_type?: string | null;
+          previous_set_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -208,6 +219,8 @@ export interface Database {
           notes?: string | null;
           is_warmup?: boolean;
           is_pr?: boolean;
+          progression_type?: string | null;
+          previous_set_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -288,6 +301,72 @@ export interface Database {
           unit?: string;
           achieved_at?: string;
           notes?: string | null;
+          created_at?: string;
+        };
+      };
+      follows: {
+        Row: {
+          id: string;
+          follower_id: string;
+          following_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          follower_id: string;
+          following_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          follower_id?: string;
+          following_id?: string;
+          created_at?: string;
+        };
+      };
+      workout_posts: {
+        Row: {
+          id: string;
+          workout_id: string;
+          user_id: string;
+          caption: string | null;
+          is_public: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          workout_id: string;
+          user_id: string;
+          caption?: string | null;
+          is_public?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          workout_id?: string;
+          user_id?: string;
+          caption?: string | null;
+          is_public?: boolean;
+          created_at?: string;
+        };
+      };
+      post_likes: {
+        Row: {
+          id: string;
+          post_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          post_id?: string;
+          user_id?: string;
           created_at?: string;
         };
       };

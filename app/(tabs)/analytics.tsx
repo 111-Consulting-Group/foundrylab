@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { WeeklyInsights } from '@/components/WeeklyInsights';
+import { useWorkoutHistory } from '@/hooks/useWorkouts';
 
 type MetricType = 'strength' | 'conditioning';
 
@@ -35,6 +37,9 @@ export default function AnalyticsScreen() {
   const isDark = colorScheme === 'dark';
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('strength');
   const screenWidth = Dimensions.get('window').width;
+
+  // Fetch workout history for weekly insights
+  const { data: recentWorkouts = [] } = useWorkoutHistory(50);
 
   return (
     <SafeAreaView className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`} edges={['left', 'right']}>
@@ -91,6 +96,11 @@ export default function AnalyticsScreen() {
 
         {selectedMetric === 'strength' ? (
           <>
+            {/* Weekly Insights */}
+            <View className="px-4 mt-4">
+              <WeeklyInsights workouts={recentWorkouts} />
+            </View>
+
             {/* Estimated 1RM Chart Placeholder */}
             <View className="px-4 mt-6">
               <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>

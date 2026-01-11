@@ -1,9 +1,5 @@
 import '../global.css';
 
-// #region agent log
-fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'_layout.tsx:top',message:'App _layout.tsx loaded - code is executing',data:{platform: typeof window !== 'undefined' ? 'web' : 'native'},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-// #endregion
-
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -77,19 +73,19 @@ export default function RootLayout() {
 
   // Initialize auth session
   useEffect(() => {
+    let subscription: { unsubscribe: () => void } | null = null;
+
     async function initAuth() {
       try {
         // Check for existing session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error('Error getting session:', sessionError);
           setAuthInitialized(true);
           return;
         }
 
         if (session?.user) {
-          console.log('Found existing session for user:', session.user.id);
           setUserId(session.user.id);
           
           // Fetch user profile
@@ -102,13 +98,10 @@ export default function RootLayout() {
           if (!profileError && profile) {
             setUserProfile(profile);
           }
-        } else {
-          console.log('No existing session found');
         }
 
         // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log('Auth state changed:', event, session?.user?.id || 'no user');
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (session?.user) {
             setUserId(session.user.id);
             
@@ -124,24 +117,23 @@ export default function RootLayout() {
             }
           } else {
             // User signed out - clear state
-            console.log('Auth state changed: SIGNED_OUT, clearing user state');
             setUserId(null);
             setUserProfile(null);
           }
         });
 
+        subscription = data.subscription;
         setAuthInitialized(true);
-        
-        return () => {
-          subscription.unsubscribe();
-        };
       } catch (err) {
-        console.error('Auth initialization error:', err);
         setAuthInitialized(true);
       }
     }
 
     initAuth();
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, [setUserId, setUserProfile]);
 
   useEffect(() => {

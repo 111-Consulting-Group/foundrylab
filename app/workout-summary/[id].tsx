@@ -14,8 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { SessionVerdict } from '@/components/SessionVerdict';
 import { useWorkout } from '@/hooks/useWorkouts';
-import type { WorkoutSet } from '@/types/database';
+import { useShareWorkout } from '@/hooks/useSocial';
+import { calculateSetVolume } from '@/lib/utils';
+import { Alert } from 'react-native';
+import type { WorkoutSet, WorkoutWithSets } from '@/types/database';
 
 export default function WorkoutSummaryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,26 +28,20 @@ export default function WorkoutSummaryScreen() {
   const summaryRef = useRef<View>(null);
 
   const { data: workout, isLoading } = useWorkout(id);
-
-  // Debug: log the actual sets data
-  console.log('Workout sets:', workout?.workout_sets?.map(s => ({
-    exercise: s.exercise?.name,
-    weight: s.actual_weight,
-    reps: s.actual_reps,
-    volume: s.actual_weight && s.actual_reps ? s.actual_weight * s.actual_reps : 0
-  })));
+  const shareWorkoutMutation = useShareWorkout();
 
   // Calculate workout stats
   const stats = workout?.workout_sets?.reduce(
     (acc, set: WorkoutSet) => {
       // Only count sets that were actually performed
-      if (set.actual_weight && set.actual_reps) {
+      const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
+      if (volume > 0) {
         acc.totalSets++;
-        acc.totalReps += set.actual_reps;
-        acc.totalVolume += set.actual_weight * set.actual_reps;
+        acc.totalReps += set.actual_reps || 0;
+        acc.totalVolume += volume;
         
         // Track max weight
-        if (set.actual_weight > acc.maxWeight) {
+        if (set.actual_weight && set.actual_weight > acc.maxWeight) {
           acc.maxWeight = set.actual_weight;
         }
       }
@@ -54,7 +52,10 @@ export default function WorkoutSummaryScreen() {
 
   // Group sets by exercise
   const exerciseSummary = workout?.workout_sets?.reduce((acc, set: WorkoutSet) => {
-    if (!set.exercise || !set.actual_weight || !set.actual_reps) return acc;
+    if (!set.exercise) return acc;
+    
+    const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
+    if (volume === 0) return acc;
     
     const key = set.exercise_id;
     if (!acc[key]) {
@@ -67,8 +68,8 @@ export default function WorkoutSummaryScreen() {
     }
     
     acc[key].sets++;
-    acc[key].totalVolume += set.actual_weight * set.actual_reps;
-    if (set.actual_weight > acc[key].maxWeight) {
+    acc[key].totalVolume += volume;
+    if (set.actual_weight && set.actual_weight > acc[key].maxWeight) {
       acc[key].maxWeight = set.actual_weight;
     }
     
@@ -116,7 +117,6 @@ ${Object.values(exerciseSummary)
           });
         } catch (error) {
           // User cancelled or error
-          console.log('Share cancelled', error);
         }
       } else {
         // Fallback: copy to clipboard
@@ -196,13 +196,33 @@ ${Object.values(exerciseSummary)
         >
           Workout Summary
         </Text>
-        <Pressable onPress={handleShare} className="p-2">
-          <Ionicons
-            name="share-outline"
-            size={24}
-            color={isDark ? '#2F80ED' : '#2F80ED'}
-          />
-        </Pressable>
+        <View className="flex-row gap-2">
+          <Pressable
+            onPress={async () => {
+              if (!workout) return;
+              try {
+                await shareWorkoutMutation.mutateAsync({ workoutId: workout.id });
+                Alert.alert('Success', 'Workout shared to feed!');
+              } catch (error) {
+                Alert.alert('Error', 'Failed to share workout');
+              }
+            }}
+            className="p-2"
+          >
+            <Ionicons
+              name="people-outline"
+              size={24}
+              color={isDark ? '#2F80ED' : '#2F80ED'}
+            />
+          </Pressable>
+          <Pressable onPress={handleShare} className="p-2">
+            <Ionicons
+              name="share-outline"
+              size={24}
+              color={isDark ? '#2F80ED' : '#2F80ED'}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView className="flex-1">
@@ -240,6 +260,9 @@ ${Object.values(exerciseSummary)
                 ⏱️ {workout.duration_minutes || 0} minutes
               </Text>
             </View>
+
+            {/* Session Verdict */}
+            {workout && <SessionVerdict workout={workout as WorkoutWithSets} />}
 
             {/* Stats Grid */}
             <View className="flex-row flex-wrap justify-between mb-6">

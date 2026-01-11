@@ -11,6 +11,8 @@ import Slider from '@react-native-community/slider';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { usePreviousPerformance } from '@/hooks/useWorkouts';
+import { useExerciseMemory } from '@/hooks/useExerciseMemory';
+import { suggestProgression, formatProgressionSuggestion, type SetData as ProgressionSetData } from '@/lib/autoProgress';
 import type { Exercise, WorkoutSet, WorkoutSetInsert } from '@/types/database';
 import { calculateE1RM } from '@/types/database';
 
@@ -52,6 +54,9 @@ export function SetInput({
 
   // Fetch previous performance for this exercise
   const { data: rawPreviousPerformance = [] } = usePreviousPerformance(exercise.id, workoutId);
+  
+  // Fetch exercise memory (last performance)
+  const { data: exerciseMemory } = useExerciseMemory(exercise.id, workoutId);
 
   // Type assertion for previous performance data
   const previousPerformance = rawPreviousPerformance as Array<{
@@ -78,6 +83,13 @@ export function SetInput({
   const [tempo, setTempo] = useState<string>('');
   const [isBodyweight, setIsBodyweight] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  
+  // Use exercise memory for auto-populating weight if not already set
+  useEffect(() => {
+    if (exerciseMemory?.lastWeight && !weight && !isBodyweight && !isCompleted && !targetLoad) {
+      setWeight(exerciseMemory.lastWeight.toString());
+    }
+  }, [exerciseMemory?.lastWeight, weight, isBodyweight, isCompleted, targetLoad]);
   const [showRPESlider, setShowRPESlider] = useState(false);
 
   // Animation for completion
@@ -186,6 +198,62 @@ export function SetInput({
           : 'border-graphite-200'
       }`}
     >
+      {/* Exercise Memory - Last Time */}
+      {exerciseMemory && !isWarmup && !isCompleted && (
+        <View
+          className={`mb-3 p-3 rounded-lg ${
+            isDark ? 'bg-signal-500/10 border-signal-500/30' : 'bg-signal-500/5 border-signal-500/20'
+          } border`}
+        >
+          <View className="flex-row items-center mb-1">
+            <Ionicons name="time-outline" size={14} color="#2F80ED" />
+            <Text className={`text-xs font-semibold ml-1 text-signal-500`}>Last time</Text>
+          </View>
+          <Text className={`text-sm ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+            {exerciseMemory.displayText}
+          </Text>
+        </View>
+      )}
+
+      {/* Progression Suggestion */}
+      {(() => {
+        // Convert previous performance to SetData format for suggestProgression
+        const historyForSuggestion: ProgressionSetData[] = previousPerformance
+          .filter(p => !p.is_warmup && p.actual_weight && p.actual_reps)
+          .slice(0, 10)
+          .map(p => ({
+            actual_weight: p.actual_weight || null,
+            actual_reps: p.actual_reps || null,
+            actual_rpe: p.actual_rpe || null,
+          }));
+        
+        const suggestion = suggestProgression(exercise, historyForSuggestion);
+        
+        if (suggestion && !isWarmup && !isCompleted) {
+          return (
+            <View
+              className={`mb-3 p-3 rounded-lg ${
+                isDark ? 'bg-progress-500/10 border-progress-500/30' : 'bg-progress-500/5 border-progress-500/20'
+              } border`}
+            >
+              <View className="flex-row items-center mb-1">
+                <Ionicons name="trending-up-outline" size={14} color="#22c55e" />
+                <Text className={`text-xs font-semibold ml-1 text-progress-500`}>Suggested</Text>
+              </View>
+              <Text className={`text-sm font-medium ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                {formatProgressionSuggestion(suggestion)}
+              </Text>
+              {suggestion.targetWeight && (
+                <Text className={`text-xs mt-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                  {suggestion.targetWeight} lb × {suggestion.targetReps || reps || '?'} reps @ RPE {suggestion.targetRPE?.toFixed(1) || '?'}
+                </Text>
+              )}
+            </View>
+          );
+        }
+        return null;
+      })()}
+
       {/* Set Header */}
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center">
@@ -216,19 +284,6 @@ export function SetInput({
             {isWarmup ? 'Warm-up Set' : `Set ${setNumber}`}
           </Text>
         </View>
-
-        {/* Previous Performance Badge */}
-        {lastSessionSet && !isWarmup && (
-          <View
-            className={`px-2 py-1 rounded-full ${
-              isDark ? 'bg-graphite-700' : 'bg-graphite-100'
-            }`}
-          >
-            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-              Last: {lastSessionSet.actual_weight}lbs x {lastSessionSet.actual_reps}
-            </Text>
-          </View>
-        )}
 
         {/* Completed Check */}
         {isCompleted && (

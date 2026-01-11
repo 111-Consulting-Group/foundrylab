@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { ExercisePicker } from '@/components/ExercisePicker';
 import { PRCelebration } from '@/components/PRCelebration';
 import { SetInput } from '@/components/SetInput';
 import { useColorScheme } from '@/components/useColorScheme';
+import { detectProgression, getProgressionTypeString, type SetData } from '@/lib/progression';
+import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
 import {
   useWorkout,
   useAddWorkoutSet,
@@ -24,6 +26,7 @@ import {
   useDeleteWorkoutSet,
 } from '@/hooks/useWorkouts';
 import { useAppStore, useActiveWorkout } from '@/stores/useAppStore';
+import { supabase } from '@/lib/supabase';
 import type { Exercise, WorkoutSetInsert } from '@/types/database';
 
 // Tracked exercise with local state
@@ -66,6 +69,9 @@ export default function ActiveWorkoutScreen() {
   );
   const [recentExerciseIds, setRecentExerciseIds] = useState<string[]>([]);
   const [workoutStartTime] = useState(new Date());
+  
+  // Mutex to prevent race condition in workout creation
+  const isCreatingWorkout = useRef(false);
 
   // PR celebration state
   const [showPRCelebration, setShowPRCelebration] = useState(false);
@@ -95,7 +101,6 @@ export default function ActiveWorkoutScreen() {
       workout.workout_sets.forEach((set) => {
         // Skip sets that don't have an exercise (e.g., exercise was deleted)
         if (!set.exercise) {
-          console.warn(`Workout set ${set.id} has no exercise associated`);
           return;
         }
 
@@ -124,7 +129,17 @@ export default function ActiveWorkoutScreen() {
   // Create new ad-hoc workout
   const createNewWorkout = useCallback(async () => {
     if (currentWorkoutId) return currentWorkoutId;
+    
+    // Prevent concurrent creation attempts
+    if (isCreatingWorkout.current) {
+      // Wait a bit and check again
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (currentWorkoutId) return currentWorkoutId;
+      // If still creating, return null to prevent infinite loop
+      if (isCreatingWorkout.current) return null;
+    }
 
+    isCreatingWorkout.current = true;
     try {
       const newWorkout = await createWorkoutMutation.mutateAsync({
         focus: focusParam || 'Quick Workout',
@@ -134,9 +149,10 @@ export default function ActiveWorkoutScreen() {
       startWorkout(newWorkout.id);
       return newWorkout.id;
     } catch (error) {
-      console.error('Failed to create workout:', error);
       Alert.alert('Error', 'Failed to create workout. Please try again.');
       return null;
+    } finally {
+      isCreatingWorkout.current = false;
     }
   }, [currentWorkoutId, createWorkoutMutation, startWorkout, focusParam]);
 
@@ -185,10 +201,68 @@ export default function ActiveWorkoutScreen() {
       if (!currentWorkoutId) return;
 
       try {
+        // Detect progression by comparing with previous sets
+        let progressionType: string | null = null;
+        let previousSetId: string | null = null;
+
+        if (!setData.is_warmup && setData.actual_weight && setData.actual_reps && setData.actual_weight > 0) {
+          // Get the most recent set for this exercise (from current workout or previous workouts)
+          const { data: previousSets } = await supabase
+            .from('workout_sets')
+            .select('id, actual_weight, actual_reps, actual_rpe, is_warmup, set_order')
+            .eq('exercise_id', exerciseId)
+            .neq('workout_id', currentWorkoutId)
+            .not('actual_weight', 'is', null)
+            .not('actual_reps', 'is', null)
+            .eq('is_warmup', false)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          // Also check current workout for previous sets
+          const { data: currentWorkoutSets } = await supabase
+            .from('workout_sets')
+            .select('id, actual_weight, actual_reps, actual_rpe, is_warmup, set_order')
+            .eq('workout_id', currentWorkoutId)
+            .eq('exercise_id', exerciseId)
+            .lt('set_order', setOrder)
+            .not('actual_weight', 'is', null)
+            .not('actual_reps', 'is', null)
+            .eq('is_warmup', false)
+            .order('set_order', { ascending: false })
+            .limit(1);
+
+          // Use current workout set if available, otherwise use previous workout set
+          const previousSet = currentWorkoutSets && currentWorkoutSets.length > 0
+            ? currentWorkoutSets[0]
+            : previousSets && previousSets.length > 0
+            ? previousSets[0]
+            : null;
+
+          if (previousSet) {
+            previousSetId = previousSet.id;
+            const currentSetData: SetData = {
+              actual_weight: setData.actual_weight,
+              actual_reps: setData.actual_reps,
+              actual_rpe: setData.actual_rpe || null,
+              is_warmup: false,
+            };
+            const previousSetData: SetData = {
+              actual_weight: previousSet.actual_weight,
+              actual_reps: previousSet.actual_reps,
+              actual_rpe: previousSet.actual_rpe || null,
+              is_warmup: false,
+            };
+            const progression = detectProgression(currentSetData, previousSetData);
+            progressionType = getProgressionTypeString(progression);
+          }
+        }
+
         await addSetMutation.mutateAsync({
           workout_id: currentWorkoutId,
           exercise_id: exerciseId,
           set_order: setOrder,
+          progression_type: progressionType,
+          previous_set_id: previousSetId,
           ...setData,
         });
         
@@ -201,7 +275,6 @@ export default function ActiveWorkoutScreen() {
           });
         }
       } catch (error) {
-        console.error('Failed to save set:', error);
         Alert.alert('Error', 'Failed to save set. Please try again.');
       }
     },
@@ -242,10 +315,9 @@ export default function ActiveWorkoutScreen() {
         updated[exerciseIndex].sets.push(...newSets);
         return updated;
       });
-    } catch (error) {
-      console.error('Failed to multiply sets:', error);
-      Alert.alert('Error', 'Failed to multiply sets. Please try again.');
-    }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to multiply sets. Please try again.');
+      }
   }, [trackedExercises, currentWorkoutId, savedSetData, addSetMutation]);
 
   // Delete exercise (remove all sets and exercise from workout)
@@ -299,7 +371,6 @@ export default function ActiveWorkoutScreen() {
         return updated;
       });
     } catch (error) {
-      console.error('Failed to delete exercise:', error);
       Alert.alert('Error', 'Failed to delete exercise. Please try again.');
     }
   }, [trackedExercises, currentWorkoutId, workout, deleteSetMutation]);
@@ -364,7 +435,6 @@ export default function ActiveWorkoutScreen() {
       // Navigate to workout summary instead of going back
       router.replace(`/workout-summary/${currentWorkoutId}`);
     } catch (error) {
-      console.error('Failed to complete workout:', error);
       Alert.alert('Error', 'Failed to complete workout. Please try again.');
     }
   }, [
@@ -451,7 +521,6 @@ export default function ActiveWorkoutScreen() {
         { cancelable: true }
       );
     } catch (error) {
-      console.error('Error in handleDiscard:', error);
       // Fallback: just go back if something fails
       endWorkout();
       router.back();
@@ -492,7 +561,6 @@ export default function ActiveWorkoutScreen() {
           <View className="flex-row items-center flex-1">
             <Pressable 
               onPress={() => {
-                console.log('Close button pressed');
                 handleDiscard();
               }}
               className="p-2 -ml-2"
@@ -504,15 +572,34 @@ export default function ActiveWorkoutScreen() {
                 color={isDark ? '#E6E8EB' : '#0E1116'}
               />
             </Pressable>
-            <View className="ml-2">
-              <Text
-                className={`font-semibold ${
-                  isDark ? 'text-graphite-100' : 'text-graphite-900'
-                }`}
-              >
-                {workout?.focus || 'Quick Workout'}
-              </Text>
-              <View className="flex-row items-center">
+            <View className="ml-2 flex-1">
+              <View className="flex-row items-center gap-2">
+                <Text
+                  className={`font-semibold ${
+                    isDark ? 'text-graphite-100' : 'text-graphite-900'
+                  }`}
+                >
+                  {workout?.focus || 'Quick Workout'}
+                </Text>
+                {workout && (() => {
+                  const context = detectWorkoutContext(workout);
+                  const contextInfo = getContextInfo(context);
+                  return (
+                    <View
+                      className="px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: contextInfo.bgColor }}
+                    >
+                      <Text
+                        className="text-xs font-semibold"
+                        style={{ color: contextInfo.color }}
+                      >
+                        {contextInfo.label}
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </View>
+              <View className="flex-row items-center mt-1">
                 <Ionicons
                   name="time-outline"
                   size={14}
@@ -526,6 +613,13 @@ export default function ActiveWorkoutScreen() {
                   {formattedTime}
                 </Text>
               </View>
+              {workout && detectWorkoutContext(workout) === 'unstructured' && (
+                <Text
+                  className={`text-xs mt-1 ${isDark ? 'text-regression-400' : 'text-regression-600'}`}
+                >
+                  Unstructured session - does not contribute to progression
+                </Text>
+              )}
             </View>
           </View>
 

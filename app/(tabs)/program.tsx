@@ -26,6 +26,9 @@ export default function ProgramScreen() {
   // Get block progress
   const { data: progress } = useBlockProgress(activeBlock?.id || '');
 
+  // Calculate current phase (simplified - would need phase tracking per week)
+  const currentPhase = activeBlock?.phase || 'accumulation';
+
   // Group workouts by week
   const workoutsByWeek = blockWithWorkouts?.workouts?.reduce((acc, workout) => {
     const week = workout.week_number || 1;

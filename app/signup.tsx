@@ -29,8 +29,7 @@ export default function SignupScreen() {
       const validationResult = validatePassword(password);
       passwordValid = validationResult.valid;
       passwordError = validationResult.error;
-    } catch (error) {
-      console.error('Password validation error:', error);
+    } catch {
       passwordValid = false;
       passwordError = 'Password validation failed';
     }
@@ -70,13 +69,6 @@ export default function SignupScreen() {
 
   async function handleSignup() {
     if (!canSubmit) {
-      console.log('Cannot submit:', { 
-        emailValid, 
-        passwordValid, 
-        passwordsMatch, 
-        acceptedTerms, 
-        isPending: signupMutation.isPending 
-      });
       return;
     }
 
@@ -85,7 +77,6 @@ export default function SignupScreen() {
       return;
     }
 
-    console.log('Submitting signup form...');
     signupMutation.mutate({
       email: email.trim(),
       password,

@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useWorkoutHistory, useIncompleteWorkouts } from '@/hooks/useWorkouts';
 import { useRecentPRs } from '@/hooks/usePersonalRecords';
+import { calculateSetVolume } from '@/lib/utils';
 import type { WorkoutWithSets } from '@/types/database';
 
 export default function HistoryScreen() {
@@ -29,9 +30,12 @@ export default function HistoryScreen() {
     
     completedWorkouts.forEach((workout) => {
       workout.workout_sets?.forEach((set) => {
-        if (set.actual_weight && set.actual_reps && !set.is_warmup) {
-          totalVolume += set.actual_weight * set.actual_reps;
-          exerciseSet.add(set.exercise_id);
+        if (!set.is_warmup) {
+          const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
+          if (volume > 0) {
+            totalVolume += volume;
+            exerciseSet.add(set.exercise_id);
+          }
         }
       });
     });
@@ -60,9 +64,12 @@ export default function HistoryScreen() {
       let prCount = 0;
 
       workout.workout_sets?.forEach((set) => {
-        if (set.actual_weight && set.actual_reps && !set.is_warmup) {
-          totalVolume += set.actual_weight * set.actual_reps;
-          exerciseSet.add(set.exercise_id);
+        if (!set.is_warmup) {
+          const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
+          if (volume > 0) {
+            totalVolume += volume;
+            exerciseSet.add(set.exercise_id);
+          }
         }
         if (set.is_pr) {
           prCount++;
@@ -87,9 +94,12 @@ export default function HistoryScreen() {
       let prCount = 0;
 
       workout.workout_sets?.forEach((set) => {
-        if (set.actual_weight && set.actual_reps && !set.is_warmup) {
-          totalVolume += set.actual_weight * set.actual_reps;
-          exerciseSet.add(set.exercise_id);
+        if (!set.is_warmup) {
+          const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
+          if (volume > 0) {
+            totalVolume += volume;
+            exerciseSet.add(set.exercise_id);
+          }
         }
         if (set.is_pr) {
           prCount++;

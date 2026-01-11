@@ -24,16 +24,11 @@ export default function TabLayout() {
   const logoutMutation = useLogout();
 
   const handleLogout = () => {
-    console.log('Logout button clicked');
-    
     if (Platform.OS === 'web') {
       // On web, use window.confirm for better compatibility
       const confirmed = window.confirm('Are you sure you want to log out?');
       if (confirmed) {
-        console.log('User confirmed logout (web), calling mutation');
         logoutMutation.mutate();
-      } else {
-        console.log('Logout cancelled (web)');
       }
     } else {
       // On native, use Alert.alert
@@ -44,13 +39,11 @@ export default function TabLayout() {
           { 
             text: 'Cancel', 
             style: 'cancel',
-            onPress: () => console.log('Logout cancelled (native)'),
           },
           {
             text: 'Log Out',
             style: 'destructive',
             onPress: () => {
-              console.log('User confirmed logout (native), calling mutation');
               logoutMutation.mutate();
             },
           },

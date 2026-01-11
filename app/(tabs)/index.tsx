@@ -5,9 +5,15 @@ import { View, Text, ScrollView, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
-import { useNextWorkout, useUpcomingWorkouts, usePushWorkouts } from '@/hooks/useWorkouts';
+import { useNextWorkout, useUpcomingWorkouts, usePushWorkouts, usePreviousPerformance, useWorkoutHistory } from '@/hooks/useWorkouts';
 import { useRecentPRs } from '@/hooks/usePersonalRecords';
-import type { WorkoutWithSets } from '@/types/database';
+import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
+import { useExerciseMemory } from '@/hooks/useExerciseMemory';
+import { suggestProgression } from '@/lib/autoProgress';
+import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
+import { calculateSetVolume } from '@/lib/utils';
+import { useMemo } from 'react';
+import type { WorkoutWithSets, Exercise } from '@/types/database';
 
 export default function DashboardScreen() {
   const colorScheme = useColorScheme();
@@ -47,9 +53,52 @@ export default function DashboardScreen() {
   const { data: nextWorkout, isLoading: workoutLoading } = useNextWorkout();
   const { data: upcomingWorkouts = [] } = useUpcomingWorkouts(5);
   const pushWorkouts = usePushWorkouts();
+  const { data: activeBlock } = useActiveTrainingBlock();
 
   // Fetch recent PRs
   const { data: rawRecentPRs = [] } = useRecentPRs(3);
+  
+  // Fetch workout history for weekly stats
+  const { data: workoutHistory = [] } = useWorkoutHistory(50);
+
+  // Calculate weekly stats
+  const weeklyStats = useMemo(() => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
+    
+    const weekWorkouts = workoutHistory.filter((workout) => {
+      if (!workout.date_completed) return false;
+      const workoutDate = new Date(workout.date_completed);
+      return workoutDate >= startOfWeek && workoutDate < endOfWeek;
+    });
+    
+    let totalVolume = 0;
+    const workoutDays = new Set<number>();
+    
+    weekWorkouts.forEach((workout) => {
+      if (workout.date_completed) {
+        const workoutDate = new Date(workout.date_completed);
+        workoutDays.add(workoutDate.getDay());
+        
+        workout.workout_sets?.forEach((set) => {
+          if (!set.is_warmup) {
+            totalVolume += calculateSetVolume(set.actual_weight, set.actual_reps);
+          }
+        });
+      }
+    });
+    
+    return {
+      completed: weekWorkouts.length,
+      totalVolume,
+      workoutDays: Array.from(workoutDays),
+    };
+  }, [workoutHistory]);
 
   // Handle starting a different workout from the queue
   const handleSwapWorkout = (workout: WorkoutWithSets) => {
@@ -145,14 +194,36 @@ export default function DashboardScreen() {
                         W{nextWorkout.week_number || '1'}
                       </Text>
                     </View>
-                    <View>
-                      <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                        {nextWorkout.focus}
-                      </Text>
+                    <View className="flex-1">
+                      <View className="flex-row items-center gap-2">
+                        <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                          {nextWorkout.focus}
+                        </Text>
+                        {(() => {
+                          const context = detectWorkoutContext(nextWorkout);
+                          const contextInfo = getContextInfo(context);
+                          return (
+                            <View
+                              className="px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: contextInfo.bgColor }}
+                            >
+                              <Text
+                                className="text-xs font-semibold"
+                                style={{ color: contextInfo.color }}
+                              >
+                                {contextInfo.label}
+                              </Text>
+                            </View>
+                          );
+                        })()}
+                      </View>
                       <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                         {nextWorkout.week_number && nextWorkout.day_number
                           ? `Week ${nextWorkout.week_number} - Day ${nextWorkout.day_number}`
                           : 'Next in queue'}
+                        {activeBlock && nextWorkout.week_number && activeBlock.duration_weeks && (
+                          ` (${nextWorkout.week_number} of ${activeBlock.duration_weeks})`
+                        )}
                       </Text>
                     </View>
                   </View>
@@ -160,7 +231,7 @@ export default function DashboardScreen() {
                     <Text className="text-white font-semibold text-sm">Start</Text>
                   </View>
                 </View>
-                <View className="flex-row flex-wrap gap-2">
+                <View className="flex-row flex-wrap gap-2 mb-3">
                   <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}>
                     <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
                       {nextWorkout.workout_sets?.length || 0} exercises
@@ -174,6 +245,35 @@ export default function DashboardScreen() {
                     </View>
                   )}
                 </View>
+                
+                {/* Progression Targets Preview - Show first 2 exercises */}
+                {(() => {
+                  const uniqueExercises = new Map();
+                  nextWorkout.workout_sets?.forEach((set) => {
+                    if (set.exercise && !uniqueExercises.has(set.exercise_id)) {
+                      uniqueExercises.set(set.exercise_id, set.exercise);
+                    }
+                  });
+                  const exercises = Array.from(uniqueExercises.values()).slice(0, 2);
+                  
+                  if (exercises.length > 0) {
+                    return (
+                      <View className={`mt-3 pt-3 border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+                        <Text className={`text-xs font-semibold mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                          Key Exercises
+                        </Text>
+                        {exercises.map((exercise: any) => (
+                          <View key={exercise.id} className="mb-2">
+                            <Text className={`text-sm ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+                              {exercise.name}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
               </Pressable>
 
               {/* Flexible action buttons */}
@@ -225,39 +325,51 @@ export default function DashboardScreen() {
           </Text>
           <View className={`p-4 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
             <View className="flex-row justify-between mb-4">
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
-                <View key={index} className="items-center">
-                  <Text className={`text-xs mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                    {day}
-                  </Text>
-                  <View
-                    className={`w-8 h-8 rounded-full items-center justify-center ${
-                      index < 3
-                        ? 'bg-progress-500'
-                        : index === 3
-                        ? 'bg-signal-500'
-                        : isDark
-                        ? 'bg-graphite-700'
-                        : 'bg-graphite-200'
-                    }`}
-                  >
-                    {index < 3 && <Ionicons name="checkmark" size={16} color="#ffffff" />}
-                    {index === 3 && <Text className="text-white text-xs font-bold">!</Text>}
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, dayIndex) => {
+                // Map array index (0-6) to day of week: 0=Sunday, 1=Monday, etc.
+                // Array is ['S', 'M', 'T', 'W', 'T', 'F', 'S'] = [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
+                const dayOfWeek = dayIndex;
+                const hasWorkout = weeklyStats.workoutDays.includes(dayOfWeek);
+                const isToday = new Date().getDay() === dayOfWeek;
+                
+                return (
+                  <View key={dayIndex} className="items-center">
+                    <Text className={`text-xs mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                      {day}
+                    </Text>
+                    <View
+                      className={`w-8 h-8 rounded-full items-center justify-center ${
+                        hasWorkout
+                          ? 'bg-progress-500'
+                          : isToday
+                          ? 'bg-signal-500'
+                          : isDark
+                          ? 'bg-graphite-700'
+                          : 'bg-graphite-200'
+                      }`}
+                    >
+                      {hasWorkout && <Ionicons name="checkmark" size={16} color="#ffffff" />}
+                      {isToday && !hasWorkout && <Text className="text-white text-xs font-bold">!</Text>}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
             <View className="flex-row justify-between">
               <View>
                 <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                  3/5
+                  {weeklyStats.completed}
                 </Text>
                 <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                   workouts completed
                 </Text>
               </View>
               <View className="items-end">
-                <Text className={`text-2xl font-bold text-signal-500`}>12,450</Text>
+                <Text className={`text-2xl font-bold text-signal-500`}>
+                  {weeklyStats.totalVolume >= 1000 
+                    ? `${(weeklyStats.totalVolume / 1000).toFixed(1)}k` 
+                    : Math.round(weeklyStats.totalVolume).toLocaleString()}
+                </Text>
                 <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
                   total volume (lbs)
                 </Text>

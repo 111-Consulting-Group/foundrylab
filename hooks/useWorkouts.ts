@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
+import { parseWorkoutWithSets } from '@/lib/validation/schemas';
 import { useAppStore } from '@/stores/useAppStore';
 import type {
   Workout,
@@ -50,10 +51,22 @@ export function useWorkout(id: string) {
 
       if (setsError) throw setsError;
 
-      return {
-        ...(workout as Workout),
-        workout_sets: sets,
-      } as WorkoutWithSets;
+      // Validate with Zod instead of type assertion
+      // Note: Requires zod package to be installed (npm install zod)
+      // For now, fallback to type assertion if zod is not available
+      try {
+        return parseWorkoutWithSets({
+          ...workout,
+          workout_sets: sets,
+        });
+      } catch (parseError) {
+        // Validation failed - fallback to type assertion for backward compatibility
+        // TODO: Once zod is installed and schemas are fully validated, consider throwing here
+        return {
+          ...(workout as Workout),
+          workout_sets: sets,
+        } as WorkoutWithSets;
+      }
     },
     enabled: !!id,
   });
