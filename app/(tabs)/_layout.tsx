@@ -61,9 +61,9 @@ export default function TabLayout() {
           backgroundColor: isDark ? '#0E1116' : '#ffffff',
           borderTopColor: isDark ? '#353D4B' : '#A5ABB6',
           borderTopWidth: 1,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 12,
           paddingTop: 8,
-          height: Platform.OS === 'ios' ? 88 : 64,
+          height: Platform.OS === 'ios' ? 88 : 72,
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -129,6 +129,16 @@ export default function TabLayout() {
             <TabBarIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} focused={focused} />
           ),
           headerTitle: 'Analytics',
+        }}
+      />
+      <Tabs.Screen
+        name="feed"
+        options={{
+          title: 'Feed',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'people' : 'people-outline'} color={color} focused={focused} />
+          ),
+          headerTitle: 'Social Feed',
         }}
       />
     </Tabs>
