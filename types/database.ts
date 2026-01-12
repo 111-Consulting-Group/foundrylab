@@ -16,6 +16,12 @@ export type UnitsPreference = 'imperial' | 'metric';
 export type WorkoutContext = 'building' | 'maintaining' | 'deloading' | 'testing' | 'unstructured';
 export type SegmentType = 'warmup' | 'work' | 'recovery' | 'cooldown';
 
+// Training Intelligence types
+export type ConfidenceLevel = 'low' | 'medium' | 'high';
+export type PerformanceTrend = 'progressing' | 'stagnant' | 'regressing';
+export type PatternType = 'training_split' | 'exercise_pairing' | 'rep_range_preference' | 'training_day';
+export type AchievementType = 'pr' | 'streak' | 'block_complete' | 'consistency' | 'volume_milestone';
+
 // Core database types matching Supabase schema
 export interface Database {
   public: {
@@ -374,6 +380,213 @@ export interface Database {
           created_at?: string;
         };
       };
+      movement_memory: {
+        Row: {
+          id: string;
+          user_id: string;
+          exercise_id: string;
+          last_workout_id: string | null;
+          last_date: string | null;
+          last_weight: number | null;
+          last_reps: number | null;
+          last_rpe: number | null;
+          last_sets: number | null;
+          last_context: WorkoutContext | null;
+          last_total_volume: number | null;
+          exposure_count: number;
+          first_logged: string | null;
+          avg_rpe: number | null;
+          typical_rep_min: number | null;
+          typical_rep_max: number | null;
+          total_lifetime_volume: number;
+          pr_weight: number | null;
+          pr_weight_date: string | null;
+          pr_weight_reps: number | null;
+          pr_reps: number | null;
+          pr_reps_weight: number | null;
+          pr_reps_date: string | null;
+          pr_e1rm: number | null;
+          pr_e1rm_date: string | null;
+          pr_volume: number | null;
+          pr_volume_date: string | null;
+          confidence_level: ConfidenceLevel;
+          trend: PerformanceTrend;
+          days_since_last: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          exercise_id: string;
+          last_workout_id?: string | null;
+          last_date?: string | null;
+          last_weight?: number | null;
+          last_reps?: number | null;
+          last_rpe?: number | null;
+          last_sets?: number | null;
+          last_context?: WorkoutContext | null;
+          last_total_volume?: number | null;
+          exposure_count?: number;
+          first_logged?: string | null;
+          avg_rpe?: number | null;
+          typical_rep_min?: number | null;
+          typical_rep_max?: number | null;
+          total_lifetime_volume?: number;
+          pr_weight?: number | null;
+          pr_weight_date?: string | null;
+          pr_weight_reps?: number | null;
+          pr_reps?: number | null;
+          pr_reps_weight?: number | null;
+          pr_reps_date?: string | null;
+          pr_e1rm?: number | null;
+          pr_e1rm_date?: string | null;
+          pr_volume?: number | null;
+          pr_volume_date?: string | null;
+          confidence_level?: ConfidenceLevel;
+          trend?: PerformanceTrend;
+          days_since_last?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          exercise_id?: string;
+          last_workout_id?: string | null;
+          last_date?: string | null;
+          last_weight?: number | null;
+          last_reps?: number | null;
+          last_rpe?: number | null;
+          last_sets?: number | null;
+          last_context?: WorkoutContext | null;
+          last_total_volume?: number | null;
+          exposure_count?: number;
+          first_logged?: string | null;
+          avg_rpe?: number | null;
+          typical_rep_min?: number | null;
+          typical_rep_max?: number | null;
+          total_lifetime_volume?: number;
+          pr_weight?: number | null;
+          pr_weight_date?: string | null;
+          pr_weight_reps?: number | null;
+          pr_reps?: number | null;
+          pr_reps_weight?: number | null;
+          pr_reps_date?: string | null;
+          pr_e1rm?: number | null;
+          pr_e1rm_date?: string | null;
+          pr_volume?: number | null;
+          pr_volume_date?: string | null;
+          confidence_level?: ConfidenceLevel;
+          trend?: PerformanceTrend;
+          days_since_last?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      detected_patterns: {
+        Row: {
+          id: string;
+          user_id: string;
+          pattern_type: PatternType;
+          pattern_name: string | null;
+          pattern_data: Json;
+          confidence: number;
+          confirmation_count: number;
+          first_detected: string;
+          last_confirmed: string;
+          offered_structure: boolean;
+          offered_at: string | null;
+          structure_accepted: boolean | null;
+          accepted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          pattern_type: PatternType;
+          pattern_name?: string | null;
+          pattern_data?: Json;
+          confidence?: number;
+          confirmation_count?: number;
+          first_detected?: string;
+          last_confirmed?: string;
+          offered_structure?: boolean;
+          offered_at?: string | null;
+          structure_accepted?: boolean | null;
+          accepted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          pattern_type?: PatternType;
+          pattern_name?: string | null;
+          pattern_data?: Json;
+          confidence?: number;
+          confirmation_count?: number;
+          first_detected?: string;
+          last_confirmed?: string;
+          offered_structure?: boolean;
+          offered_at?: string | null;
+          structure_accepted?: boolean | null;
+          accepted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_achievements: {
+        Row: {
+          id: string;
+          user_id: string;
+          achievement_type: AchievementType;
+          label: string;
+          description: string | null;
+          icon: string | null;
+          achievement_data: Json;
+          workout_id: string | null;
+          exercise_id: string | null;
+          block_id: string | null;
+          is_active: boolean;
+          earned_at: string;
+          is_featured: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          achievement_type: AchievementType;
+          label: string;
+          description?: string | null;
+          icon?: string | null;
+          achievement_data?: Json;
+          workout_id?: string | null;
+          exercise_id?: string | null;
+          block_id?: string | null;
+          is_active?: boolean;
+          earned_at?: string;
+          is_featured?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          achievement_type?: AchievementType;
+          label?: string;
+          description?: string | null;
+          icon?: string | null;
+          achievement_data?: Json;
+          workout_id?: string | null;
+          exercise_id?: string | null;
+          block_id?: string | null;
+          is_active?: boolean;
+          earned_at?: string;
+          is_featured?: boolean;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -383,6 +596,10 @@ export interface Database {
       record_type: RecordType;
       units_preference: UnitsPreference;
       segment_type: SegmentType;
+      confidence_level: ConfidenceLevel;
+      performance_trend: PerformanceTrend;
+      pattern_type: PatternType;
+      achievement_type: AchievementType;
     };
   };
 }
@@ -411,6 +628,19 @@ export type UserProfileUpdate = Database['public']['Tables']['user_profiles']['U
 export type PersonalRecord = Database['public']['Tables']['personal_records']['Row'];
 export type PersonalRecordInsert = Database['public']['Tables']['personal_records']['Insert'];
 export type PersonalRecordUpdate = Database['public']['Tables']['personal_records']['Update'];
+
+// Training Intelligence type aliases
+export type MovementMemory = Database['public']['Tables']['movement_memory']['Row'];
+export type MovementMemoryInsert = Database['public']['Tables']['movement_memory']['Insert'];
+export type MovementMemoryUpdate = Database['public']['Tables']['movement_memory']['Update'];
+
+export type DetectedPattern = Database['public']['Tables']['detected_patterns']['Row'];
+export type DetectedPatternInsert = Database['public']['Tables']['detected_patterns']['Insert'];
+export type DetectedPatternUpdate = Database['public']['Tables']['detected_patterns']['Update'];
+
+export type UserAchievement = Database['public']['Tables']['user_achievements']['Row'];
+export type UserAchievementInsert = Database['public']['Tables']['user_achievements']['Insert'];
+export type UserAchievementUpdate = Database['public']['Tables']['user_achievements']['Update'];
 
 // Workout Template types (not in main Database interface yet)
 export interface WorkoutTemplate {
@@ -905,3 +1135,247 @@ export interface PeriodizationTimeline {
   currentWeek: number;
   totalWeeks: number;
 }
+
+// ============================================================================
+// TRAINING INTELLIGENCE TYPES
+// ============================================================================
+
+/**
+ * Next Time Suggestion - Generated recommendation for the next session
+ * Core to the "Every movement has memory" principle
+ */
+export interface NextTimeSuggestion {
+  exercise_id: string;
+  exercise_name: string;
+
+  // Last Performance
+  last_performance: {
+    weight: number | null;
+    reps: number | null;
+    sets: number | null;
+    rpe: number | null;
+    date: string | null;
+    context: WorkoutContext | null;
+  };
+
+  // Recommendation
+  recommendation: {
+    weight: number;
+    reps: number;
+    target_rpe: number;
+  };
+
+  // Meta
+  confidence: ConfidenceLevel;
+  trend: PerformanceTrend;
+  reasoning: string;
+  exposure_count: number;
+  pr_e1rm: number | null;
+
+  // Optional alerts
+  alerts?: NextTimeAlert[];
+}
+
+export interface NextTimeAlert {
+  type: 'missed_session' | 'rpe_creep' | 'regression' | 'plateau';
+  message: string;
+  suggested_action: string;
+}
+
+/**
+ * Movement Memory with Exercise info - for display purposes
+ */
+export interface MovementMemoryWithExercise extends MovementMemory {
+  exercise: Exercise;
+}
+
+/**
+ * Pattern Data structures for detected_patterns.pattern_data JSONB field
+ */
+export interface TrainingSplitPatternData {
+  splits: string[];  // e.g., ["Push", "Pull", "Legs"]
+  days_per_week: number;
+  typical_sequence?: string[];  // e.g., ["Push", "Pull", "Legs", "Push", "Pull", "Legs"]
+}
+
+export interface ExercisePairingPatternData {
+  exercises: string[];  // Exercise names that appear together
+  exercise_ids: string[];
+  co_occurrence: number;  // 0-1, how often they appear together
+}
+
+export interface RepRangePreferenceData {
+  exercise_id: string;
+  exercise_name: string;
+  preferred_min: number;
+  preferred_max: number;
+  sample_size: number;
+}
+
+export interface TrainingDayPatternData {
+  focus: string;  // e.g., "Legs"
+  preferred_days: number[];  // 0-6, Sunday-Saturday
+  preferred_day_names: string[];  // ["Monday", "Thursday"]
+  consistency: number;  // 0-1
+}
+
+/**
+ * Achievement Data structures for user_achievements.achievement_data JSONB field
+ */
+export interface StreakAchievementData {
+  days: number;
+  start_date: string;
+  current: boolean;
+}
+
+export interface ConsistencyAchievementData {
+  rate: number;  // 0-1
+  period: 'week' | 'month' | 'block';
+  workouts_completed: number;
+  workouts_planned: number;
+}
+
+export interface VolumeMilestoneData {
+  total_lbs: number;
+  total_kg: number;
+}
+
+export interface BlockCompleteData {
+  block_id: string;
+  block_name: string;
+  duration_weeks: number;
+  completion_rate: number;
+}
+
+export interface PRAchievementData {
+  exercise_id: string;
+  exercise_name: string;
+  record_type: RecordType;
+  value: number;
+  previous_value: number | null;
+  improvement: number | null;
+}
+
+/**
+ * Key Lift for social feed - enhanced workout post display
+ */
+export interface KeyLift {
+  exercise_id: string;
+  exercise_name: string;
+  weight: number;
+  reps: number;
+  is_pr: boolean;
+  progression?: {
+    type: 'weight_increase' | 'rep_increase' | 'e1rm_increase' | 'matched' | 'regressed';
+    delta?: number;
+    delta_label: string;  // "+10 lbs", "+2 reps"
+  };
+}
+
+/**
+ * Goal Context for social feed display
+ */
+export interface GoalContext {
+  type: TrainingGoal;
+  block_name?: string;
+  phase?: TrainingPhase;
+}
+
+/**
+ * Enhanced Workout Post with computed fields
+ */
+export interface EnhancedWorkoutPost {
+  id: string;
+  workout_id: string;
+  user_id: string;
+  caption: string | null;
+  is_public: boolean;
+  created_at: string;
+
+  // Enhanced computed fields
+  workout_summary: {
+    focus: string;
+    duration_minutes: number | null;
+    context: WorkoutContext;
+    exercise_count: number;
+  };
+
+  key_lifts: KeyLift[];
+  goal_context?: GoalContext;
+  achievements?: {
+    type: AchievementType;
+    label: string;
+    icon: string;
+  }[];
+
+  // User info (joined)
+  user?: {
+    id: string;
+    display_name: string | null;
+  };
+}
+
+/**
+ * Confidence calculation factors
+ */
+export interface ConfidenceFactors {
+  exposureCount: number;
+  recency: number;  // days since last
+  consistency: number;  // variance in performance
+  rpeReporting: number;  // 0-1, ratio of sets with RPE logged
+}
+
+/**
+ * Calculate confidence level from factors
+ */
+export function calculateConfidenceLevel(factors: ConfidenceFactors): ConfidenceLevel {
+  let score = 0;
+
+  // Exposure weight (max 40 points)
+  if (factors.exposureCount >= 5) score += 40;
+  else if (factors.exposureCount >= 3) score += 25;
+  else score += factors.exposureCount * 5;
+
+  // Recency weight (max 25 points)
+  if (factors.recency <= 7) score += 25;
+  else if (factors.recency <= 14) score += 15;
+  else if (factors.recency <= 28) score += 5;
+
+  // Consistency weight (max 20 points)
+  score += Math.max(0, 20 - (factors.consistency * 2));
+
+  // RPE reporting weight (max 15 points)
+  score += Math.round(factors.rpeReporting * 15);
+
+  if (score >= 70) return 'high';
+  if (score >= 40) return 'medium';
+  return 'low';
+}
+
+/**
+ * Confidence badge display config
+ */
+export interface ConfidenceBadgeConfig {
+  bg: string;
+  text: string;
+  label: string;
+  tooltip: string;
+}
+
+export const CONFIDENCE_BADGE_CONFIG: Record<ConfidenceLevel, Omit<ConfidenceBadgeConfig, 'tooltip'>> = {
+  low: {
+    bg: 'bg-gray-100',
+    text: 'text-gray-600',
+    label: 'Low Confidence',
+  },
+  medium: {
+    bg: 'bg-yellow-100',
+    text: 'text-yellow-700',
+    label: 'Suggested',
+  },
+  high: {
+    bg: 'bg-green-100',
+    text: 'text-green-700',
+    label: 'Recommended',
+  },
+};
