@@ -14,6 +14,7 @@ export type PrimaryMetric = 'Weight' | 'Watts' | 'Pace' | 'Distance';
 export type RecordType = 'weight' | 'reps' | 'volume' | 'e1rm' | 'watts' | 'pace';
 export type UnitsPreference = 'imperial' | 'metric';
 export type WorkoutContext = 'building' | 'maintaining' | 'deloading' | 'testing' | 'unstructured';
+export type SegmentType = 'warmup' | 'work' | 'recovery' | 'cooldown';
 
 // Core database types matching Supabase schema
 export interface Database {
@@ -171,6 +172,7 @@ export interface Database {
           is_pr: boolean;
           progression_type: string | null;
           previous_set_id: string | null;
+          segment_type: SegmentType;
           created_at: string;
           updated_at: string;
         };
@@ -196,6 +198,7 @@ export interface Database {
           is_pr?: boolean;
           progression_type?: string | null;
           previous_set_id?: string | null;
+          segment_type?: SegmentType;
           created_at?: string;
           updated_at?: string;
         };
@@ -221,6 +224,7 @@ export interface Database {
           is_pr?: boolean;
           progression_type?: string | null;
           previous_set_id?: string | null;
+          segment_type?: SegmentType;
           created_at?: string;
           updated_at?: string;
         };
@@ -378,6 +382,7 @@ export interface Database {
       primary_metric: PrimaryMetric;
       record_type: RecordType;
       units_preference: UnitsPreference;
+      segment_type: SegmentType;
     };
   };
 }

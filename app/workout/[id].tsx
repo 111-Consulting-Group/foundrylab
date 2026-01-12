@@ -13,16 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ExerciseCard, SectionHeader } from '@/components/ExerciseCard';
+import { ExerciseEntryModal } from '@/components/ExerciseEntryModal';
 import { ExercisePicker } from '@/components/ExercisePicker';
 import { PRCelebration } from '@/components/PRCelebration';
 import { ReadinessCheckIn, ReadinessIndicator } from '@/components/ReadinessCheckIn';
-import { RestTimer } from '@/components/RestTimer';
-import { SetInput } from '@/components/SetInput';
-import { SubstitutionPicker } from '@/components/SubstitutionPicker';
 import { useColorScheme } from '@/components/useColorScheme';
-import { detectProgression, getProgressionTypeString, type SetData } from '@/lib/progression';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
-import { generateReadinessAdjustments, summarizeAdjustments, type WorkoutAdjustments } from '@/lib/adjustmentEngine';
+import { generateReadinessAdjustments, type WorkoutAdjustments } from '@/lib/adjustmentEngine';
 import { useTodaysReadiness, analyzeReadiness } from '@/hooks/useReadiness';
 import type { ReadinessAdjustment } from '@/types/database';
 import {
@@ -36,17 +34,63 @@ import { useAppStore, useActiveWorkout } from '@/stores/useAppStore';
 import { supabase } from '@/lib/supabase';
 import { useSmartExerciseSuggestions } from '@/hooks/useProgressionTargets';
 import { useWorkoutTemplate } from '@/hooks/useWorkoutTemplates';
-import type { Exercise, WorkoutSetInsert } from '@/types/database';
+import type { Exercise, WorkoutSetInsert, SegmentType } from '@/types/database';
+import type { SetWithExercise } from '@/lib/workoutSummary';
 
 // Tracked exercise with local state
 interface TrackedExercise {
   exercise: Exercise;
-  sets: Array<{ setOrder: number; setId?: string }>; // Store both order and ID for unique keys
+  sets: SetWithExercise[];
   targetSets?: number;
   targetReps?: number;
   targetRPE?: number;
   targetLoad?: number;
-  supersetGroup?: number; // Exercises with same group number are performed back-to-back
+  section?: string; // For grouping (e.g., "Speed Work", "Chest/Back")
+}
+
+// Parse workout focus to extract sections
+function parseFocusToSections(focus: string): string[] {
+  // Handle common patterns like "Speed + Chest/Back (Heavy Bias)"
+  // Remove parenthetical notes
+  const cleanFocus = focus.replace(/\s*\([^)]*\)\s*/g, '');
+  
+  // Split on + or &
+  const parts = cleanFocus.split(/\s*[+&]\s*/);
+  
+  return parts.map((p) => p.trim()).filter(Boolean);
+}
+
+// Assign exercises to sections based on modality and muscle group
+function assignSection(exercise: Exercise, sections: string[]): string {
+  if (exercise.modality === 'Cardio') {
+    // Cardio exercises go to first section or "Conditioning"
+    return sections.find((s) => 
+      s.toLowerCase().includes('speed') || 
+      s.toLowerCase().includes('cardio') ||
+      s.toLowerCase().includes('conditioning') ||
+      s.toLowerCase().includes('run')
+    ) || sections[0] || 'Conditioning';
+  }
+  
+  // Strength exercises - try to match by muscle group
+  const muscleGroup = exercise.muscle_group.toLowerCase();
+  for (const section of sections) {
+    const sectionLower = section.toLowerCase();
+    if (
+      (sectionLower.includes('chest') && muscleGroup.includes('chest')) ||
+      (sectionLower.includes('back') && muscleGroup.includes('back')) ||
+      (sectionLower.includes('push') && (muscleGroup.includes('chest') || muscleGroup.includes('shoulder') || muscleGroup.includes('tricep'))) ||
+      (sectionLower.includes('pull') && (muscleGroup.includes('back') || muscleGroup.includes('bicep'))) ||
+      (sectionLower.includes('leg') && muscleGroup.includes('leg')) ||
+      (sectionLower.includes('upper') && !muscleGroup.includes('leg')) ||
+      (sectionLower.includes('lower') && muscleGroup.includes('leg'))
+    ) {
+      return section;
+    }
+  }
+  
+  // Default to first non-cardio section or last section
+  return sections.find((s) => !s.toLowerCase().includes('speed') && !s.toLowerCase().includes('cardio')) || sections[sections.length - 1] || 'Strength';
 }
 
 export default function ActiveWorkoutScreen() {
@@ -67,7 +111,7 @@ export default function ActiveWorkoutScreen() {
 
   // Store state
   const activeWorkout = useActiveWorkout();
-  const { startWorkout, endWorkout, addCompletedSet } = useAppStore();
+  const { startWorkout, endWorkout } = useAppStore();
 
   // Queries & mutations
   const { data: workout, isLoading: workoutLoading } = useWorkout(isNewWorkout ? '' : id);
@@ -78,9 +122,6 @@ export default function ActiveWorkoutScreen() {
 
   // Smart suggestions for ad-hoc workouts
   const { data: smartSuggestions = [] } = useSmartExerciseSuggestions(5);
-
-  // Track saved set data for multiply feature
-  const [savedSetData, setSavedSetData] = useState<Map<string, Omit<WorkoutSetInsert, 'workout_id' | 'exercise_id' | 'set_order'>>>(new Map());
 
   // Local state
   const [trackedExercises, setTrackedExercises] = useState<TrackedExercise[]>([]);
@@ -94,22 +135,14 @@ export default function ActiveWorkoutScreen() {
   // Mutex to prevent race condition in workout creation
   const isCreatingWorkout = useRef(false);
 
+  // Modal state for exercise entry
+  const [selectedExerciseIndex, setSelectedExerciseIndex] = useState<number | null>(null);
+
   // PR celebration state
   const [showPRCelebration, setShowPRCelebration] = useState(false);
   const [prExercise, setPRExercise] = useState<Exercise | null>(null);
   const [prType, setPRType] = useState<'weight' | 'reps' | 'volume' | 'e1rm' | null>(null);
   const [prValue, setPRValue] = useState('');
-
-  // Rest timer state
-  const [showRestTimer, setShowRestTimer] = useState(false);
-
-  // Superset/circuit management
-  const nextSupersetGroup = useRef(1);
-  const [supersetMode, setSupersetMode] = useState(false); // When true, next added exercise joins current superset
-
-  // Substitution picker state
-  const [showSubstitutionPicker, setShowSubstitutionPicker] = useState(false);
-  const [substitutionExerciseIndex, setSubstitutionExerciseIndex] = useState<number | null>(null);
 
   // Readiness check-in state
   const { data: todaysReadiness, isLoading: readinessLoading } = useTodaysReadiness();
@@ -118,18 +151,21 @@ export default function ActiveWorkoutScreen() {
   const [workoutAdjustments, setWorkoutAdjustments] = useState<WorkoutAdjustments | null>(null);
   const hasShownReadinessPrompt = useRef(false);
 
+  // Parse focus into sections
+  const sections = useMemo(() => {
+    const focus = workout?.focus || focusParam || 'Workout';
+    return parseFocusToSections(focus);
+  }, [workout?.focus, focusParam]);
+
   // Show readiness check-in if no check-in today (only once)
   useEffect(() => {
     if (!readinessLoading && !todaysReadiness && !hasShownReadinessPrompt.current) {
       hasShownReadinessPrompt.current = true;
-      // Small delay to let the screen render first
       const timer = setTimeout(() => setShowReadinessCheckIn(true), 500);
       return () => clearTimeout(timer);
     }
-    // If already checked in today, use that data
     if (todaysReadiness && !currentAdjustment) {
       setCurrentAdjustment(todaysReadiness.suggested_adjustment as ReadinessAdjustment);
-      // Generate adjustments based on today's readiness
       const analysis = analyzeReadiness(
         todaysReadiness.sleep_quality as 1 | 2 | 3 | 4 | 5,
         todaysReadiness.muscle_soreness as 1 | 2 | 3 | 4 | 5,
@@ -143,20 +179,16 @@ export default function ActiveWorkoutScreen() {
     }
   }, [readinessLoading, todaysReadiness, currentAdjustment]);
 
-  // Handle readiness check-in completion
   const handleReadinessComplete = useCallback((adjustment: ReadinessAdjustment) => {
     setCurrentAdjustment(adjustment);
     setShowReadinessCheckIn(false);
-    // Generate workout adjustments
-    // We'll use default values since we don't have the full analysis here
-    const analysis = analyzeReadiness(3, 3, 3); // Will be overwritten by actual values
+    const analysis = analyzeReadiness(3, 3, 3);
     const adjustments = generateReadinessAdjustments(analysis, adjustment);
     setWorkoutAdjustments(adjustments);
   }, []);
 
   const handleReadinessSkip = useCallback(() => {
     setShowReadinessCheckIn(false);
-    // Default to full if skipped
     setCurrentAdjustment('full');
   }, []);
 
@@ -169,57 +201,57 @@ export default function ActiveWorkoutScreen() {
       const diff = Math.floor((now.getTime() - workoutStartTime.getTime()) / 60000);
       setElapsedMinutes(diff);
     }, 60000);
-
     return () => clearInterval(interval);
   }, [workoutStartTime]);
 
   // Initialize workout from scheduled workout data
   useEffect(() => {
     if (workout && workout.workout_sets && trackedExercises.length === 0) {
-      // Group sets by exercise (filter out sets with null exercises)
       const exerciseMap = new Map<string, TrackedExercise>();
 
       workout.workout_sets.forEach((set) => {
-        // Skip sets that don't have an exercise (e.g., exercise was deleted)
-        if (!set.exercise) {
-          return;
-        }
+        if (!set.exercise) return;
 
         if (!exerciseMap.has(set.exercise_id)) {
+          const section = assignSection(set.exercise, sections);
+          // Count sets with target data to determine targetSets
+          const setsWithTarget = workout.workout_sets.filter(
+            (s) => s.exercise_id === set.exercise_id && (s.target_reps || s.target_load || s.target_rpe)
+          );
+          const targetSetsCount = setsWithTarget.length > 0 ? setsWithTarget.length : undefined;
+          
           exerciseMap.set(set.exercise_id, {
             exercise: set.exercise,
             sets: [],
+            targetSets: targetSetsCount,
             targetReps: set.target_reps || undefined,
             targetRPE: set.target_rpe || undefined,
             targetLoad: set.target_load || undefined,
+            section,
           });
         }
         exerciseMap.get(set.exercise_id)!.sets.push({
-          setOrder: set.set_order,
-          setId: set.id,
+          ...set,
+          segment_type: (set as any).segment_type || 'work',
         });
       });
 
       setTrackedExercises(Array.from(exerciseMap.values()));
       setCurrentWorkoutId(workout.id);
 
-      // Start workout tracking in store
       if (!activeWorkout) {
         startWorkout(workout.id);
       }
     }
-  }, [workout, trackedExercises.length, activeWorkout, startWorkout]);
+  }, [workout, trackedExercises.length, activeWorkout, startWorkout, sections]);
 
   // Initialize workout from template
   useEffect(() => {
     if (template && isNewWorkout && trackedExercises.length === 0) {
       let cancelled = false;
 
-      // Load exercises from template
       const loadTemplateExercises = async () => {
-        // Fetch exercise details for all template exercises
         const exerciseIds = template.exercises.map((e) => e.exercise_id);
-
         const { data: exercises, error } = await supabase
           .from('exercises')
           .select('*')
@@ -227,24 +259,47 @@ export default function ActiveWorkoutScreen() {
 
         if (cancelled || error || !exercises) return;
 
-        // Map template exercises to tracked exercises
         const exerciseMap = new Map(exercises.map((e) => [e.id, e]));
         const tracked: TrackedExercise[] = [];
 
         template.exercises.forEach((te) => {
           const exercise = exerciseMap.get(te.exercise_id);
           if (exercise) {
-            // Create sets array based on template
-            const sets = Array.from({ length: te.sets }, (_, i) => ({
-              setOrder: i + 1,
-              setId: undefined,
+            const section = assignSection(exercise, sections);
+            const sets: SetWithExercise[] = Array.from({ length: te.sets }, (_, i) => ({
+              id: `temp-${te.exercise_id}-${i}`,
+              workout_id: '',
+              exercise_id: te.exercise_id,
+              set_order: i + 1,
+              target_reps: te.target_reps || null,
+              target_rpe: te.target_rpe || null,
+              target_load: te.target_weight || null,
+              actual_weight: null,
+              actual_reps: null,
+              actual_rpe: null,
+              tempo: null,
+              avg_watts: null,
+              avg_hr: null,
+              duration_seconds: null,
+              distance_meters: null,
+              avg_pace: null,
+              notes: null,
+              is_warmup: false,
+              is_pr: false,
+              progression_type: null,
+              previous_set_id: null,
+              segment_type: 'work' as SegmentType,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
             }));
             tracked.push({
               exercise,
               sets,
+              targetSets: te.sets,
               targetReps: te.target_reps,
               targetRPE: te.target_rpe,
               targetLoad: te.target_weight,
+              section,
             });
           }
         });
@@ -255,29 +310,22 @@ export default function ActiveWorkoutScreen() {
       };
 
       loadTemplateExercises();
-
-      return () => {
-        cancelled = true;
-      };
+      return () => { cancelled = true; };
     }
-  }, [template, isNewWorkout, trackedExercises.length]);
+  }, [template, isNewWorkout, trackedExercises.length, sections]);
 
   // Create new ad-hoc workout
   const createNewWorkout = useCallback(async () => {
     if (currentWorkoutId) return currentWorkoutId;
     
-    // Prevent concurrent creation attempts
     if (isCreatingWorkout.current) {
-      // Wait a bit and check again
       await new Promise(resolve => setTimeout(resolve, 100));
       if (currentWorkoutId) return currentWorkoutId;
-      // If still creating, return null to prevent infinite loop
       if (isCreatingWorkout.current) return null;
     }
 
     isCreatingWorkout.current = true;
     try {
-      // Use provided scheduledDate or default to today
       const workoutDate = scheduledDate || new Date().toISOString().split('T')[0];
       const newWorkout = await createWorkoutMutation.mutateAsync({
         focus: focusParam || 'Quick Workout',
@@ -296,114 +344,87 @@ export default function ActiveWorkoutScreen() {
 
   // Add exercise to workout
   const handleAddExercise = useCallback(
-    async (exercise: Exercise, addAsSuperset = false) => {
-      // Ensure workout exists
+    async (exercise: Exercise) => {
       const workoutId = await createNewWorkout();
       if (!workoutId) return;
 
-      setTrackedExercises((prev) => {
-        const shouldSuperset = addAsSuperset || supersetMode;
+      const section = assignSection(exercise, sections);
+      const newSet: SetWithExercise = {
+        id: `temp-${exercise.id}-0`,
+        workout_id: workoutId,
+        exercise_id: exercise.id,
+        set_order: 1,
+        target_reps: null,
+        target_rpe: null,
+        target_load: null,
+        actual_weight: null,
+        actual_reps: null,
+        actual_rpe: null,
+        tempo: null,
+        avg_watts: null,
+        avg_hr: null,
+        duration_seconds: null,
+        distance_meters: null,
+        avg_pace: null,
+        notes: null,
+        is_warmup: false,
+        is_pr: false,
+        progression_type: null,
+        previous_set_id: null,
+        segment_type: 'work' as SegmentType,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-        if (shouldSuperset && prev.length > 0) {
-          // Find or create superset group
-          const lastExercise = prev[prev.length - 1];
-          const groupId = lastExercise?.supersetGroup ?? nextSupersetGroup.current++;
+      setTrackedExercises((prev) => [
+        ...prev,
+        { exercise, sets: [newSet], section },
+      ]);
 
-          // Update last exercise to join group if it wasn't already in one
-          const updated = [...prev];
-          if (!lastExercise?.supersetGroup) {
-            updated[updated.length - 1] = {
-              ...updated[updated.length - 1],
-              supersetGroup: groupId,
-            };
-          }
-
-          // Add new exercise to the same group
-          return [...updated, { exercise, sets: [1], supersetGroup: groupId }];
-        }
-
-        // Normal add without superset
-        return [...prev, { exercise, sets: [1] }];
-      });
-
-      // Turn off superset mode after adding
-      setSupersetMode(false);
-
-      // Track as recent
       setRecentExerciseIds((prev) => {
         const filtered = prev.filter((id) => id !== exercise.id);
         return [exercise.id, ...filtered].slice(0, 10);
       });
     },
-    [createNewWorkout, supersetMode]
+    [createNewWorkout, sections]
   );
 
-  // Add another set to an exercise
+  // Add set to an exercise
   const handleAddSet = useCallback((exerciseIndex: number) => {
     setTrackedExercises((prev) => {
       const updated = [...prev];
-      const maxSetOrder = Math.max(...updated[exerciseIndex].sets.map(s => s.setOrder));
-      updated[exerciseIndex].sets.push({ setOrder: maxSetOrder + 1, setId: undefined });
-      return updated;
-    });
-  }, []);
-
-  // Toggle superset grouping between two adjacent exercises
-  const handleToggleSuperset = useCallback((exerciseIndex: number) => {
-    setTrackedExercises((prev) => {
-      if (exerciseIndex >= prev.length - 1) return prev; // Can't superset with nothing after
-
-      const updated = [...prev];
-      const current = updated[exerciseIndex];
-      const next = updated[exerciseIndex + 1];
-
-      if (current.supersetGroup && current.supersetGroup === next.supersetGroup) {
-        // They're in the same group - unlink them
-        // Count how many in this group
-        const groupMembers = updated.filter(e => e.supersetGroup === current.supersetGroup);
-        if (groupMembers.length === 2) {
-          // Just 2 members, remove the group entirely
-          updated[exerciseIndex] = { ...current, supersetGroup: undefined };
-          updated[exerciseIndex + 1] = { ...next, supersetGroup: undefined };
-        } else {
-          // More than 2, create a new group for the next one
-          const newGroupId = nextSupersetGroup.current++;
-          updated[exerciseIndex + 1] = { ...next, supersetGroup: newGroupId };
-          // If there are more after, they stay in the new group
-          for (let i = exerciseIndex + 2; i < updated.length; i++) {
-            if (updated[i].supersetGroup === current.supersetGroup) {
-              updated[i] = { ...updated[i], supersetGroup: newGroupId };
-            } else {
-              break;
-            }
-          }
-        }
-      } else {
-        // They're not in the same group - link them
-        const groupId = current.supersetGroup ?? next.supersetGroup ?? nextSupersetGroup.current++;
-        updated[exerciseIndex] = { ...current, supersetGroup: groupId };
-        updated[exerciseIndex + 1] = { ...next, supersetGroup: groupId };
-      }
-
-      return updated;
-    });
-  }, []);
-
-  // Handle exercise substitution
-  const handleSubstituteExercise = useCallback((exerciseIndex: number, newExercise: Exercise) => {
-    setTrackedExercises((prev) => {
-      const updated = [...prev];
-      const old = updated[exerciseIndex];
-      updated[exerciseIndex] = {
-        ...old,
-        exercise: newExercise,
-        sets: [{ setOrder: 1, setId: undefined }], // Reset sets for new exercise
+      const exercise = updated[exerciseIndex];
+      const maxSetOrder = Math.max(0, ...exercise.sets.map(s => s.set_order));
+      const newSet: SetWithExercise = {
+        id: `temp-${exercise.exercise.id}-${maxSetOrder + 1}`,
+        workout_id: currentWorkoutId || '',
+        exercise_id: exercise.exercise.id,
+        set_order: maxSetOrder + 1,
+        target_reps: exercise.targetReps || null,
+        target_rpe: exercise.targetRPE || null,
+        target_load: exercise.targetLoad || null,
+        actual_weight: null,
+        actual_reps: null,
+        actual_rpe: null,
+        tempo: null,
+        avg_watts: null,
+        avg_hr: null,
+        duration_seconds: null,
+        distance_meters: null,
+        avg_pace: null,
+        notes: null,
+        is_warmup: false,
+        is_pr: false,
+        progression_type: null,
+        previous_set_id: null,
+        segment_type: 'work' as SegmentType,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
+      updated[exerciseIndex].sets.push(newSet);
       return updated;
     });
-    setShowSubstitutionPicker(false);
-    setSubstitutionExerciseIndex(null);
-  }, []);
+  }, [currentWorkoutId]);
 
   // Save a set
   const handleSaveSet = useCallback(
@@ -415,94 +436,30 @@ export default function ActiveWorkoutScreen() {
       if (!currentWorkoutId) return;
 
       try {
-        // Detect progression by comparing with previous sets
-        let progressionType: string | null = null;
-        let previousSetId: string | null = null;
-
-        if (!setData.is_warmup && setData.actual_weight && setData.actual_reps && setData.actual_weight > 0) {
-          // Get the most recent set for this exercise (from current workout or previous workouts)
-          const { data: previousSets } = await supabase
-            .from('workout_sets')
-            .select('id, actual_weight, actual_reps, actual_rpe, is_warmup, set_order')
-            .eq('exercise_id', exerciseId)
-            .neq('workout_id', currentWorkoutId)
-            .not('actual_weight', 'is', null)
-            .not('actual_reps', 'is', null)
-            .eq('is_warmup', false)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          // Also check current workout for previous sets
-          const { data: currentWorkoutSets } = await supabase
-            .from('workout_sets')
-            .select('id, actual_weight, actual_reps, actual_rpe, is_warmup, set_order')
-            .eq('workout_id', currentWorkoutId)
-            .eq('exercise_id', exerciseId)
-            .lt('set_order', setOrder)
-            .not('actual_weight', 'is', null)
-            .not('actual_reps', 'is', null)
-            .eq('is_warmup', false)
-            .order('set_order', { ascending: false })
-            .limit(1);
-
-          // Use current workout set if available, otherwise use previous workout set
-          const previousSet = currentWorkoutSets && currentWorkoutSets.length > 0
-            ? currentWorkoutSets[0]
-            : previousSets && previousSets.length > 0
-            ? previousSets[0]
-            : null;
-
-          if (previousSet) {
-            previousSetId = previousSet.id;
-            const currentSetData: SetData = {
-              actual_weight: setData.actual_weight,
-              actual_reps: setData.actual_reps,
-              actual_rpe: setData.actual_rpe || null,
-              is_warmup: false,
-            };
-            const previousSetData: SetData = {
-              actual_weight: previousSet.actual_weight,
-              actual_reps: previousSet.actual_reps,
-              actual_rpe: previousSet.actual_rpe || null,
-              is_warmup: false,
-            };
-            const progression = detectProgression(currentSetData, previousSetData);
-            progressionType = getProgressionTypeString(progression);
-          }
-        }
-
         const result = await addSetMutation.mutateAsync({
           workout_id: currentWorkoutId,
           exercise_id: exerciseId,
           set_order: setOrder,
-          progression_type: progressionType,
-          previous_set_id: previousSetId,
           ...setData,
         });
         
-        // Update the set ID in trackedExercises if this set was just created
+        // Update local state with the saved set
         if (result && (result as any).id) {
           setTrackedExercises((prev) => {
             const updated = [...prev];
             const exerciseIndex = updated.findIndex(ex => ex.exercise.id === exerciseId);
             if (exerciseIndex >= 0) {
-              const setIndex = updated[exerciseIndex].sets.findIndex(s => s.setOrder === setOrder && !s.setId);
+              const setIndex = updated[exerciseIndex].sets.findIndex(s => s.set_order === setOrder);
               if (setIndex >= 0) {
                 updated[exerciseIndex].sets[setIndex] = {
                   ...updated[exerciseIndex].sets[setIndex],
-                  setId: (result as any).id,
+                  ...(result as any),
                 };
+              } else {
+                // New set - add it
+                updated[exerciseIndex].sets.push(result as any);
               }
             }
-            return updated;
-          });
-        }
-        
-        // Store set data for multiply feature (if this is the first set)
-        if (setOrder === 1) {
-          setSavedSetData((prev) => {
-            const updated = new Map(prev);
-            updated.set(exerciseId, setData);
             return updated;
           });
         }
@@ -513,147 +470,31 @@ export default function ActiveWorkoutScreen() {
     [currentWorkoutId, addSetMutation]
   );
 
-  // Fill sets - copy Set 1's data to all subsequent sets
-  const handleFillSets = useCallback(async (exerciseIndex: number) => {
-    const exercise = trackedExercises[exerciseIndex];
-    if (!exercise || !currentWorkoutId) return;
+  // Delete a set
+  const handleDeleteSet = useCallback(
+    async (setId: string) => {
+      if (!currentWorkoutId) return;
 
-    const set1Data = savedSetData.get(exercise.exercise.id);
-    if (!set1Data) {
-      Alert.alert('Error', 'Please save the first set before filling.');
-      return;
-    }
-
-    // Get all sets after Set 1
-    const setsToFill = exercise.sets.filter((setInfo) => setInfo.setOrder > 1);
-    if (setsToFill.length === 0) {
-      Alert.alert('Info', 'No sets to fill. Add more sets first.');
-      return;
-    }
-
-    try {
-      // Apply Set 1's data to all subsequent sets
-      for (const setInfo of setsToFill) {
-        await handleSaveSet(exercise.exercise.id, setInfo.setOrder, set1Data);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to fill sets. Please try again.');
-    }
-  }, [trackedExercises, currentWorkoutId, savedSetData, handleSaveSet]);
-
-  // Multiply sets - duplicate first set data to 3 more sets
-  const handleMultiplySets = useCallback(async (exerciseIndex: number) => {
-    const exercise = trackedExercises[exerciseIndex];
-    if (!exercise || !currentWorkoutId) return;
-
-    const setData = savedSetData.get(exercise.exercise.id);
-    if (!setData) {
-      Alert.alert('Error', 'Please save the first set before multiplying.');
-      return;
-    }
-
-    try {
-      const currentMaxSet = Math.max(...exercise.sets.map(s => s.setOrder));
-      const newSets: Array<{ setOrder: number; setId?: string }> = [];
-      const count = 3; // Add 3 more sets
-      
-      // Create multiple sets with same data
-      for (let i = 0; i < count; i++) {
-        const setOrder = currentMaxSet + i + 1;
-        const result = await addSetMutation.mutateAsync({
-          workout_id: currentWorkoutId,
-          exercise_id: exercise.exercise.id,
-          set_order: setOrder,
-          ...setData,
-        });
-        // Extract set ID from result if available
-        const setId = (result as any)?.id;
-        newSets.push({ setOrder, setId });
-      }
-
-      // Add new sets to tracked exercises
-      setTrackedExercises((prev) => {
-        const updated = [...prev];
-        updated[exerciseIndex].sets.push(...newSets);
-        return updated;
-      });
-      } catch (error) {
-        Alert.alert('Error', 'Failed to multiply sets. Please try again.');
-      }
-  }, [trackedExercises, currentWorkoutId, savedSetData, addSetMutation]);
-
-  // Delete exercise (remove all sets and exercise from workout)
-  const handleDeleteExercise = useCallback(async (exerciseIndex: number) => {
-    const exercise = trackedExercises[exerciseIndex];
-    if (!exercise || !currentWorkoutId) return;
-
-    const confirmDelete = () => {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        return window.confirm(`Delete ${exercise.exercise.name}?\n\nThis will remove all sets for this exercise.`);
-      } else {
-        return new Promise<boolean>((resolve) => {
-          Alert.alert(
-            'Delete Exercise',
-            `Delete ${exercise.exercise.name}? This will remove all sets for this exercise.`,
-            [
-              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: () => resolve(true),
-              },
-            ]
-          );
-        });
-      }
-    };
-
-    const confirmed = await confirmDelete();
-    if (!confirmed) return;
-
-    try {
-      // Get all set IDs for this exercise from the workout
-      const exerciseSets = workout?.workout_sets?.filter(
-        (set) => set.exercise_id === exercise.exercise.id
-      ) || [];
-
-      // Delete all sets
-      for (const set of exerciseSets) {
+      try {
         await deleteSetMutation.mutateAsync({
-          id: set.id,
+          id: setId,
           workoutId: currentWorkoutId,
         });
+
+        // Remove from local state
+        setTrackedExercises((prev) => {
+          const updated = prev.map(ex => ({
+            ...ex,
+            sets: ex.sets.filter(s => s.id !== setId),
+          }));
+          // Remove exercises with no sets
+          return updated.filter(ex => ex.sets.length > 0);
+        });
+      } catch (error) {
+        Alert.alert('Error', 'Failed to delete set.');
       }
-
-      // Remove exercise from tracked exercises
-      setTrackedExercises((prev) => {
-        const updated = [...prev];
-        updated.splice(exerciseIndex, 1);
-        return updated;
-      });
-      setSavedSetData((prev) => {
-        const updated = new Map(prev);
-        updated.delete(exercise.exercise.id);
-        return updated;
-      });
-    } catch (error) {
-      Alert.alert('Error', 'Failed to delete exercise. Please try again.');
-    }
-  }, [trackedExercises, currentWorkoutId, workout, deleteSetMutation]);
-
-  // Handle PR detection
-  const handlePRDetected = useCallback(
-    (
-      exercise: Exercise,
-      type: 'weight' | 'reps' | 'volume' | 'e1rm',
-      value: string
-    ) => {
-      setPRExercise(exercise);
-      setPRType(type);
-      setPRValue(value);
-      setShowPRCelebration(true);
     },
-    []
+    [currentWorkoutId, deleteSetMutation]
   );
 
   // Complete workout
@@ -697,33 +538,21 @@ export default function ActiveWorkoutScreen() {
         durationMinutes: elapsedMinutes,
       });
       endWorkout();
-      
-      // Navigate to workout summary instead of going back
       router.replace(`/workout-summary/${currentWorkoutId}`);
     } catch (error) {
       Alert.alert('Error', 'Failed to complete workout. Please try again.');
     }
-  }, [
-    currentWorkoutId,
-    trackedExercises,
-    elapsedMinutes,
-    completeWorkoutMutation,
-    endWorkout,
-  ]);
+  }, [currentWorkoutId, trackedExercises, elapsedMinutes, completeWorkoutMutation, endWorkout]);
 
-  // Save & Exit - save progress and return to program
+  // Save & Exit
   const handleSaveAndExit = useCallback(() => {
-    // Simply end the workout tracking in the store and go back
-    // The sets are already saved to the database via handleSaveSet
     endWorkout();
-    
     const totalSets = trackedExercises.reduce(
       (acc, ex) => acc + (ex.sets?.length || 0),
       0
     );
     
     if (Platform.OS === 'web') {
-      // Simple notification on web
       alert(`Progress saved! ${totalSets} sets logged. Come back anytime to continue.`);
     } else {
       Alert.alert(
@@ -736,24 +565,20 @@ export default function ActiveWorkoutScreen() {
     router.back();
   }, [endWorkout, trackedExercises]);
 
-  // Discard workout - go back with or without confirmation
+  // Discard workout
   const handleDiscard = useCallback(() => {
     try {
-      // Count total sets logged
       const totalSets = trackedExercises.reduce(
         (acc, ex) => acc + (ex.sets?.length || 0),
         0
       );
 
-      // If no sets have been logged, just go back immediately without confirmation
       if (totalSets === 0) {
         endWorkout();
         router.back();
         return;
       }
 
-      // Has logged sets, show confirmation before discarding
-      // On web, use window.confirm for better compatibility
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         const confirmed = window.confirm('Discard Workout?\n\nAll logged sets will be lost. This cannot be undone.');
         if (confirmed) {
@@ -763,18 +588,11 @@ export default function ActiveWorkoutScreen() {
         return;
       }
 
-      // On native, use Alert
       Alert.alert(
         'Discard Workout?',
         'All logged sets will be lost. This cannot be undone.',
         [
-          { 
-            text: 'Keep Training', 
-            style: 'cancel',
-            onPress: () => {
-              // User chose to keep training, do nothing
-            }
-          },
+          { text: 'Keep Training', style: 'cancel' },
           {
             text: 'Discard',
             style: 'destructive',
@@ -787,11 +605,10 @@ export default function ActiveWorkoutScreen() {
         { cancelable: true }
       );
     } catch (error) {
-      // Fallback: just go back if something fails
       endWorkout();
       router.back();
     }
-  }, [endWorkout, trackedExercises, router]);
+  }, [endWorkout, trackedExercises]);
 
   // Format elapsed time
   const formattedTime = useMemo(() => {
@@ -799,6 +616,37 @@ export default function ActiveWorkoutScreen() {
     const mins = elapsedMinutes % 60;
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   }, [elapsedMinutes]);
+
+  // Group exercises by section for display
+  const exercisesBySection = useMemo(() => {
+    const grouped = new Map<string, TrackedExercise[]>();
+    
+    for (const tracked of trackedExercises) {
+      const section = tracked.section || 'Exercises';
+      if (!grouped.has(section)) {
+        grouped.set(section, []);
+      }
+      grouped.get(section)!.push(tracked);
+    }
+    
+    // Sort sections to match original order
+    const orderedSections: [string, TrackedExercise[]][] = [];
+    for (const section of sections) {
+      if (grouped.has(section)) {
+        orderedSections.push([section, grouped.get(section)!]);
+        grouped.delete(section);
+      }
+    }
+    // Add any remaining sections
+    for (const [section, exercises] of grouped) {
+      orderedSections.push([section, exercises]);
+    }
+    
+    return orderedSections;
+  }, [trackedExercises, sections]);
+
+  // Get selected exercise for modal
+  const selectedExercise = selectedExerciseIndex !== null ? trackedExercises[selectedExerciseIndex] : null;
 
   if (!isNewWorkout && workoutLoading) {
     return (
@@ -826,9 +674,7 @@ export default function ActiveWorkoutScreen() {
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center flex-1">
             <Pressable 
-              onPress={() => {
-                handleDiscard();
-              }}
+              onPress={handleDiscard}
               className="p-2 -ml-2"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -844,8 +690,9 @@ export default function ActiveWorkoutScreen() {
                   className={`font-semibold ${
                     isDark ? 'text-graphite-100' : 'text-graphite-900'
                   }`}
+                  numberOfLines={1}
                 >
-                  {workout?.focus || 'Quick Workout'}
+                  {workout?.focus || focusParam || 'Quick Workout'}
                 </Text>
                 {workout && (() => {
                   const context = detectWorkoutContext(workout);
@@ -864,7 +711,6 @@ export default function ActiveWorkoutScreen() {
                     </View>
                   );
                 })()}
-                {/* Readiness indicator */}
                 {todaysReadiness && (
                   <ReadinessIndicator
                     score={todaysReadiness.readiness_score}
@@ -886,13 +732,6 @@ export default function ActiveWorkoutScreen() {
                   {formattedTime}
                 </Text>
               </View>
-              {workout && detectWorkoutContext(workout) === 'unstructured' && (
-                <Text
-                  className={`text-xs mt-1 ${isDark ? 'text-regression-400' : 'text-regression-600'}`}
-                >
-                  Unstructured session - does not contribute to progression
-                </Text>
-              )}
             </View>
           </View>
 
@@ -923,296 +762,31 @@ export default function ActiveWorkoutScreen() {
 
       <ScrollView
         className="flex-1 px-4"
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 100 }}
       >
-        {/* Exercises */}
-        {trackedExercises
-          .filter((tracked) => tracked.exercise) // Additional safety filter
-          .map((tracked, exerciseIndex) => {
-            // Check if this exercise is part of a superset
-            const isInSuperset = !!tracked.supersetGroup;
-            const nextExercise = trackedExercises[exerciseIndex + 1];
-            const isLinkedToNext = isInSuperset && nextExercise?.supersetGroup === tracked.supersetGroup;
-            const prevExercise = trackedExercises[exerciseIndex - 1];
-            const isLinkedToPrev = isInSuperset && prevExercise?.supersetGroup === tracked.supersetGroup;
-
-            // Count superset position (A, B, C...)
-            let supersetPosition = '';
-            if (isInSuperset) {
-              const groupStart = trackedExercises.findIndex(e => e.supersetGroup === tracked.supersetGroup);
-              supersetPosition = String.fromCharCode(65 + (exerciseIndex - groupStart)); // A, B, C...
-            }
-
-            return (
-          <View key={tracked.exercise.id} className="mb-6">
-            {/* Superset Connector - Top */}
-            {isLinkedToPrev && (
-              <View className="flex-row items-center mb-2 -mt-4">
-                <View className={`w-1 h-4 ml-4 ${isDark ? 'bg-purple-500/50' : 'bg-purple-500/30'}`} />
-                <View className="flex-1 ml-2">
-                  <Text className={`text-xs ${isDark ? 'text-purple-400' : 'text-purple-500'}`}>
-                    No rest
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* Exercise Header */}
-            <View className="flex-row items-center justify-between mb-3">
-              <View className="flex-1">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center flex-1">
-                    {isInSuperset && (
-                      <View className="w-6 h-6 rounded-full bg-purple-500 items-center justify-center mr-2">
-                        <Text className="text-white text-xs font-bold">{supersetPosition}</Text>
-                      </View>
-                    )}
-                    <Text
-                      className={`text-lg font-bold flex-1 ${
-                        isDark ? 'text-graphite-100' : 'text-graphite-900'
-                      }`}
-                      numberOfLines={1}
-                    >
-                      {tracked.exercise?.name || 'Unknown Exercise'}
-                    </Text>
-                  </View>
-                  <Pressable
-                    onPress={() => {
-                      setSubstitutionExerciseIndex(exerciseIndex);
-                      setShowSubstitutionPicker(true);
-                    }}
-                    className="p-2"
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons
-                      name="swap-horizontal"
-                      size={20}
-                      color={isDark ? '#808fb0' : '#607296'}
-                    />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleDeleteExercise(exerciseIndex)}
-                    className="p-2 -mr-2"
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={20}
-                      color={isDark ? '#ef4444' : '#dc2626'}
-                    />
-                  </Pressable>
-                </View>
-                {tracked.exercise && (
-                  <View className="flex-row items-center mt-1">
-                    <View
-                      className={`px-2 py-0.5 rounded ${
-                        tracked.exercise.modality === 'Strength'
-                          ? 'bg-signal-500/20'
-                          : tracked.exercise.modality === 'Cardio'
-                          ? 'bg-progress-500/20'
-                          : 'bg-purple-500/20'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs ${
-                          tracked.exercise.modality === 'Strength'
-                            ? 'text-signal-500'
-                            : tracked.exercise.modality === 'Cardio'
-                            ? 'text-progress-500'
-                            : 'text-purple-500'
-                        }`}
-                      >
-                        {tracked.exercise.modality}
-                      </Text>
-                    </View>
-                    <Text
-                      className={`ml-2 text-xs ${
-                        isDark ? 'text-graphite-400' : 'text-graphite-500'
-                      }`}
-                    >
-                      {tracked.exercise.muscle_group}
-                    </Text>
-                    {isInSuperset && (
-                      <View className="ml-2 px-2 py-0.5 rounded bg-purple-500/20">
-                        <Text className="text-xs text-purple-500">Superset</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* Quick Complete Button - shown if exercise has prescription and no sets are saved yet */}
-            {tracked.targetReps && tracked.targetLoad && tracked.sets.length > 0 && 
-             !savedSetData.has(tracked.exercise.id) && (
-              <Pressable
-                className={`flex-row items-center justify-center py-3 mb-3 rounded-xl ${
-                  isDark ? 'bg-progress-500/20 border border-progress-500/50' : 'bg-progress-500/10 border border-progress-500/30'
-                }`}
-                onPress={async () => {
-                  // Quick complete all sets with prescription
-                  const setData = {
-                    actual_weight: tracked.targetLoad,
-                    actual_reps: tracked.targetReps,
-                    actual_rpe: tracked.targetRPE || null,
-                    is_warmup: false,
-                  };
-                  
-                  for (const set of tracked.sets) {
-                    await handleSaveSet(tracked.exercise.id, set.setOrder, setData);
-                  }
-                }}
-              >
-                <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
-                <Text className="ml-2 text-progress-500 font-semibold">
-                  Quick Complete: {tracked.targetLoad}×{tracked.targetReps}
-                  {tracked.targetRPE ? ` @ ${tracked.targetRPE}` : ''}
-                </Text>
-              </Pressable>
-            )}
-
-            {/* Sets */}
-            {tracked.sets.map((setInfo, setIndex) => {
-              const setNumber = setInfo.setOrder;
-              const uniqueKey = setInfo.setId || `${tracked.exercise.id}-${setNumber}-${setIndex}`;
-              
+        {/* Exercise Cards by Section */}
+        {exercisesBySection.map(([section, exercises]) => (
+          <View key={section}>
+            <SectionHeader title={section} />
+            {exercises.map((tracked) => {
+              const exerciseIndex = trackedExercises.findIndex(
+                (t) => t.exercise.id === tracked.exercise.id
+              );
               return (
-              <View key={uniqueKey}>
-                {/* Fill Sets button - shown on first set row */}
-                {setNumber === 1 && savedSetData.has(tracked.exercise.id) && tracked.sets.length > 1 && (
-                  <Pressable
-                    className={`flex-row items-center justify-center py-2 mb-2 rounded-lg ${
-                      isDark ? 'bg-signal-500/10 border border-signal-500/30' : 'bg-signal-500/10 border border-signal-500/30'
-                    }`}
-                    onPress={() => handleFillSets(exerciseIndex)}
-                  >
-                    <Ionicons name="arrow-down" size={16} color="#2F80ED" />
-                    <Text className="ml-2 text-signal-500 font-semibold text-sm">
-                      Copy to all sets
-                    </Text>
-                  </Pressable>
-                )}
-                <SetInput
+                <ExerciseCard
+                  key={tracked.exercise.id}
                   exercise={tracked.exercise}
-                  setNumber={setNumber}
-                  workoutId={currentWorkoutId || ''}
+                  sets={tracked.sets}
+                  targetSets={tracked.targetSets || tracked.sets.length}
                   targetReps={tracked.targetReps}
                   targetRPE={tracked.targetRPE}
                   targetLoad={tracked.targetLoad}
-                  onSave={(setData) =>
-                    handleSaveSet(tracked.exercise.id, setNumber, setData)
-                  }
-                  onPRDetected={(set, type) => {
-                    const value =
-                      type === 'weight'
-                        ? `${set.actual_weight} lbs`
-                        : type === 'reps'
-                        ? `${set.actual_reps} reps @ ${set.actual_weight} lbs`
-                        : type === 'e1rm'
-                        ? `${Math.round(
-                            (set.actual_weight || 0) *
-                              (1 + (set.actual_reps || 0) / 30)
-                          )} lbs E1RM`
-                        : '';
-                    handlePRDetected(tracked.exercise, type, value);
-                  }}
+                  onPress={() => setSelectedExerciseIndex(exerciseIndex)}
                 />
-              </View>
-            );
+              );
             })}
-
-            {/* Add Set / Multiply Sets Buttons */}
-            <View className="flex-row gap-2">
-              {savedSetData.has(tracked.exercise.id) && tracked.sets.length > 0 && (
-                <Pressable
-                  className={`flex-1 flex-row items-center justify-center py-3 rounded-xl border ${
-                    isDark ? 'border-signal-500/50 bg-signal-500/10' : 'border-signal-500/50 bg-signal-500/10'
-                  }`}
-                  onPress={() => handleMultiplySets(exerciseIndex)}
-                >
-                  <Ionicons
-                    name="copy-outline"
-                    size={18}
-                    color="#2F80ED"
-                  />
-                  <Text className="ml-2 text-signal-500 font-semibold text-sm">
-                    +3 Sets
-                  </Text>
-                </Pressable>
-              )}
-              <Pressable
-                className={`flex-1 flex-row items-center justify-center py-3 rounded-xl border border-dashed ${
-                  isDark ? 'border-graphite-600' : 'border-graphite-300'
-                }`}
-                onPress={() => handleAddSet(exerciseIndex)}
-              >
-                <Ionicons
-                  name="add-circle-outline"
-                  size={20}
-                  color={isDark ? '#808fb0' : '#607296'}
-                />
-                <Text
-                  className={`ml-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-                >
-                  Add Set
-                </Text>
-              </Pressable>
-            </View>
-
-            {/* Superset Controls - shown between exercises or at end */}
-            {exerciseIndex < trackedExercises.length - 1 ? (
-              <Pressable
-                className={`flex-row items-center justify-center py-2 mt-2 rounded-lg ${
-                  isLinkedToNext
-                    ? 'bg-purple-500/20 border border-purple-500/50'
-                    : isDark
-                    ? 'bg-graphite-800'
-                    : 'bg-graphite-100'
-                }`}
-                onPress={() => handleToggleSuperset(exerciseIndex)}
-              >
-                <Ionicons
-                  name={isLinkedToNext ? 'link' : 'link-outline'}
-                  size={16}
-                  color={isLinkedToNext ? '#9333ea' : (isDark ? '#808fb0' : '#607296')}
-                />
-                <Text
-                  className={`ml-2 text-sm ${
-                    isLinkedToNext
-                      ? 'text-purple-500 font-semibold'
-                      : isDark
-                      ? 'text-graphite-400'
-                      : 'text-graphite-500'
-                  }`}
-                >
-                  {isLinkedToNext ? 'Linked as superset' : 'Link as superset'}
-                </Text>
-              </Pressable>
-            ) : (
-              // Last exercise - show option to add as superset
-              <Pressable
-                className={`flex-row items-center justify-center py-2 mt-2 rounded-lg ${
-                  isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-                }`}
-                onPress={() => {
-                  setSupersetMode(true);
-                  setShowExercisePicker(true);
-                }}
-              >
-                <Ionicons
-                  name="add-circle-outline"
-                  size={16}
-                  color="#9333ea"
-                />
-                <Text className="ml-2 text-sm text-purple-500">
-                  Add exercise to superset
-                </Text>
-              </Pressable>
-            )}
           </View>
-        );
-        })}
+        ))}
 
         {/* Empty State / Add Exercise Button */}
         {trackedExercises.length === 0 ? (
@@ -1225,7 +799,7 @@ export default function ActiveWorkoutScreen() {
               <Ionicons
                 name="barbell-outline"
                 size={40}
-                color={isDark ? '#2F80ED' : '#2F80ED'}
+                color="#2F80ED"
               />
             </View>
             <Text
@@ -1245,7 +819,7 @@ export default function ActiveWorkoutScreen() {
                 : 'Add your first exercise to get started'}
             </Text>
 
-            {/* Smart Suggestions for ad-hoc workouts */}
+            {/* Smart Suggestions */}
             {isNewWorkout && smartSuggestions.length > 0 && (
               <View className="w-full mb-6">
                 <Text
@@ -1329,7 +903,7 @@ export default function ActiveWorkoutScreen() {
           </View>
         ) : (
           <Pressable
-            className={`flex-row items-center justify-center py-4 rounded-xl ${
+            className={`flex-row items-center justify-center py-4 rounded-xl mt-4 ${
               isDark ? 'bg-signal-600' : 'bg-signal-500'
             }`}
             onPress={() => setShowExercisePicker(true)}
@@ -1340,47 +914,20 @@ export default function ActiveWorkoutScreen() {
         )}
       </ScrollView>
 
-      {/* Floating Rest Timer Button */}
-      {trackedExercises.length > 0 && !showRestTimer && (
-        <Pressable
-          className={`absolute bottom-24 right-4 w-14 h-14 rounded-full items-center justify-center shadow-lg ${
-            isDark ? 'bg-graphite-800' : 'bg-white'
-          } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-          onPress={() => setShowRestTimer(true)}
-          style={{
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 4,
-            elevation: 5,
-          }}
-        >
-          <Ionicons name="timer-outline" size={24} color="#2F80ED" />
-        </Pressable>
-      )}
-
-      {/* Rest Timer Overlay */}
-      {showRestTimer && (
-        <View
-          className={`absolute bottom-20 left-4 right-4 ${
-            Platform.OS === 'ios' ? 'mb-4' : ''
-          }`}
-          style={{
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 10,
-          }}
-        >
-          <RestTimer
-            initialSeconds={90}
-            onComplete={() => setShowRestTimer(false)}
-            onDismiss={() => setShowRestTimer(false)}
-            autoStart={true}
-          />
-        </View>
-      )}
+      {/* Exercise Entry Modal */}
+      <ExerciseEntryModal
+        visible={selectedExerciseIndex !== null}
+        exercise={selectedExercise?.exercise || null}
+        sets={selectedExercise?.sets || []}
+        workoutId={currentWorkoutId || ''}
+        targetReps={selectedExercise?.targetReps}
+        targetRPE={selectedExercise?.targetRPE}
+        targetLoad={selectedExercise?.targetLoad}
+        onClose={() => setSelectedExerciseIndex(null)}
+        onSaveSet={handleSaveSet}
+        onDeleteSet={handleDeleteSet}
+        onAddSet={() => selectedExerciseIndex !== null && handleAddSet(selectedExerciseIndex)}
+      />
 
       {/* Exercise Picker Modal */}
       <ExercisePicker
@@ -1398,19 +945,6 @@ export default function ActiveWorkoutScreen() {
         prType={prType}
         value={prValue}
       />
-
-      {/* Substitution Picker Modal */}
-      {substitutionExerciseIndex !== null && trackedExercises[substitutionExerciseIndex] && (
-        <SubstitutionPicker
-          visible={showSubstitutionPicker}
-          onClose={() => {
-            setShowSubstitutionPicker(false);
-            setSubstitutionExerciseIndex(null);
-          }}
-          exercise={trackedExercises[substitutionExerciseIndex].exercise}
-          onSelectSubstitution={(newExercise) => handleSubstituteExercise(substitutionExerciseIndex, newExercise)}
-        />
-      )}
 
       {/* Readiness Check-In Modal */}
       <Modal

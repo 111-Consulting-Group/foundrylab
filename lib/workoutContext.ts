@@ -11,20 +11,21 @@ import type { WorkoutContext } from '@/types/database';
  * Detect workout context based on block association and workout characteristics
  */
 export function detectWorkoutContext(workout: Workout | WorkoutWithSets): WorkoutContext {
-  // If no block_id, it's unstructured
-  if (!workout.block_id) {
-    return 'unstructured';
-  }
-
-  // If workout has explicit context already set, use it
+  // If workout has explicit context set and it's not unstructured, use it
   if (workout.context && workout.context !== 'unstructured') {
     return workout.context;
   }
 
-  // For workouts with blocks, default to 'building' unless we have more context
-  // This is a simplified detection - more sophisticated logic can be added later
-  // based on volume/intensity trends, block phase, etc.
-  return 'building';
+  // If workout is part of a block (has block_id), it's structured
+  // Week 1 Day 1 of a block should be 'building', not 'unstructured'
+  if (workout.block_id) {
+    // If context is explicitly set to unstructured, respect it
+    // Otherwise default to 'building' for block workouts
+    return workout.context === 'unstructured' ? 'unstructured' : 'building';
+  }
+
+  // Only unstructured if truly no block association
+  return 'unstructured';
 }
 
 /**

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,15 +15,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
 import { useColorScheme } from '@/components/useColorScheme';
-import { SessionVerdict } from '@/components/SessionVerdict';
+import { ExerciseBreakdown } from '@/components/ExerciseBreakdown';
 import { SaveTemplateModal } from '@/components/TemplatePicker';
 import { useWorkout, useUncompleteWorkout } from '@/hooks/useWorkouts';
 import { useShareWorkout } from '@/hooks/useSocial';
 import { useIsBlockComplete, useBlockSummary } from '@/hooks/useBlockSummary';
 import { useCreateWorkoutTemplate, workoutToTemplate } from '@/hooks/useWorkoutTemplates';
 import { calculateSetVolume } from '@/lib/utils';
+import { detectWorkoutContext } from '@/lib/workoutContext';
 import { Alert } from 'react-native';
-import type { WorkoutSet, WorkoutWithSets } from '@/types/database';
+import type { WorkoutSet, WorkoutWithSets, Exercise } from '@/types/database';
 
 export default function WorkoutSummaryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,15 +48,17 @@ export default function WorkoutSummaryScreen() {
   // Calculate workout stats
   const stats = workout?.workout_sets?.reduce(
     (acc, set: WorkoutSet) => {
-      // Only count sets that were actually performed
+      // Only count sets that were actually performed (not warmup, have actual data)
+      if (set.is_warmup) return acc;
+      
       const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
-      if (volume > 0) {
+      if (volume > 0 && set.actual_weight && set.actual_reps) {
         acc.totalSets++;
-        acc.totalReps += set.actual_reps || 0;
+        acc.totalReps += set.actual_reps;
         acc.totalVolume += volume;
         
-        // Track max weight
-        if (set.actual_weight && set.actual_weight > acc.maxWeight) {
+        // Track max weight only from sets with actual volume
+        if (set.actual_weight > acc.maxWeight) {
           acc.maxWeight = set.actual_weight;
         }
       }
@@ -64,31 +67,109 @@ export default function WorkoutSummaryScreen() {
     { totalSets: 0, totalReps: 0, totalVolume: 0, maxWeight: 0 }
   ) || { totalSets: 0, totalReps: 0, totalVolume: 0, maxWeight: 0 };
 
-  // Group sets by exercise
-  const exerciseSummary = workout?.workout_sets?.reduce((acc, set: WorkoutSet) => {
-    if (!set.exercise) return acc;
+  // Parse focus into sections (same logic as workout screen)
+  const parseFocusToSections = (focus: string): string[] => {
+    const cleanFocus = focus.replace(/\s*\([^)]*\)\s*/g, '');
+    const parts = cleanFocus.split(/\s*[+&]\s*/);
+    return parts.map((p) => p.trim()).filter(Boolean);
+  };
+
+  // Group exercises with their sets and target data
+  const exercisesBySection = useMemo(() => {
+    if (!workout?.workout_sets) return new Map<string, Array<{ exercise: Exercise; sets: WorkoutSet[]; targetReps?: number | null; targetRPE?: number | null; targetLoad?: number | null }>>();
+
+    const sections = parseFocusToSections(workout.focus || '');
+    const exerciseMap = new Map<string, { exercise: Exercise; sets: WorkoutSet[]; targetReps?: number | null; targetRPE?: number | null; targetLoad?: number | null; section?: string }>();
+    const sectionMap = new Map<string, string[]>();
+
+    // Group sets by exercise
+    workout.workout_sets.forEach((set: WorkoutSet) => {
+      if (!set.exercise) return;
+
+      const key = set.exercise_id;
+      if (!exerciseMap.has(key)) {
+        // Assign section
+        const muscleGroup = set.exercise.muscle_group.toLowerCase();
+        let section = 'Exercises';
+        
+        if (set.exercise.modality === 'Cardio') {
+          section = sections.find((s) => 
+            s.toLowerCase().includes('speed') || 
+            s.toLowerCase().includes('cardio') ||
+            s.toLowerCase().includes('conditioning') ||
+            s.toLowerCase().includes('run')
+          ) || sections[0] || 'Conditioning';
+        } else {
+          for (const s of sections) {
+            const sectionLower = s.toLowerCase();
+            if (
+              (sectionLower.includes('chest') && muscleGroup.includes('chest')) ||
+              (sectionLower.includes('back') && muscleGroup.includes('back')) ||
+              (sectionLower.includes('push') && (muscleGroup.includes('chest') || muscleGroup.includes('shoulder') || muscleGroup.includes('tricep'))) ||
+              (sectionLower.includes('pull') && (muscleGroup.includes('back') || muscleGroup.includes('bicep'))) ||
+              (sectionLower.includes('leg') && muscleGroup.includes('leg')) ||
+              (sectionLower.includes('upper') && !muscleGroup.includes('leg')) ||
+              (sectionLower.includes('lower') && muscleGroup.includes('leg'))
+            ) {
+              section = s;
+              break;
+            }
+          }
+        }
+
+        exerciseMap.set(key, {
+          exercise: set.exercise,
+          sets: [],
+          targetReps: set.target_reps,
+          targetRPE: set.target_rpe,
+          targetLoad: set.target_load,
+          section,
+        });
+
+        if (!sectionMap.has(section)) {
+          sectionMap.set(section, []);
+        }
+        if (!sectionMap.get(section)!.includes(key)) {
+          sectionMap.get(section)!.push(key);
+        }
+      }
+      exerciseMap.get(key)!.sets.push(set);
+    });
+
+    // Build final structure
+    const result = new Map<string, Array<{ exercise: Exercise; sets: WorkoutSet[]; targetReps?: number | null; targetRPE?: number | null; targetLoad?: number | null }>>();
     
-    const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
-    if (volume === 0) return acc;
-    
-    const key = set.exercise_id;
-    if (!acc[key]) {
-      acc[key] = {
-        name: set.exercise.name,
-        sets: 0,
-        totalVolume: 0,
-        maxWeight: 0,
-      };
+    // Add sections in order
+    for (const section of sections) {
+      if (sectionMap.has(section)) {
+        const exerciseIds = sectionMap.get(section)!;
+        result.set(section, exerciseIds.map(id => {
+          const ex = exerciseMap.get(id);
+          if (ex) {
+            const { section: _, ...rest } = ex;
+            return rest;
+          }
+          return null;
+        }).filter((ex): ex is { exercise: Exercise; sets: WorkoutSet[]; targetReps?: number | null; targetRPE?: number | null; targetLoad?: number | null } => ex !== null));
+      }
     }
     
-    acc[key].sets++;
-    acc[key].totalVolume += volume;
-    if (set.actual_weight && set.actual_weight > acc[key].maxWeight) {
-      acc[key].maxWeight = set.actual_weight;
+    // Add any remaining exercises
+    for (const [section, exerciseIds] of sectionMap) {
+      if (!sections.includes(section)) {
+        result.set(section, exerciseIds.map(id => {
+          const ex = exerciseMap.get(id);
+          if (ex) {
+            const { section: _, ...rest } = ex;
+            return rest;
+          }
+          return null;
+        }).filter((ex): ex is { exercise: Exercise; sets: WorkoutSet[]; targetReps?: number | null; targetRPE?: number | null; targetLoad?: number | null } => ex !== null));
+      }
     }
-    
-    return acc;
-  }, {} as Record<string, { name: string; sets: number; totalVolume: number; maxWeight: number }>) || {};
+
+    return result;
+  }, [workout]);
 
   // Format date
   const workoutDate = workout?.date_completed
@@ -185,7 +266,7 @@ ${exerciseDetails.join('\n')}
 📦 ${Math.round(stats.totalVolume)} lbs moved
 🏆 ${stats.maxWeight} lbs max
 
-#FitnesTracking #WorkoutComplete`;
+#FitnessTracking #WorkoutComplete`;
 
     if (Platform.OS === 'web') {
       // On web, try to use the Web Share API or copy to clipboard
@@ -382,9 +463,6 @@ ${exerciseDetails.join('\n')}
               </Text>
             </View>
 
-            {/* Session Verdict */}
-            {workout && <SessionVerdict workout={workout as WorkoutWithSets} />}
-
             {/* Stats Grid */}
             <View className="flex-row flex-wrap justify-between mb-6">
               <View
@@ -459,44 +537,36 @@ ${exerciseDetails.join('\n')}
             {/* Exercise Breakdown */}
             <View>
               <Text
-                className={`text-lg font-bold mb-3 ${
+                className={`text-lg font-bold mb-4 ${
                   isDark ? 'text-graphite-50' : 'text-carbon-950'
                 }`}
               >
                 Exercise Breakdown
               </Text>
-              {Object.values(exerciseSummary)
-                .sort((a, b) => b.totalVolume - a.totalVolume)
-                .map((ex, index) => (
-                  <View
-                    key={index}
-                    className={`p-3 rounded-lg mb-2 ${
-                      isDark ? 'bg-graphite-800' : 'bg-graphite-50'
-                    }`}
-                  >
-                    <View className="flex-row items-center justify-between mb-1">
-                      <Text
-                        className={`font-semibold flex-1 ${
-                          isDark ? 'text-graphite-200' : 'text-graphite-800'
-                        }`}
-                      >
-                        {ex.name}
-                      </Text>
-                      <Text className="text-signal-500 font-bold">
-                        {Math.round(ex.totalVolume)} lbs
-                      </Text>
-                    </View>
-                    <View className="flex-row">
-                      <Text
-                        className={`text-xs ${
-                          isDark ? 'text-graphite-400' : 'text-graphite-500'
-                        }`}
-                      >
-                        {ex.sets} sets • Max: {ex.maxWeight} lbs
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+              
+              {Array.from(exercisesBySection.entries()).map(([section, exercises]) => (
+                <View key={section} className="mb-4">
+                  {exercisesBySection.size > 1 && (
+                    <Text
+                      className={`text-xs font-bold uppercase tracking-wide mb-3 ${
+                        isDark ? 'text-graphite-400' : 'text-graphite-500'
+                      }`}
+                    >
+                      {section}
+                    </Text>
+                  )}
+                  {exercises.map((ex) => (
+                    <ExerciseBreakdown
+                      key={ex.exercise.id}
+                      exercise={ex.exercise}
+                      sets={ex.sets}
+                      targetReps={ex.targetReps}
+                      targetRPE={ex.targetRPE}
+                      targetLoad={ex.targetLoad}
+                    />
+                  ))}
+                </View>
+              ))}
             </View>
 
             {/* Footer */}
