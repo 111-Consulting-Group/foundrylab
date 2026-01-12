@@ -74,17 +74,12 @@ export function useFeed(limit: number = 20) {
       const userIdsToShow = [...followingIds, userId];
 
       // Get posts from followed users
+      // Note: Using simpler query structure to avoid RLS issues with deeply nested relationships
       const { data: posts, error: postsError } = await supabase
         .from('workout_posts')
         .select(`
           *,
-          workout:workouts(
-            *,
-            workout_sets(
-              *,
-              exercise:exercises(*)
-            )
-          ),
+          workout:workouts(*),
           user:user_profiles(id, display_name, email)
         `)
         .in('user_id', userIdsToShow)
@@ -93,6 +88,42 @@ export function useFeed(limit: number = 20) {
         .limit(limit);
 
       if (postsError) throw postsError;
+
+      // Fetch workout sets separately to avoid RLS issues with nested queries
+      if (posts && posts.length > 0) {
+        const workoutIds = posts.map((p: any) => p.workout_id).filter(Boolean);
+        if (workoutIds.length > 0) {
+          const { data: sets, error: setsError } = await supabase
+            .from('workout_sets')
+            .select(`
+              *,
+              exercise:exercises(*)
+            `)
+            .in('workout_id', workoutIds)
+            .order('workout_id, set_order');
+
+          if (setsError) {
+            console.warn('Error fetching workout sets:', setsError);
+          } else if (sets) {
+            // Group sets by workout_id and attach to posts
+            const setsByWorkout = new Map<string, any[]>();
+            sets.forEach((set: any) => {
+              const workoutId = set.workout_id;
+              if (!setsByWorkout.has(workoutId)) {
+                setsByWorkout.set(workoutId, []);
+              }
+              setsByWorkout.get(workoutId)!.push(set);
+            });
+
+            // Attach sets to workouts
+            posts.forEach((post: any) => {
+              if (post.workout) {
+                post.workout.workout_sets = setsByWorkout.get(post.workout_id) || [];
+              }
+            });
+          }
+        }
+      }
 
       // Get like counts and user's likes
       const postIds = posts?.map((p) => p.id) || [];
