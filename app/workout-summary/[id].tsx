@@ -17,7 +17,7 @@ import { captureRef } from 'react-native-view-shot';
 import { useColorScheme } from '@/components/useColorScheme';
 import { SessionVerdict } from '@/components/SessionVerdict';
 import { SaveTemplateModal } from '@/components/TemplatePicker';
-import { useWorkout } from '@/hooks/useWorkouts';
+import { useWorkout, useUncompleteWorkout } from '@/hooks/useWorkouts';
 import { useShareWorkout } from '@/hooks/useSocial';
 import { useIsBlockComplete, useBlockSummary } from '@/hooks/useBlockSummary';
 import { useCreateWorkoutTemplate, workoutToTemplate } from '@/hooks/useWorkoutTemplates';
@@ -34,6 +34,7 @@ export default function WorkoutSummaryScreen() {
   const { data: workout, isLoading } = useWorkout(id);
   const shareWorkoutMutation = useShareWorkout();
   const createTemplateMutation = useCreateWorkoutTemplate();
+  const uncompleteMutation = useUncompleteWorkout();
 
   // Template modal state
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
@@ -101,27 +102,93 @@ export default function WorkoutSummaryScreen() {
 
   // Handle share
   const handleShare = async () => {
-    if (Platform.OS === 'web') {
-      // On web, try to use the Web Share API or copy to clipboard
-      const summary = `🏋️ ${workout?.focus || 'Workout'} Summary
+    if (!workout?.workout_sets) return;
+
+    // Group sets by exercise and format them
+    const exerciseGroups = new Map<string, Array<WorkoutSet>>();
+    
+    workout.workout_sets.forEach((set: WorkoutSet) => {
+      if (!set.exercise || set.is_warmup) return;
+      
+      const exerciseId = set.exercise_id;
+      if (!exerciseGroups.has(exerciseId)) {
+        exerciseGroups.set(exerciseId, []);
+      }
+      exerciseGroups.get(exerciseId)!.push(set);
+    });
+
+    // Build detailed exercise list
+    const exerciseDetails: string[] = [];
+    
+    exerciseGroups.forEach((sets, exerciseId) => {
+      const exercise = sets[0].exercise;
+      if (!exercise) return;
+
+      const isCardio = exercise.modality === 'Cardio';
+      
+      if (isCardio) {
+        // Format cardio sets
+        const cardioSet = sets[0];
+        let cardioLine = `${exercise.name}:`;
+        
+        if (cardioSet.duration_seconds) {
+          const minutes = Math.round(cardioSet.duration_seconds / 60);
+          cardioLine += ` ${minutes}min`;
+        }
+        
+        if (cardioSet.avg_pace) {
+          cardioLine += ` (${cardioSet.avg_pace} pace)`;
+        }
+        
+        if (cardioSet.avg_hr) {
+          cardioLine += ` @ ${cardioSet.avg_hr} bpm`;
+        }
+        
+        exerciseDetails.push(cardioLine);
+      } else {
+        // Format strength sets
+        const setLines = sets
+          .sort((a, b) => (a.set_order || 0) - (b.set_order || 0))
+          .map((set) => {
+            const parts: string[] = [];
+            
+            if (set.actual_weight) {
+              parts.push(`${set.actual_weight}x${set.actual_reps || ''}`);
+            } else if (set.actual_reps) {
+              parts.push(`${set.actual_reps} reps`);
+            }
+            
+            if (set.actual_rpe) {
+              parts.push(`@ ${set.actual_rpe}`);
+            }
+            
+            return parts.length > 0 ? `- ${parts.join(' ')}` : null;
+          })
+          .filter((line): line is string => line !== null);
+        
+        if (setLines.length > 0) {
+          exerciseDetails.push(`${exercise.name}:`);
+          exerciseDetails.push(...setLines);
+        }
+      }
+    });
+
+    const summary = `🏋️ ${workout?.focus || 'Workout'} Summary
 
 📅 ${workoutDate}
 ⏱️ ${workout?.duration_minutes || 0} minutes
+
+${exerciseDetails.join('\n')}
 
 💪 ${stats.totalSets} sets
 🔢 ${stats.totalReps} reps
 📦 ${Math.round(stats.totalVolume)} lbs moved
 🏆 ${stats.maxWeight} lbs max
 
-Top Exercises:
-${Object.values(exerciseSummary)
-  .sort((a, b) => b.totalVolume - a.totalVolume)
-  .slice(0, 3)
-  .map((ex, i) => `${i + 1}. ${ex.name}: ${ex.sets} sets, ${Math.round(ex.totalVolume)} lbs`)
-  .join('\n')}
-
 #FitnesTracking #WorkoutComplete`;
 
+    if (Platform.OS === 'web') {
+      // On web, try to use the Web Share API or copy to clipboard
       if (navigator.share) {
         try {
           await navigator.share({
@@ -146,7 +213,7 @@ ${Object.values(exerciseSummary)
           });
           
           await Share.share({
-            message: `Check out my ${workout?.focus || 'workout'}! 💪`,
+            message: summary,
             url: uri,
           });
         }
@@ -447,6 +514,46 @@ ${Object.values(exerciseSummary)
 
         {/* Action Buttons */}
         <View className="px-4 pb-4 gap-3">
+          {/* Uncomplete Workout */}
+          <Pressable
+            onPress={() => {
+              Alert.alert(
+                'Uncomplete Workout',
+                'This will mark the workout as incomplete so you can reschedule it. Continue?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Uncomplete',
+                    style: 'destructive',
+                    onPress: () => {
+                      uncompleteMutation.mutate(
+                        { id: workout.id },
+                        {
+                          onSuccess: () => {
+                            Alert.alert('Success', 'Workout marked as incomplete. You can now reschedule it.');
+                            router.back();
+                          },
+                          onError: (error) => {
+                            console.error('Uncomplete error:', error);
+                            Alert.alert('Error', `Failed to uncomplete workout: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                          },
+                        }
+                      );
+                    },
+                  },
+                ]
+              );
+            }}
+            className={`rounded-xl p-4 flex-row items-center justify-center border ${
+              isDark ? 'border-graphite-700 bg-graphite-800' : 'border-graphite-200 bg-white'
+            }`}
+          >
+            <Ionicons name="refresh-outline" size={20} color="#2F80ED" />
+            <Text className="text-signal-500 font-semibold ml-2">
+              Mark as Incomplete
+            </Text>
+          </Pressable>
+
           {/* Save as Template */}
           <Pressable
             onPress={() => setShowSaveTemplate(true)}

@@ -2,11 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
-import { useWorkoutHistory, useIncompleteWorkouts } from '@/hooks/useWorkouts';
+import { useWorkoutHistory, useIncompleteWorkouts, useUncompleteWorkout } from '@/hooks/useWorkouts';
 import { useRecentPRs } from '@/hooks/usePersonalRecords';
 import { calculateSetVolume } from '@/lib/utils';
 import type { WorkoutWithSets } from '@/types/database';
@@ -15,6 +15,7 @@ export default function HistoryScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [searchQuery, setSearchQuery] = useState('');
+  const uncompleteMutation = useUncompleteWorkout();
 
   // Fetch real data
   const { data: completedWorkouts = [], isLoading: historyLoading } = useWorkoutHistory(50);
@@ -313,13 +314,15 @@ export default function HistoryScreen() {
               ) : (
                 <View className="gap-2">
                   {filteredCompleted.map((workout) => (
-                    <Pressable
+                    <View
                       key={workout.id}
                       className={`p-4 rounded-xl ${
                         isDark ? 'bg-graphite-800' : 'bg-white'
                       } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-                      onPress={() => router.push(`/workout-summary/${workout.id}`)}
                     >
+                      <Pressable
+                        onPress={() => router.push(`/workout-summary/${workout.id}`)}
+                      >
                       <View className="flex-row items-start justify-between mb-2">
                         <View className="flex-row items-center">
                           <View
@@ -390,7 +393,56 @@ export default function HistoryScreen() {
                           </View>
                         )}
                       </View>
-                    </Pressable>
+                      </Pressable>
+                      
+                      {/* Action Buttons */}
+                      <View className={`flex-row gap-2 mt-3 pt-3 border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+                        <Pressable
+                          className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
+                            isDark ? 'bg-graphite-700' : 'bg-graphite-100'
+                          }`}
+                          onPress={() => {
+                            Alert.alert(
+                              'Uncomplete Workout',
+                              'This will mark the workout as incomplete so you can reschedule it. Continue?',
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                  text: 'Uncomplete',
+                                  style: 'destructive',
+                                  onPress: () => {
+                                    uncompleteMutation.mutate(
+                                      { id: workout.id },
+                                      {
+                                        onSuccess: () => {
+                                          Alert.alert('Success', 'Workout marked as incomplete. You can now reschedule it.');
+                                        },
+                                        onError: (error) => {
+                                          console.error('Uncomplete error:', error);
+                                          Alert.alert('Error', `Failed to uncomplete workout: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                        },
+                                      }
+                                    );
+                                  },
+                                },
+                              ]
+                            );
+                          }}
+                        >
+                          <Ionicons name="refresh-outline" size={16} color="#2F80ED" />
+                          <Text className="text-signal-500 font-medium ml-1 text-sm">Uncomplete</Text>
+                        </Pressable>
+                        <Pressable
+                          className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
+                            isDark ? 'bg-graphite-700' : 'bg-graphite-100'
+                          }`}
+                          onPress={() => router.push(`/workout/${workout.id}`)}
+                        >
+                          <Ionicons name="create-outline" size={16} color="#2F80ED" />
+                          <Text className="text-signal-500 font-medium ml-1 text-sm">Edit</Text>
+                        </Pressable>
+                      </View>
+                    </View>
                   ))}
                 </View>
               )}

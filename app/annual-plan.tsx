@@ -82,7 +82,18 @@ function SetupModal({
         <View
           className={`rounded-t-3xl ${isDark ? 'bg-graphite-900' : 'bg-white'} p-6`}
         >
-          <View className="w-10 h-1 bg-graphite-400 rounded-full self-center mb-4" />
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="w-10 h-1 bg-graphite-400 rounded-full" />
+            <Pressable onPress={onClose} className="p-2">
+              <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
+            </Pressable>
+          </View>
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="w-10 h-1 bg-graphite-400 rounded-full" />
+            <Pressable onPress={onClose} className="p-2 -mt-2">
+              <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
+            </Pressable>
+          </View>
 
           {step === 'goal' ? (
             <>
@@ -782,7 +793,7 @@ export default function AnnualPlanScreen() {
       {/* Modals */}
       <SetupModal
         visible={showSetup}
-        onClose={() => {}}
+        onClose={() => router.back()}
         isDark={isDark}
       />
 

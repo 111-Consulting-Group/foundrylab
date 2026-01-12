@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, Modal } from 'react-native';
+import { View, Text, ScrollView, Pressable, Modal, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachButton } from '@/components/CoachChat';
 import { useColorScheme } from '@/components/useColorScheme';
 import { TemplatePicker } from '@/components/TemplatePicker';
-import { useNextWorkout, useUpcomingWorkouts, usePushWorkouts, usePreviousPerformance, useWorkoutHistory } from '@/hooks/useWorkouts';
+import { CalendarStrip } from '@/components/CalendarStrip';
+import { useNextWorkout, useUpcomingWorkouts, usePushWorkouts, usePreviousPerformance, useWorkoutHistory, useWorkoutsByDateRange, useRescheduleWorkout, useUncompleteWorkout } from '@/hooks/useWorkouts';
 import { useRecentPRs } from '@/hooks/usePersonalRecords';
 import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
 import { useActiveGoals } from '@/hooks/useGoals';
@@ -25,6 +26,32 @@ import type { WorkoutWithSets, Exercise } from '@/types/database';
 export default function DashboardScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  // Calendar state
+  const today = useMemo(() => new Date(), []);
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [rescheduleMode, setRescheduleMode] = useState<string | null>(null); // workoutId when in reschedule mode
+  const [reschedulePushMode, setReschedulePushMode] = useState<boolean | null>(null); // null = not asked yet, true = push, false = skip
+  const rescheduleMutation = useRescheduleWorkout();
+  const uncompleteMutation = useUncompleteWorkout();
+
+  // Calculate date range for calendar (current week: Sun-Sat)
+  const weekStart = useMemo(() => {
+    const start = new Date(today);
+    start.setDate(today.getDate() - today.getDay()); // Start from Sunday
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }, [today]);
+
+  const weekEnd = useMemo(() => {
+    const end = new Date(weekStart);
+    end.setDate(weekStart.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return end;
+  }, [weekStart]);
+
+  // Fetch workouts for the week
+  const { data: weekWorkouts = [] } = useWorkoutsByDateRange(weekStart, weekEnd);
 
   // Modal states
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -232,147 +259,422 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        {/* Next Workout Card - Flexible Queue-Based */}
+        {/* Calendar Strip & Workout Card */}
         <View className="mb-6">
-          <View className="flex-row items-center justify-between mb-3">
-            <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-              Up Next
-            </Text>
-            {nextWorkout && (
-              <Pressable
-                onPress={() => setShowPushModal(true)}
-                className="flex-row items-center"
-              >
-                <Ionicons name="calendar-outline" size={16} color={isDark ? '#808fb0' : '#607296'} />
-                <Text className={`text-sm ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                  Adjust Schedule
-                </Text>
-              </Pressable>
-            )}
-          </View>
-          {nextWorkout ? (
-            <View className={`rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-graphite-700' : 'border-graphite-200'} overflow-hidden`}>
-              {/* Main workout info */}
-              <Pressable
-                className="p-5"
-                onPress={() => router.push(`/workout/${nextWorkout.id}`)}
-              >
-                <View className="flex-row items-center justify-between mb-3">
-                  <View className="flex-row items-center">
-                    <View className="w-10 h-10 rounded-full bg-signal-500 items-center justify-center mr-3">
-                      <Text className="text-white font-bold">
-                        W{nextWorkout.week_number || '1'}
-                      </Text>
-                    </View>
-                    <View className="flex-1">
-                      <View className="flex-row items-center gap-2">
-                        <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                          {nextWorkout.focus}
-                        </Text>
-                        {(() => {
-                          const context = detectWorkoutContext(nextWorkout);
-                          const contextInfo = getContextInfo(context);
-                          return (
-                            <View
-                              className="px-2 py-0.5 rounded-full"
-                              style={{ backgroundColor: contextInfo.bgColor }}
-                            >
-                              <Text
-                                className="text-xs font-semibold"
-                                style={{ color: contextInfo.color }}
-                              >
-                                {contextInfo.label}
-                              </Text>
-                            </View>
-                          );
-                        })()}
-                      </View>
-                      <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                        {nextWorkout.week_number && nextWorkout.day_number
-                          ? `Week ${nextWorkout.week_number} - Day ${nextWorkout.day_number}`
-                          : 'Next in queue'}
-                        {activeBlock && nextWorkout.week_number && activeBlock.duration_weeks && (
-                          ` (${nextWorkout.week_number} of ${activeBlock.duration_weeks})`
-                        )}
-                      </Text>
-                    </View>
-                  </View>
-                  <View className="bg-signal-500 px-3 py-1.5 rounded-full">
-                    <Text className="text-white font-semibold text-sm">Start</Text>
-                  </View>
-                </View>
-                <View className="flex-row flex-wrap gap-2 mb-3">
-                  <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}>
-                    <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
-                      {nextWorkout.workout_sets?.length || 0} exercises
-                    </Text>
-                  </View>
-                  {nextWorkout.duration_minutes && (
-                    <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}>
-                      <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
-                        ~{nextWorkout.duration_minutes} min
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                
-                {/* Progression Targets Preview - Show first 2 exercises */}
-                {nextWorkoutExercises.length > 0 && (
-                  <View className={`mt-3 pt-3 border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
-                    <Text className={`text-xs font-semibold mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                      Key Exercises
-                    </Text>
-                    {nextWorkoutExercises.map((exercise) => (
-                      <View key={exercise.id} className="mb-2">
-                        <Text className={`text-sm ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
-                          {exercise.name}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </Pressable>
-
-              {/* Flexible action buttons */}
-              <View className={`flex-row border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+          {rescheduleMode && reschedulePushMode === null && (
+            <View className={`mb-3 p-4 rounded-xl ${isDark ? 'bg-signal-500/20 border border-signal-500/50' : 'bg-signal-500/10 border border-signal-500/30'}`}>
+              <Text className={`text-sm font-semibold mb-3 ${isDark ? 'text-signal-200' : 'text-signal-700'}`}>
+                How should we adjust your program?
+              </Text>
+              <View className="flex-row gap-2">
                 <Pressable
-                  className={`flex-1 flex-row items-center justify-center py-3 border-r ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-                  onPress={() => setShowSwapModal(true)}
+                  className={`flex-1 p-3 rounded-lg ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-signal-500/50' : 'border-signal-500/30'}`}
+                  onPress={() => setReschedulePushMode(true)}
                 >
-                  <Ionicons name="swap-horizontal" size={18} color="#2F80ED" />
-                  <Text className="text-signal-500 font-medium ml-2">Swap</Text>
+                  <Text className={`text-sm text-center font-medium ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+                    Push Program Forward
+                  </Text>
+                  <Text className={`text-xs text-center mt-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                    Move all subsequent workouts
+                  </Text>
                 </Pressable>
                 <Pressable
-                  className="flex-1 flex-row items-center justify-center py-3"
-                  onPress={() => setShowRecoveryModal(true)}
+                  className={`flex-1 p-3 rounded-lg ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-signal-500/50' : 'border-signal-500/30'}`}
+                  onPress={() => setReschedulePushMode(false)}
                 >
-                  <Ionicons name="fitness" size={18} color={isDark ? '#808fb0' : '#607296'} />
-                  <Text className={`font-medium ml-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                    Light Day
+                  <Text className={`text-sm text-center font-medium ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+                    Just Skip Days
+                  </Text>
+                  <Text className={`text-xs text-center mt-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                    Only move this workout
                   </Text>
                 </Pressable>
               </View>
             </View>
-          ) : (
-            <Pressable
-              className={`p-5 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border border-dashed ${isDark ? 'border-graphite-600' : 'border-graphite-300'}`}
-              onPress={() => router.push('/workout/new')}
-            >
-              <View className="items-center py-4">
-                <Ionicons
-                  name="checkmark-circle"
-                  size={32}
-                  color="#22c55e"
-                />
-                <Text className={`font-semibold mt-3 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
-                  No workouts in queue
-                </Text>
-                <Text className={`text-sm mt-1 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
-                  Build a new block or log a quick workout
-                </Text>
-              </View>
-            </Pressable>
           )}
+          {rescheduleMode && reschedulePushMode !== null && (
+            <View className={`mb-3 p-3 rounded-xl ${isDark ? 'bg-signal-500/20 border border-signal-500/50' : 'bg-signal-500/10 border border-signal-500/30'}`}>
+              <Text className={`text-sm text-center ${isDark ? 'text-signal-300' : 'text-signal-600'}`}>
+                📅 Tap a date on the calendar to reschedule this workout
+              </Text>
+            </View>
+          )}
+          <CalendarStrip
+            selectedDate={selectedDate}
+            onSelectDate={(date) => {
+              if (rescheduleMode && reschedulePushMode !== null) {
+                // In reschedule mode, reschedule the workout to this date
+                const workout = weekWorkouts.find((w) => w.id === rescheduleMode);
+                if (workout) {
+                  rescheduleMutation.mutate(
+                    { workoutId: workout.id, newDate: date, pushProgram: reschedulePushMode },
+                    {
+                      onSuccess: () => {
+                        setRescheduleMode(null);
+                        setReschedulePushMode(null);
+                        setSelectedDate(date);
+                      },
+                      onError: (error) => {
+                        Alert.alert('Error', 'Failed to reschedule workout. Please try again.');
+                        console.error('Reschedule error:', error);
+                      },
+                    }
+                  );
+                }
+              } else {
+                setSelectedDate(date);
+              }
+            }}
+            workouts={weekWorkouts}
+            rescheduleMode={rescheduleMode}
+          />
+
+          {/* Workout Card for Selected Date */}
+          {(() => {
+            const selectedDateStr = selectedDate.toISOString().split('T')[0];
+            const selectedWorkout = weekWorkouts.find((w) => {
+              if (w.date_completed) {
+                const completedDate = new Date(w.date_completed).toISOString().split('T')[0];
+                return completedDate === selectedDateStr;
+              }
+              if (w.scheduled_date) {
+                const scheduledDate = new Date(w.scheduled_date).toISOString().split('T')[0];
+                return scheduledDate === selectedDateStr;
+              }
+              return false;
+            });
+
+            const isPast = selectedDate < today && selectedDate.toDateString() !== today.toDateString();
+            const isCompleted = selectedWorkout?.date_completed;
+
+            console.log('🔍 Rendering workout card:', {
+              hasSelectedWorkout: !!selectedWorkout,
+              isCompleted: !!isCompleted,
+              workoutId: selectedWorkout?.id,
+              dateCompleted: selectedWorkout?.date_completed,
+            });
+
+            if (selectedWorkout) {
+              // Workout exists (completed or planned)
+              if (isCompleted) {
+                // Past/Completed Workout Card
+                const workoutStats = selectedWorkout.workout_sets?.reduce(
+                  (acc, set) => {
+                    const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
+                    if (volume > 0) {
+                      acc.totalSets++;
+                      acc.totalVolume += volume;
+                      if (set.actual_weight && set.actual_weight > acc.maxWeight) {
+                        acc.maxWeight = set.actual_weight;
+                      }
+                    }
+                    return acc;
+                  },
+                  { totalSets: 0, totalVolume: 0, maxWeight: 0 }
+                ) || { totalSets: 0, totalVolume: 0, maxWeight: 0 };
+
+                return (
+                  <View className={`rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-graphite-700' : 'border-graphite-200'} overflow-hidden`}>
+                    <Pressable
+                      className="p-5"
+                      onPress={() => router.push(`/workout-summary/${selectedWorkout.id}`)}
+                    >
+                      <View className="flex-row items-center justify-between mb-3">
+                        <View className="flex-1">
+                          <View className="flex-row items-center gap-2 mb-1">
+                            <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                              {selectedWorkout.focus}
+                            </Text>
+                            <View className="px-2 py-0.5 rounded-full bg-progress-500/20">
+                              <Text className="text-progress-500 text-xs font-semibold">Completed</Text>
+                            </View>
+                          </View>
+                          <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            {selectedWorkout.date_completed
+                              ? new Date(selectedWorkout.date_completed).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : ''}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={isDark ? '#808fb0' : '#607296'} />
+                      </View>
+                      <View className="flex-row gap-4">
+                        <View>
+                          <Text className={`text-2xl font-bold text-signal-500`}>
+                            {workoutStats.totalSets}
+                          </Text>
+                          <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            Sets
+                          </Text>
+                        </View>
+                        <View>
+                          <Text className={`text-2xl font-bold text-signal-500`}>
+                            {Math.round(workoutStats.totalVolume)}
+                          </Text>
+                          <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            Volume (lbs)
+                          </Text>
+                        </View>
+                        {workoutStats.maxWeight > 0 && (
+                          <View>
+                            <Text className={`text-2xl font-bold text-signal-500`}>
+                              {workoutStats.maxWeight}
+                            </Text>
+                            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                              Max (lbs)
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </Pressable>
+                    <View className={`flex-row border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+                      <Pressable
+                        className={`flex-1 flex-row items-center justify-center py-3 border-r ${isDark ? 'border-graphite-700' : 'border-graphite-200'} ${uncompleteMutation.isPending ? 'opacity-50' : ''}`}
+                        disabled={uncompleteMutation.isPending}
+                        onPress={(e) => {
+                          console.log('🔵🔵🔵 UNCOMPLETE BUTTON PRESSED! 🔵🔵🔵');
+                          e?.stopPropagation?.();
+                          console.log('Workout ID:', selectedWorkout.id);
+                          console.log('Selected workout:', selectedWorkout);
+                          
+                          // Direct mutation without confirmation for testing
+                          const handleUncomplete = () => {
+                            console.log('🟢 Calling mutation with ID:', selectedWorkout.id);
+                            uncompleteMutation.mutate(
+                              { id: selectedWorkout.id },
+                              {
+                                onSuccess: (data) => {
+                                  console.log('✅ Workout uncompleted successfully:', data);
+                                  if (Platform.OS === 'web') {
+                                    window.alert('Workout marked as incomplete. You can now reschedule it.');
+                                  } else {
+                                    Alert.alert('Success', 'Workout marked as incomplete. You can now reschedule it.');
+                                  }
+                                  // Force refresh the calendar data by updating selected date
+                                  const newDate = new Date(selectedDate);
+                                  setSelectedDate(newDate);
+                                },
+                                onError: (error) => {
+                                  console.error('❌ Uncomplete error:', error);
+                                  console.error('Error details:', JSON.stringify(error, null, 2));
+                                  const errorMessage = error instanceof Error ? error.message : 
+                                    typeof error === 'string' ? error : 
+                                    'Unknown error';
+                                  if (Platform.OS === 'web') {
+                                    window.alert(`Failed to uncomplete workout: ${errorMessage}`);
+                                  } else {
+                                    Alert.alert('Error', `Failed to uncomplete workout: ${errorMessage}`);
+                                  }
+                                },
+                              }
+                            );
+                          };
+                          
+                          // For web, use confirm instead of Alert.alert
+                          if (Platform.OS === 'web') {
+                            if (typeof window !== 'undefined' && window.confirm('This will mark the workout as incomplete so you can reschedule it. Continue?')) {
+                              handleUncomplete();
+                            } else {
+                              console.log('User cancelled confirmation');
+                            }
+                          } else {
+                            Alert.alert(
+                              'Uncomplete Workout',
+                              'This will mark the workout as incomplete so you can reschedule it. Continue?',
+                              [
+                                { text: 'Cancel', style: 'cancel', onPress: () => console.log('User cancelled') },
+                                {
+                                  text: 'Uncomplete',
+                                  style: 'destructive',
+                                  onPress: handleUncomplete,
+                                },
+                              ]
+                            );
+                          }
+                        }}
+                      >
+                        {uncompleteMutation.isPending ? (
+                          <ActivityIndicator size="small" color="#2F80ED" />
+                        ) : (
+                          <>
+                            <Ionicons name="refresh-outline" size={18} color="#2F80ED" />
+                            <Text className="text-signal-500 font-medium ml-2">Uncomplete</Text>
+                          </>
+                        )}
+                      </Pressable>
+                      <Pressable
+                        className="flex-1 flex-row items-center justify-center py-3"
+                        onPress={() => router.push(`/workout-summary/${selectedWorkout.id}`)}
+                      >
+                        <Ionicons name="eye-outline" size={18} color="#2F80ED" />
+                        <Text className="text-signal-500 font-medium ml-2">View Details</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              } else {
+                // Future/Planned Workout Card
+                const uniqueExercises = new Map<string, Exercise>();
+                selectedWorkout.workout_sets?.forEach((set) => {
+                  if (set.exercise && !uniqueExercises.has(set.exercise_id)) {
+                    uniqueExercises.set(set.exercise_id, set.exercise as Exercise);
+                  }
+                });
+                const exerciseList = Array.from(uniqueExercises.values());
+
+                return (
+                  <View className={`rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-graphite-700' : 'border-graphite-200'} overflow-hidden`}>
+                    <View className="p-5">
+                      <View className="flex-row items-center justify-between mb-3">
+                        <View className="flex-1">
+                          <View className="flex-row items-center gap-2 mb-1">
+                            <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                              {selectedWorkout.focus}
+                            </Text>
+                            {(() => {
+                              const context = detectWorkoutContext(selectedWorkout);
+                              const contextInfo = getContextInfo(context);
+                              return (
+                                <View
+                                  className="px-2 py-0.5 rounded-full"
+                                  style={{ backgroundColor: contextInfo.bgColor }}
+                                >
+                                  <Text
+                                    className="text-xs font-semibold"
+                                    style={{ color: contextInfo.color }}
+                                  >
+                                    {contextInfo.label}
+                                  </Text>
+                                </View>
+                              );
+                            })()}
+                          </View>
+                          <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            {selectedWorkout.week_number && selectedWorkout.day_number
+                              ? `Week ${selectedWorkout.week_number} - Day ${selectedWorkout.day_number}`
+                              : 'Planned workout'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View className="flex-row flex-wrap gap-2 mb-3">
+                        <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}>
+                          <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                            {exerciseList.length} exercises
+                          </Text>
+                        </View>
+                        {selectedWorkout.duration_minutes && (
+                          <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}>
+                            <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                              ~{selectedWorkout.duration_minutes} min
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      
+                      {/* Consolidated Exercise List */}
+                      {exerciseList.length > 0 && (
+                        <View className={`mt-3 pt-3 border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+                          <Text className={`text-xs font-semibold mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            Exercises
+                          </Text>
+                          <View className="flex-row flex-wrap gap-2">
+                            {exerciseList.slice(0, 6).map((exercise) => (
+                              <View
+                                key={exercise.id}
+                                className={`px-2 py-1 rounded ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}
+                              >
+                                <Text className={`text-xs ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                                  {exercise.name}
+                                </Text>
+                              </View>
+                            ))}
+                            {exerciseList.length > 6 && (
+                              <View className={`px-2 py-1 rounded ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}>
+                                <Text className={`text-xs ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                                  +{exerciseList.length - 6} more
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Action buttons */}
+                    <View className={`flex-row border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+                      <Pressable
+                        className={`flex-1 flex-row items-center justify-center py-3 border-r ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                        onPress={() => {
+                          if (rescheduleMode === selectedWorkout.id) {
+                            setRescheduleMode(null);
+                            setReschedulePushMode(null);
+                          } else {
+                            setRescheduleMode(selectedWorkout.id);
+                            setReschedulePushMode(null);
+                          }
+                        }}
+                      >
+                        <Ionicons 
+                          name={rescheduleMode === selectedWorkout.id ? "close" : "calendar-outline"} 
+                          size={18} 
+                          color={rescheduleMode === selectedWorkout.id ? "#ef4444" : "#2F80ED"} 
+                        />
+                        <Text className={`font-medium ml-2 ${rescheduleMode === selectedWorkout.id ? 'text-oxide-500' : 'text-signal-500'}`}>
+                          {rescheduleMode === selectedWorkout.id ? 'Cancel' : 'Reschedule'}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        className={`flex-1 flex-row items-center justify-center py-3 border-r ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                        onPress={() => setShowSwapModal(true)}
+                      >
+                        <Ionicons name="swap-horizontal" size={18} color="#2F80ED" />
+                        <Text className="text-signal-500 font-medium ml-2">Swap</Text>
+                      </Pressable>
+                      <Pressable
+                        className="flex-1 flex-row items-center justify-center py-3"
+                        onPress={() => router.push(`/workout/${selectedWorkout.id}`)}
+                      >
+                        <Ionicons name="play" size={18} color="#2F80ED" />
+                        <Text className="text-signal-500 font-medium ml-2">Start</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              }
+            } else {
+              // No workout for selected date
+              return (
+                <Pressable
+                  className={`p-5 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border border-dashed ${isDark ? 'border-graphite-600' : 'border-graphite-300'}`}
+                  onPress={() => {
+                    // Create workout for the selected date (can be past date)
+                    router.push({
+                      pathname: '/workout/new',
+                      params: {
+                        scheduledDate: selectedDate.toISOString().split('T')[0],
+                      },
+                    });
+                  }}
+                >
+                  <View className="items-center py-4">
+                    <Ionicons
+                      name={isPast ? "calendar-outline" : "add-circle-outline"}
+                      size={32}
+                      color={isDark ? '#808fb0' : '#607296'}
+                    />
+                    <Text className={`font-semibold mt-3 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                      {isPast ? 'No workout logged' : 'No workout planned'}
+                    </Text>
+                    <Text className={`text-sm mt-1 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                      {isPast ? 'Tap to log workout for this date' : 'Tap to log a workout'}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            }
+          })()}
         </View>
 
         {/* Weekly Progress */}

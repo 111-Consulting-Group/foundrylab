@@ -25,6 +25,8 @@ export const workoutKeys = {
   today: () => [...workoutKeys.all, 'today'] as const,
   next: () => [...workoutKeys.all, 'next'] as const,
   upcoming: (limit?: number) => [...workoutKeys.all, 'upcoming', limit] as const,
+  byDateRange: (startDate: string, endDate: string) =>
+    [...workoutKeys.all, 'dateRange', startDate, endDate] as const,
 };
 
 // Fetch workout with all sets and exercise details
@@ -360,6 +362,152 @@ export function useUpdateWorkout() {
   });
 }
 
+// Uncomplete a workout (mark as incomplete so it can be rescheduled)
+export function useUncompleteWorkout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }): Promise<Workout> => {
+      const { data, error } = await supabase
+        .from('workouts')
+        .update({ date_completed: null })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error uncompleting workout:', error);
+        throw error;
+      }
+      return data as Workout;
+    },
+    onSuccess: (data) => {
+      // Invalidate all relevant queries
+      queryClient.invalidateQueries({ queryKey: workoutKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.next() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.upcoming() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.history() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.incomplete() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.today() });
+      // Invalidate all date range queries (they'll refetch when needed)
+      queryClient.invalidateQueries({ 
+        queryKey: [...workoutKeys.all, 'dateRange'],
+        exact: false 
+      });
+      if (data.block_id) {
+        queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: data.block_id }) });
+      }
+    },
+    onError: (error) => {
+      console.error('Failed to uncomplete workout:', error);
+    },
+  });
+}
+
+// Reschedule a workout and adjust all subsequent workouts in the program
+export function useRescheduleWorkout() {
+  const queryClient = useQueryClient();
+  const userId = useAppStore((state) => state.userId);
+
+  return useMutation({
+    mutationFn: async ({
+      workoutId,
+      newDate,
+      pushProgram = true,
+    }: {
+      workoutId: string;
+      newDate: Date;
+      pushProgram?: boolean; // If true, push all subsequent workouts. If false, just move this one.
+    }): Promise<{ updated: number; workout: Workout }> => {
+      if (!userId) throw new Error('User not authenticated');
+
+      // Get the workout to reschedule
+      const { data: workout, error: workoutError } = await supabase
+        .from('workouts')
+        .select('*')
+        .eq('id', workoutId)
+        .single();
+
+      if (workoutError) throw workoutError;
+      if (!workout) throw new Error('Workout not found');
+
+      const oldDate = workout.scheduled_date ? new Date(workout.scheduled_date) : null;
+      if (!oldDate) throw new Error('Workout has no scheduled date');
+
+      const dayDifference = Math.floor(
+        (newDate.getTime() - oldDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      // Update the workout's scheduled_date
+      const newDateStr = newDate.toISOString().split('T')[0];
+      const { data: updatedWorkout, error: updateError } = await supabase
+        .from('workouts')
+        .update({ scheduled_date: newDateStr })
+        .eq('id', workoutId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      // If workout is part of a block, adjust all subsequent workouts (only if pushProgram is true)
+      let adjustedCount = 0;
+      if (workout.block_id && dayDifference !== 0 && pushProgram) {
+        // Get all incomplete workouts from the same block
+        const { data: allBlockWorkouts, error: allError } = await supabase
+          .from('workouts')
+          .select('id, scheduled_date, week_number, day_number')
+          .eq('block_id', workout.block_id)
+          .is('date_completed', null)
+          .order('week_number', { ascending: true })
+          .order('day_number', { ascending: true });
+
+        if (allError) throw allError;
+
+        // Filter to get workouts that come after this one in program order
+        const subsequentWorkouts = (allBlockWorkouts || []).filter((w) => {
+          if (!workout.week_number || !workout.day_number) return false;
+          if (!w.week_number || !w.day_number) return false;
+          
+          if (w.week_number > workout.week_number) return true;
+          if (w.week_number === workout.week_number && w.day_number > workout.day_number) return true;
+          return false;
+        });
+
+        if (subsequentError) throw subsequentError;
+
+        // Adjust each subsequent workout's scheduled_date
+        for (const subsequentWorkout of subsequentWorkouts) {
+          if (subsequentWorkout.scheduled_date) {
+            const currentDate = new Date(subsequentWorkout.scheduled_date);
+            currentDate.setDate(currentDate.getDate() + dayDifference);
+            const newScheduledDate = currentDate.toISOString().split('T')[0];
+
+            const { error: adjustError } = await supabase
+              .from('workouts')
+              .update({ scheduled_date: newScheduledDate })
+              .eq('id', subsequentWorkout.id);
+
+            if (adjustError) throw adjustError;
+            adjustedCount++;
+          }
+        }
+      }
+
+      return { updated: adjustedCount, workout: updatedWorkout as Workout };
+    },
+    onSuccess: (result) => {
+      // Invalidate all relevant queries
+      queryClient.invalidateQueries({ queryKey: workoutKeys.detail(result.workout.id) });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.next() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.upcoming() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.byDateRange() });
+      if (result.workout.block_id) {
+        queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: result.workout.block_id }) });
+      }
+    },
+  });
+}
+
 // Complete a workout
 export function useCompleteWorkout() {
   const queryClient = useQueryClient();
@@ -561,5 +709,78 @@ export function usePreviousPerformance(exerciseId: string, currentWorkoutId?: st
     enabled: !!exerciseId && !!userId,
     staleTime: 5 * 60 * 1000, // 5 minutes - historical data
     gcTime: 15 * 60 * 1000, // 15 minutes
+  });
+}
+
+// Fetch workouts by date range (for calendar view)
+export function useWorkoutsByDateRange(startDate: Date, endDate: Date) {
+  const userId = useAppStore((state) => state.userId);
+
+  const startDateStr = startDate.toISOString().split('T')[0];
+  const endDateStr = endDate.toISOString().split('T')[0];
+
+  return useQuery({
+    queryKey: workoutKeys.byDateRange(startDateStr, endDateStr),
+    queryFn: async (): Promise<WorkoutWithSets[]> => {
+      if (!userId) return [];
+
+      // Fetch workouts that are either:
+      // 1. Completed within the date range (date_completed)
+      // 2. Scheduled within the date range (scheduled_date) - even if not completed
+      const { data: completedWorkouts, error: completedError } = await supabase
+        .from('workouts')
+        .select(`
+          *,
+          workout_sets(
+            *,
+            exercise:exercises(*)
+          )
+        `)
+        .eq('user_id', userId)
+        .not('date_completed', 'is', null)
+        .gte('date_completed', startDateStr)
+        .lte('date_completed', endDateStr);
+
+      if (completedError) throw completedError;
+
+      const { data: scheduledWorkouts, error: scheduledError } = await supabase
+        .from('workouts')
+        .select(`
+          *,
+          workout_sets(
+            *,
+            exercise:exercises(*)
+          )
+        `)
+        .eq('user_id', userId)
+        .not('scheduled_date', 'is', null)
+        .gte('scheduled_date', startDateStr)
+        .lte('scheduled_date', endDateStr);
+
+      if (scheduledError) throw scheduledError;
+
+      // Combine and deduplicate by workout ID
+      const workoutMap = new Map<string, WorkoutWithSets>();
+      
+      (completedWorkouts || []).forEach((w) => {
+        workoutMap.set(w.id, w as WorkoutWithSets);
+      });
+      
+      (scheduledWorkouts || []).forEach((w) => {
+        if (!workoutMap.has(w.id)) {
+          workoutMap.set(w.id, w as WorkoutWithSets);
+        }
+      });
+
+      return Array.from(workoutMap.values()).sort((a, b) => {
+        // Sort by scheduled_date first, then date_completed
+        const aDate = a.scheduled_date || a.date_completed || '';
+        const bDate = b.scheduled_date || b.date_completed || '';
+        return aDate.localeCompare(bDate);
+      });
+    },
+    enabled: !!userId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }

@@ -41,9 +41,21 @@ export function useTodaysReadiness() {
         .select('*')
         .eq('user_id', userId)
         .eq('check_in_date', today)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to handle 406 errors gracefully
 
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
+      // Handle 406 (Not Acceptable) - usually means table doesn't exist or RLS issue
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows found - this is fine
+          return null;
+        }
+        if (error.code === 'PGRST301' || error.status === 406) {
+          // Table doesn't exist or RLS blocking - return null gracefully
+          console.warn('daily_readiness table not accessible:', error.message);
+          return null;
+        }
+        throw error;
+      }
       return data as DailyReadiness | null;
     },
     enabled: !!userId,
@@ -73,7 +85,15 @@ export function useReadinessHistory(days: number = 7) {
         .gte('check_in_date', startDate.toISOString().split('T')[0])
         .order('check_in_date', { ascending: false });
 
-      if (error) throw error;
+      // Handle 406 (Not Acceptable) - usually means table doesn't exist or RLS issue
+      if (error) {
+        if (error.code === 'PGRST301' || error.status === 406) {
+          // Table doesn't exist or RLS blocking - return empty array gracefully
+          console.warn('daily_readiness table not accessible:', error.message);
+          return [];
+        }
+        throw error;
+      }
       return data as DailyReadiness[];
     },
     enabled: !!userId,
@@ -114,7 +134,13 @@ export function useSubmitReadiness() {
         .select()
         .single();
 
-      if (error) throw error;
+      // Handle 406 (Not Acceptable) - usually means table doesn't exist or RLS issue
+      if (error) {
+        if (error.code === 'PGRST301' || error.status === 406) {
+          throw new Error('Readiness tracking is not available. Please ensure the database migration has been applied.');
+        }
+        throw error;
+      }
       return data as DailyReadiness;
     },
     onSuccess: () => {
@@ -145,7 +171,13 @@ export function useUpdateReadinessAdjustment() {
         .select()
         .single();
 
-      if (error) throw error;
+      // Handle 406 (Not Acceptable) - usually means table doesn't exist or RLS issue
+      if (error) {
+        if (error.code === 'PGRST301' || error.status === 406) {
+          throw new Error('Readiness tracking is not available. Please ensure the database migration has been applied.');
+        }
+        throw error;
+      }
       return data as DailyReadiness;
     },
     onSuccess: () => {

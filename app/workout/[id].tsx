@@ -41,7 +41,7 @@ import type { Exercise, WorkoutSetInsert } from '@/types/database';
 // Tracked exercise with local state
 interface TrackedExercise {
   exercise: Exercise;
-  sets: number[];
+  sets: Array<{ setOrder: number; setId?: string }>; // Store both order and ID for unique keys
   targetSets?: number;
   targetReps?: number;
   targetRPE?: number;
@@ -50,7 +50,12 @@ interface TrackedExercise {
 }
 
 export default function ActiveWorkoutScreen() {
-  const { id, focus: focusParam, templateId } = useLocalSearchParams<{ id: string; focus?: string; templateId?: string }>();
+  const { id, focus: focusParam, templateId, scheduledDate } = useLocalSearchParams<{ 
+    id: string; 
+    focus?: string; 
+    templateId?: string;
+    scheduledDate?: string;
+  }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -189,7 +194,10 @@ export default function ActiveWorkoutScreen() {
             targetLoad: set.target_load || undefined,
           });
         }
-        exerciseMap.get(set.exercise_id)!.sets.push(set.set_order);
+        exerciseMap.get(set.exercise_id)!.sets.push({
+          setOrder: set.set_order,
+          setId: set.id,
+        });
       });
 
       setTrackedExercises(Array.from(exerciseMap.values()));
@@ -227,7 +235,10 @@ export default function ActiveWorkoutScreen() {
           const exercise = exerciseMap.get(te.exercise_id);
           if (exercise) {
             // Create sets array based on template
-            const sets = Array.from({ length: te.sets }, (_, i) => i + 1);
+            const sets = Array.from({ length: te.sets }, (_, i) => ({
+              setOrder: i + 1,
+              setId: undefined,
+            }));
             tracked.push({
               exercise,
               sets,
@@ -266,9 +277,11 @@ export default function ActiveWorkoutScreen() {
 
     isCreatingWorkout.current = true;
     try {
+      // Use provided scheduledDate or default to today
+      const workoutDate = scheduledDate || new Date().toISOString().split('T')[0];
       const newWorkout = await createWorkoutMutation.mutateAsync({
         focus: focusParam || 'Quick Workout',
-        scheduled_date: new Date().toISOString().split('T')[0],
+        scheduled_date: workoutDate,
       });
       setCurrentWorkoutId(newWorkout.id);
       startWorkout(newWorkout.id);
@@ -279,7 +292,7 @@ export default function ActiveWorkoutScreen() {
     } finally {
       isCreatingWorkout.current = false;
     }
-  }, [currentWorkoutId, createWorkoutMutation, startWorkout, focusParam]);
+  }, [currentWorkoutId, createWorkoutMutation, startWorkout, focusParam, scheduledDate]);
 
   // Add exercise to workout
   const handleAddExercise = useCallback(
@@ -329,8 +342,8 @@ export default function ActiveWorkoutScreen() {
   const handleAddSet = useCallback((exerciseIndex: number) => {
     setTrackedExercises((prev) => {
       const updated = [...prev];
-      const nextSetNumber = Math.max(...updated[exerciseIndex].sets) + 1;
-      updated[exerciseIndex].sets.push(nextSetNumber);
+      const maxSetOrder = Math.max(...updated[exerciseIndex].sets.map(s => s.setOrder));
+      updated[exerciseIndex].sets.push({ setOrder: maxSetOrder + 1, setId: undefined });
       return updated;
     });
   }, []);
@@ -384,7 +397,7 @@ export default function ActiveWorkoutScreen() {
       updated[exerciseIndex] = {
         ...old,
         exercise: newExercise,
-        sets: [1], // Reset sets for new exercise
+        sets: [{ setOrder: 1, setId: undefined }], // Reset sets for new exercise
       };
       return updated;
     });
@@ -458,7 +471,7 @@ export default function ActiveWorkoutScreen() {
           }
         }
 
-        await addSetMutation.mutateAsync({
+        const result = await addSetMutation.mutateAsync({
           workout_id: currentWorkoutId,
           exercise_id: exerciseId,
           set_order: setOrder,
@@ -466,6 +479,24 @@ export default function ActiveWorkoutScreen() {
           previous_set_id: previousSetId,
           ...setData,
         });
+        
+        // Update the set ID in trackedExercises if this set was just created
+        if (result && (result as any).id) {
+          setTrackedExercises((prev) => {
+            const updated = [...prev];
+            const exerciseIndex = updated.findIndex(ex => ex.exercise.id === exerciseId);
+            if (exerciseIndex >= 0) {
+              const setIndex = updated[exerciseIndex].sets.findIndex(s => s.setOrder === setOrder && !s.setId);
+              if (setIndex >= 0) {
+                updated[exerciseIndex].sets[setIndex] = {
+                  ...updated[exerciseIndex].sets[setIndex],
+                  setId: (result as any).id,
+                };
+              }
+            }
+            return updated;
+          });
+        }
         
         // Store set data for multiply feature (if this is the first set)
         if (setOrder === 1) {
@@ -482,6 +513,34 @@ export default function ActiveWorkoutScreen() {
     [currentWorkoutId, addSetMutation]
   );
 
+  // Fill sets - copy Set 1's data to all subsequent sets
+  const handleFillSets = useCallback(async (exerciseIndex: number) => {
+    const exercise = trackedExercises[exerciseIndex];
+    if (!exercise || !currentWorkoutId) return;
+
+    const set1Data = savedSetData.get(exercise.exercise.id);
+    if (!set1Data) {
+      Alert.alert('Error', 'Please save the first set before filling.');
+      return;
+    }
+
+    // Get all sets after Set 1
+    const setsToFill = exercise.sets.filter((setInfo) => setInfo.setOrder > 1);
+    if (setsToFill.length === 0) {
+      Alert.alert('Info', 'No sets to fill. Add more sets first.');
+      return;
+    }
+
+    try {
+      // Apply Set 1's data to all subsequent sets
+      for (const setInfo of setsToFill) {
+        await handleSaveSet(exercise.exercise.id, setInfo.setOrder, set1Data);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fill sets. Please try again.');
+    }
+  }, [trackedExercises, currentWorkoutId, savedSetData, handleSaveSet]);
+
   // Multiply sets - duplicate first set data to 3 more sets
   const handleMultiplySets = useCallback(async (exerciseIndex: number) => {
     const exercise = trackedExercises[exerciseIndex];
@@ -494,20 +553,22 @@ export default function ActiveWorkoutScreen() {
     }
 
     try {
-      const currentMaxSet = Math.max(...exercise.sets);
-      const newSets: number[] = [];
+      const currentMaxSet = Math.max(...exercise.sets.map(s => s.setOrder));
+      const newSets: Array<{ setOrder: number; setId?: string }> = [];
       const count = 3; // Add 3 more sets
       
       // Create multiple sets with same data
       for (let i = 0; i < count; i++) {
         const setOrder = currentMaxSet + i + 1;
-        await addSetMutation.mutateAsync({
+        const result = await addSetMutation.mutateAsync({
           workout_id: currentWorkoutId,
           exercise_id: exercise.exercise.id,
           set_order: setOrder,
           ...setData,
         });
-        newSets.push(setOrder);
+        // Extract set ID from result if available
+        const setId = (result as any)?.id;
+        newSets.push({ setOrder, setId });
       }
 
       // Add new sets to tracked exercises
@@ -565,7 +626,11 @@ export default function ActiveWorkoutScreen() {
       }
 
       // Remove exercise from tracked exercises
-      setTrackedExercises((prev) => prev.filter((_, idx) => idx !== exerciseIndex));
+      setTrackedExercises((prev) => {
+        const updated = [...prev];
+        updated.splice(exerciseIndex, 1);
+        return updated;
+      });
       setSavedSetData((prev) => {
         const updated = new Map(prev);
         updated.delete(exercise.exercise.id);
@@ -978,35 +1043,84 @@ export default function ActiveWorkoutScreen() {
               </View>
             </View>
 
-            {/* Sets */}
-            {tracked.sets.map((setNumber) => (
-              <SetInput
-                key={`${tracked.exercise.id}-${setNumber}`}
-                exercise={tracked.exercise}
-                setNumber={setNumber}
-                workoutId={currentWorkoutId || ''}
-                targetReps={tracked.targetReps}
-                targetRPE={tracked.targetRPE}
-                targetLoad={tracked.targetLoad}
-                onSave={(setData) =>
-                  handleSaveSet(tracked.exercise.id, setNumber, setData)
-                }
-                onPRDetected={(set, type) => {
-                  const value =
-                    type === 'weight'
-                      ? `${set.actual_weight} lbs`
-                      : type === 'reps'
-                      ? `${set.actual_reps} reps @ ${set.actual_weight} lbs`
-                      : type === 'e1rm'
-                      ? `${Math.round(
-                          (set.actual_weight || 0) *
-                            (1 + (set.actual_reps || 0) / 30)
-                        )} lbs E1RM`
-                      : '';
-                  handlePRDetected(tracked.exercise, type, value);
+            {/* Quick Complete Button - shown if exercise has prescription and no sets are saved yet */}
+            {tracked.targetReps && tracked.targetLoad && tracked.sets.length > 0 && 
+             !savedSetData.has(tracked.exercise.id) && (
+              <Pressable
+                className={`flex-row items-center justify-center py-3 mb-3 rounded-xl ${
+                  isDark ? 'bg-progress-500/20 border border-progress-500/50' : 'bg-progress-500/10 border border-progress-500/30'
+                }`}
+                onPress={async () => {
+                  // Quick complete all sets with prescription
+                  const setData = {
+                    actual_weight: tracked.targetLoad,
+                    actual_reps: tracked.targetReps,
+                    actual_rpe: tracked.targetRPE || null,
+                    is_warmup: false,
+                  };
+                  
+                  for (const set of tracked.sets) {
+                    await handleSaveSet(tracked.exercise.id, set.setOrder, setData);
+                  }
                 }}
-              />
-            ))}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
+                <Text className="ml-2 text-progress-500 font-semibold">
+                  Quick Complete: {tracked.targetLoad}×{tracked.targetReps}
+                  {tracked.targetRPE ? ` @ ${tracked.targetRPE}` : ''}
+                </Text>
+              </Pressable>
+            )}
+
+            {/* Sets */}
+            {tracked.sets.map((setInfo, setIndex) => {
+              const setNumber = setInfo.setOrder;
+              const uniqueKey = setInfo.setId || `${tracked.exercise.id}-${setNumber}-${setIndex}`;
+              
+              return (
+              <View key={uniqueKey}>
+                {/* Fill Sets button - shown on first set row */}
+                {setNumber === 1 && savedSetData.has(tracked.exercise.id) && tracked.sets.length > 1 && (
+                  <Pressable
+                    className={`flex-row items-center justify-center py-2 mb-2 rounded-lg ${
+                      isDark ? 'bg-signal-500/10 border border-signal-500/30' : 'bg-signal-500/10 border border-signal-500/30'
+                    }`}
+                    onPress={() => handleFillSets(exerciseIndex)}
+                  >
+                    <Ionicons name="arrow-down" size={16} color="#2F80ED" />
+                    <Text className="ml-2 text-signal-500 font-semibold text-sm">
+                      Copy to all sets
+                    </Text>
+                  </Pressable>
+                )}
+                <SetInput
+                  exercise={tracked.exercise}
+                  setNumber={setNumber}
+                  workoutId={currentWorkoutId || ''}
+                  targetReps={tracked.targetReps}
+                  targetRPE={tracked.targetRPE}
+                  targetLoad={tracked.targetLoad}
+                  onSave={(setData) =>
+                    handleSaveSet(tracked.exercise.id, setNumber, setData)
+                  }
+                  onPRDetected={(set, type) => {
+                    const value =
+                      type === 'weight'
+                        ? `${set.actual_weight} lbs`
+                        : type === 'reps'
+                        ? `${set.actual_reps} reps @ ${set.actual_weight} lbs`
+                        : type === 'e1rm'
+                        ? `${Math.round(
+                            (set.actual_weight || 0) *
+                              (1 + (set.actual_reps || 0) / 30)
+                          )} lbs E1RM`
+                        : '';
+                    handlePRDetected(tracked.exercise, type, value);
+                  }}
+                />
+              </View>
+            );
+            })}
 
             {/* Add Set / Multiply Sets Buttons */}
             <View className="flex-row gap-2">
