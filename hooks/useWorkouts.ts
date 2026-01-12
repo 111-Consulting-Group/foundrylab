@@ -364,6 +364,7 @@ export function useUpdateWorkout() {
 export function useCompleteWorkout() {
   const queryClient = useQueryClient();
   const { endWorkout } = useAppStore();
+  const userId = useAppStore((state) => state.userId);
 
   return useMutation({
     mutationFn: async ({ id, durationMinutes }: { id: string; durationMinutes: number }): Promise<Workout> => {
@@ -378,6 +379,34 @@ export function useCompleteWorkout() {
         .single();
 
       if (error) throw error;
+
+      // Automatically share workout to feed
+      if (userId && data) {
+        // Check if post already exists to avoid duplicates
+        const { data: existingPost } = await supabase
+          .from('workout_posts')
+          .select('id')
+          .eq('workout_id', id)
+          .single();
+
+        // Only insert if post doesn't exist yet
+        if (!existingPost) {
+          const { error: shareError } = await supabase
+            .from('workout_posts')
+            .insert({
+              workout_id: id,
+              user_id: userId,
+              caption: null,
+              is_public: true,
+            });
+
+          // Log error but don't fail the workout completion if sharing fails
+          if (shareError) {
+            console.warn('Failed to automatically share workout to feed:', shareError);
+          }
+        }
+      }
+
       return data as Workout;
     },
     onSuccess: (data) => {
@@ -388,6 +417,8 @@ export function useCompleteWorkout() {
       queryClient.invalidateQueries({ queryKey: workoutKeys.next() });
       queryClient.invalidateQueries({ queryKey: workoutKeys.upcoming() });
       queryClient.invalidateQueries({ queryKey: workoutKeys.history() });
+      // Invalidate feed since workout was automatically shared
+      queryClient.invalidateQueries({ queryKey: ['social', 'feed'] });
       if (data.block_id) {
         queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: data.block_id }) });
       }

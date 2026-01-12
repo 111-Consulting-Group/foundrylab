@@ -79,8 +79,7 @@ export function useFeed(limit: number = 20) {
         .from('workout_posts')
         .select(`
           *,
-          workout:workouts(*),
-          user:user_profiles(id, display_name, email)
+          workout:workouts(*)
         `)
         .in('user_id', userIdsToShow)
         .eq('is_public', true)
@@ -92,8 +91,33 @@ export function useFeed(limit: number = 20) {
         throw postsError;
       }
 
-      // Fetch workout sets separately to avoid deeply nested query issues
+      // Fetch user profiles and workout sets separately to avoid relationship issues
       if (posts && posts.length > 0) {
+        // Get unique user IDs from posts
+        const uniqueUserIds = [...new Set(posts.map((p: any) => p.user_id))];
+        
+        // Fetch user profiles
+        const { data: userProfiles, error: profilesError } = await supabase
+          .from('user_profiles')
+          .select('id, display_name, email')
+          .in('id', uniqueUserIds);
+
+        if (profilesError) {
+          console.warn('Error fetching user profiles:', profilesError);
+        }
+
+        // Create a map of user profiles
+        const profilesByUserId = new Map<string, any>();
+        userProfiles?.forEach((profile) => {
+          profilesByUserId.set(profile.id, profile);
+        });
+
+        // Attach user profiles to posts
+        posts.forEach((post: any) => {
+          post.user = profilesByUserId.get(post.user_id) || null;
+        });
+
+        // Fetch workout sets
         const workoutIds = posts
           .map((p: any) => p.workout_id)
           .filter(Boolean);
