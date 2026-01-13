@@ -31,7 +31,6 @@ export default function DashboardScreen() {
   const isDark = colorScheme === 'dark';
 
   // Debug: Verify new design is loading
-  console.log('🎨 NEW UI DESIGN LOADED - Foundry Lab Home Screen', { colorScheme, isDark });
 
   // Data Fetching - Prioritize active block workouts over date-based
   const { data: nextWorkout, isLoading: loadingNext } = useNextWorkout(); // This gets next workout from active block

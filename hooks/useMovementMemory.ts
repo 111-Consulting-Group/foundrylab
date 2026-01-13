@@ -83,12 +83,28 @@ export function useMovementMemory(exerciseId: string, currentWorkoutId?: string)
       if (!userId || !exerciseId) return null;
 
       // Try movement_memory table first
-      const { data: memoryData } = await supabase
-        .from('movement_memory')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('exercise_id', exerciseId)
-        .single();
+      let memoryData = null;
+      try {
+        const { data, error: memoryError } = await supabase
+          .from('movement_memory')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('exercise_id', exerciseId)
+          .maybeSingle();
+        
+        // Silently handle 404s and missing table - fall back to workout_sets
+        if (!memoryError || memoryError.code === 'PGRST116' || memoryError.code === '42P01') {
+          memoryData = data;
+        }
+        // PGRST116 = not found (expected), 42P01 = table doesn't exist (expected during migration)
+        // Only log unexpected errors
+        else if (memoryError.code !== 'PGRST116' && memoryError.code !== '42P01') {
+          console.warn('Movement memory query error:', memoryError);
+        }
+      } catch (err) {
+        // Table might not exist yet - silently fall through to workout_sets fallback
+        memoryData = null;
+      }
 
       if (memoryData) {
         const memory = memoryData as MovementMemory;
@@ -259,12 +275,28 @@ export function useWorkoutSuggestions(
       // Fetch movement memory for all exercises in parallel
       const memoryPromises = exerciseIds.map(async (exerciseId) => {
         // Try movement_memory table first
-        const { data: memoryData } = await supabase
-          .from('movement_memory')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('exercise_id', exerciseId)
-          .single();
+        let memoryData = null;
+        try {
+          const { data, error: memoryError } = await supabase
+            .from('movement_memory')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('exercise_id', exerciseId)
+            .maybeSingle();
+          
+          // Silently handle 404s and missing table - fall back to workout_sets
+          if (!memoryError || memoryError.code === 'PGRST116' || memoryError.code === '42P01') {
+            memoryData = data;
+          }
+          // PGRST116 = not found (expected), 42P01 = table doesn't exist (expected during migration)
+          // Only log unexpected errors
+          else if (memoryError.code !== 'PGRST116' && memoryError.code !== '42P01') {
+            console.warn('Movement memory query error:', memoryError);
+          }
+        } catch (err) {
+          // Table might not exist yet - silently fall through to workout_sets fallback
+          memoryData = null;
+        }
 
         if (memoryData) {
           const memory = memoryData as MovementMemory;
