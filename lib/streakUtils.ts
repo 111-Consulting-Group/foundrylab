@@ -4,7 +4,7 @@
  * Calculate training streaks and consistency metrics for the social feed.
  */
 
-import { differenceInDays, startOfDay, parseISO, isAfter, isBefore, subDays } from 'date-fns';
+import { differenceInDays, startOfDay, parseISO, isAfter, subDays } from 'date-fns';
 
 export interface StreakInfo {
   currentStreak: number;
