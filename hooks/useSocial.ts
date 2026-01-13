@@ -75,13 +75,20 @@ export function useFeed(limit: number = 20) {
       // Include current user's posts too
       const userIdsToShow = [...followingIds, userId];
 
-      // Get posts from followed users
-      // With RLS policy allowing public workout access, we can fetch workouts nested
+      // Get posts from followed users - fetch workouts with minimal nested data
       const { data: posts, error: postsError } = await supabase
         .from('workout_posts')
         .select(`
           *,
-          workout:workouts(*)
+          workout:workouts(
+            id,
+            focus,
+            date_completed,
+            duration_minutes,
+            block_id,
+            week_number,
+            day_number
+          )
         `)
         .in('user_id', userIdsToShow)
         .eq('is_public', true)
@@ -93,83 +100,50 @@ export function useFeed(limit: number = 20) {
         throw postsError;
       }
 
-      // Fetch user profiles and workout sets separately to avoid relationship issues
-      if (posts && posts.length > 0) {
-        // Get unique user IDs from posts
-        const uniqueUserIds = [...new Set(posts.map((p: any) => p.user_id))];
-        
-        // Fetch user profiles
-        const { data: userProfiles, error: profilesError } = await supabase
-          .from('user_profiles')
-          .select('id, display_name, email')
-          .in('id', uniqueUserIds);
-
-        if (profilesError) {
-          console.warn('Error fetching user profiles:', profilesError);
-        }
-
-        // Create a map of user profiles
-        const profilesByUserId = new Map<string, any>();
-        userProfiles?.forEach((profile) => {
-          profilesByUserId.set(profile.id, profile);
-        });
-
-        // Attach user profiles to posts
-        posts.forEach((post: any) => {
-          post.user = profilesByUserId.get(post.user_id) || null;
-        });
-
-        // Fetch workout sets
-        const workoutIds = posts
-          .map((p: any) => p.workout_id)
-          .filter(Boolean);
-        
-        if (workoutIds.length > 0) {
-          const { data: sets, error: setsError } = await supabase
-            .from('workout_sets')
-            .select(`
-              *,
-              exercise:exercises(*)
-            `)
-            .in('workout_id', workoutIds)
-            .order('workout_id, set_order');
-
-          if (setsError) {
-            console.warn('Error fetching workout sets:', setsError);
-          } else if (sets) {
-            // Group sets by workout_id
-            const setsByWorkout = new Map<string, any[]>();
-            sets.forEach((set: any) => {
-              const workoutId = set.workout_id;
-              if (!setsByWorkout.has(workoutId)) {
-                setsByWorkout.set(workoutId, []);
-              }
-              setsByWorkout.get(workoutId)!.push(set);
-            });
-
-            // Attach sets to workouts
-            posts.forEach((post: any) => {
-              if (post.workout) {
-                post.workout.workout_sets = setsByWorkout.get(post.workout_id) || [];
-              }
-            });
-          }
-        }
+      if (!posts || posts.length === 0) {
+        return [];
       }
 
-      // Get like counts and user's likes
-      const postIds = posts?.map((p) => p.id) || [];
-      const postUserIds = [...new Set(posts?.map((p) => p.user_id) || [])];
+      // Get unique user IDs and workout IDs from posts
+      const uniqueUserIds = [...new Set(posts.map((p: any) => p.user_id))];
+      const workoutIds = posts.map((p: any) => p.workout_id).filter(Boolean);
+      const postIds = posts.map((p) => p.id);
 
-      if (postIds.length > 0) {
+      // Run all data fetches in parallel for better performance
+      const [
+        { data: userProfiles },
+        { data: sets },
+        { data: likes },
+        { data: goals },
+      ] = await Promise.all([
+        // Fetch user profiles
+        supabase
+          .from('user_profiles')
+          .select('id, display_name, email')
+          .in('id', uniqueUserIds),
+        
+        // Fetch workout sets - only for workouts in feed, exclude warmup sets
+        workoutIds.length > 0
+          ? supabase
+              .from('workout_sets')
+              .select(`
+                *,
+                exercise:exercises(id, name, modality, muscle_group)
+              `)
+              .in('workout_id', workoutIds)
+              .eq('is_warmup', false)
+              .order('workout_id, set_order')
+              .limit(200) // Limit total sets to avoid huge queries
+          : Promise.resolve({ data: null, error: null }),
+        
         // Fetch likes
-        const { data: likes } = await supabase
+        supabase
           .from('post_likes')
           .select('post_id, user_id')
-          .in('post_id', postIds);
-
-        // Fetch active goals for all users in the feed
-        const { data: goals } = await supabase
+          .in('post_id', postIds),
+        
+        // Fetch active goals (simplified - only for users in feed)
+        supabase
           .from('fitness_goals')
           .select(`
             id,
@@ -180,73 +154,99 @@ export function useFeed(limit: number = 20) {
             status,
             exercise:exercises(id, name)
           `)
-          .in('user_id', postUserIds)
-          .eq('status', 'active');
+          .in('user_id', uniqueUserIds)
+          .eq('status', 'active')
+          .limit(50), // Limit goals to avoid huge queries
+      ]);
 
-        // Group goals by user
-        const goalsByUser = new Map<string, UserGoal[]>();
-        goals?.forEach((goal) => {
-          const userGoals = goalsByUser.get(goal.user_id) || [];
-          userGoals.push({
-            id: goal.id,
-            exercise_id: goal.exercise_id,
-            target_value: goal.target_value,
-            current_value: goal.current_value,
-            status: goal.status,
-            exercise: goal.exercise as { id: string; name: string } | undefined,
-          });
-          goalsByUser.set(goal.user_id, userGoals);
+      // Create maps for efficient lookups
+      const profilesByUserId = new Map<string, any>();
+      userProfiles?.forEach((profile) => {
+        profilesByUserId.set(profile.id, profile);
+      });
+
+      const setsByWorkout = new Map<string, any[]>();
+      sets?.forEach((set: any) => {
+        const workoutId = set.workout_id;
+        if (!setsByWorkout.has(workoutId)) {
+          setsByWorkout.set(workoutId, []);
+        }
+        setsByWorkout.get(workoutId)!.push(set);
+      });
+
+      const likeCounts = new Map<string, number>();
+      const userLikes = new Set<string>();
+      likes?.forEach((like) => {
+        likeCounts.set(like.post_id, (likeCounts.get(like.post_id) || 0) + 1);
+        if (like.user_id === userId) {
+          userLikes.add(like.post_id);
+        }
+      });
+
+      const goalsByUser = new Map<string, UserGoal[]>();
+      goals?.forEach((goal) => {
+        const userGoals = goalsByUser.get(goal.user_id) || [];
+        userGoals.push({
+          id: goal.id,
+          exercise_id: goal.exercise_id,
+          target_value: goal.target_value,
+          current_value: goal.current_value,
+          status: goal.status,
+          exercise: goal.exercise as { id: string; name: string } | undefined,
         });
+        goalsByUser.set(goal.user_id, userGoals);
+      });
 
-        // Count likes per post
-        const likeCounts = new Map<string, number>();
-        const userLikes = new Set<string>();
+      // Calculate streaks - OPTIMIZED: Only fetch last 30 days of workouts per user
+      // This is much faster than fetching 500 workouts
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data: recentWorkouts } = await supabase
+        .from('workouts')
+        .select('user_id, date_completed')
+        .in('user_id', uniqueUserIds)
+        .not('date_completed', 'is', null)
+        .gte('date_completed', thirtyDaysAgo.toISOString())
+        .order('date_completed', { ascending: false });
 
-        likes?.forEach((like) => {
-          likeCounts.set(like.post_id, (likeCounts.get(like.post_id) || 0) + 1);
-          if (like.user_id === userId) {
-            userLikes.add(like.post_id);
-          }
-        });
+      const streaksByUser = new Map<string, StreakInfo>();
+      const workoutDatesByUser = new Map<string, string[]>();
 
-        // Fetch recent completed workouts for streak calculation
-        const { data: recentWorkouts } = await supabase
-          .from('workouts')
-          .select('user_id, date_completed')
-          .in('user_id', postUserIds)
-          .not('date_completed', 'is', null)
-          .order('date_completed', { ascending: false })
-          .limit(500); // Enough to calculate streaks for all users
+      recentWorkouts?.forEach((w) => {
+        if (w.date_completed) {
+          const dates = workoutDatesByUser.get(w.user_id) || [];
+          dates.push(w.date_completed);
+          workoutDatesByUser.set(w.user_id, dates);
+        }
+      });
 
-        // Calculate streaks per user
-        const streaksByUser = new Map<string, StreakInfo>();
-        const workoutDatesByUser = new Map<string, string[]>();
+      workoutDatesByUser.forEach((dates, usrId) => {
+        streaksByUser.set(usrId, calculateStreak(dates));
+      });
 
-        recentWorkouts?.forEach((w) => {
-          if (w.date_completed) {
-            const dates = workoutDatesByUser.get(w.user_id) || [];
-            dates.push(w.date_completed);
-            workoutDatesByUser.set(w.user_id, dates);
-          }
-        });
+      // Assemble final posts with all data
+      return posts.map((post: any) => {
+        // Attach user profile
+        post.user = profilesByUserId.get(post.user_id) || null;
+        
+        // Attach workout sets if workout exists
+        if (post.workout) {
+          post.workout.workout_sets = setsByWorkout.get(post.workout_id) || [];
+        }
 
-        workoutDatesByUser.forEach((dates, usrId) => {
-          streaksByUser.set(usrId, calculateStreak(dates));
-        });
-
-        // Add like counts, is_liked, user_goals, and streak to posts
-        return (posts || []).map((post) => ({
+        return {
           ...post,
           like_count: likeCounts.get(post.id) || 0,
           is_liked: userLikes.has(post.id),
           user_goals: goalsByUser.get(post.user_id) || [],
           user_streak: streaksByUser.get(post.user_id) || undefined,
-        })) as WorkoutPost[];
-      }
-
-      return (posts || []) as WorkoutPost[];
+        } as WorkoutPost;
+      });
     },
     enabled: !!userId,
+    staleTime: 30 * 1000, // 30 seconds - cache for 30s to reduce refetches
+    gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache for 5 minutes
   });
 }
 

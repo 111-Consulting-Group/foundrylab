@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -19,7 +19,8 @@ export default function FeedScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const { data: feed = [], isLoading, refetch } = useFeed(20);
+  // Reduce initial load in dev, can increase later
+  const { data: feed = [], isLoading, refetch } = useFeed(10);
   const likePostMutation = useLikePost();
   const [showDiscover, setShowDiscover] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,6 +37,70 @@ export default function FeedScreen() {
       return dateStr;
     }
   };
+
+  // Memoize processed posts to avoid recalculating on every render
+  const processedPosts = useMemo(() => {
+    return feed.map((post) => {
+      const workout = post.workout as WorkoutWithSets | undefined;
+      if (!workout) return null;
+
+      // Pre-process exercise summaries once
+      const exerciseSummaries = summarizeWorkoutExercises(workout.workout_sets || []);
+      const prCount = exerciseSummaries.filter(e => e.isPR).length;
+
+      // Pre-process exercise map for highlights
+      const exerciseMap = new Map<string, any[]>();
+      (workout.workout_sets || []).forEach((set: any) => {
+        if (!set.exercise_id || set.is_warmup || set.segment_type === 'warmup') return;
+        
+        const isCardio = set.exercise?.modality === 'Cardio';
+        if (isCardio && !set.distance_meters && !set.duration_seconds && !set.avg_pace) {
+          return;
+        }
+        
+        if (!isCardio && set.actual_weight === null && set.actual_reps === null) {
+          return;
+        }
+        
+        const key = set.exercise_id;
+        if (!exerciseMap.has(key)) {
+          exerciseMap.set(key, []);
+        }
+        const existing = exerciseMap.get(key)!;
+        const isDuplicate = existing.some(s => 
+          (set.id && s.id && set.id === s.id) ||
+          (!set.id && !s.id && set.set_order === s.set_order && set.exercise_id === s.exercise_id)
+        );
+        if (!isDuplicate) {
+          existing.push(set);
+        }
+      });
+
+      const exerciseEntries = Array.from(exerciseMap.entries());
+      const topExercises = exerciseEntries
+        .map(([exerciseId, exerciseSets]) => {
+          const exercise = exerciseSets[0]?.exercise;
+          if (!exercise) return null;
+          const summary = exerciseSummaries.find(s => s.exerciseId === exerciseId);
+          return { exerciseId, exercise, exerciseSets, summary };
+        })
+        .filter(Boolean)
+        .sort((a, b) => {
+          if (a?.summary?.isPR && !b?.summary?.isPR) return -1;
+          if (!a?.summary?.isPR && b?.summary?.isPR) return 1;
+          return (b?.summary?.totalVolume || 0) - (a?.summary?.totalVolume || 0);
+        })
+        .slice(0, 3);
+
+      return {
+        post,
+        workout,
+        prCount,
+        topExercises,
+        exerciseEntriesLength: exerciseEntries.length,
+      };
+    }).filter(Boolean);
+  }, [feed]);
 
   return (
     <SafeAreaView 
@@ -91,19 +156,9 @@ export default function FeedScreen() {
             </View>
           ) : (
             <View className="gap-4">
-              {feed.map((post) => {
-                const workout = post.workout as WorkoutWithSets | undefined;
-                if (!workout) return null;
-
-                const context = detectWorkoutContext(workout);
-                
-                // Get all exercises with their progression summaries
-                const exerciseSummaries = summarizeWorkoutExercises(workout.workout_sets || []);
-                const prCount = exerciseSummaries.filter(e => e.isPR).length;
-                
-                // Select Top 3 Highlights
-                // Logic: PRs > Progression > Volume
-                const highlights = exerciseSummaries.slice(0, 3);
+              {processedPosts.map((processed) => {
+                if (!processed) return null;
+                const { post, workout, prCount, topExercises, exerciseEntriesLength } = processed;
 
                 return (
                   <Pressable
@@ -141,80 +196,26 @@ export default function FeedScreen() {
 
                         {/* Body: Key Lifts Highlights */}
                         <View className="gap-2 mb-3">
-                          {(() => {
-                            // Group sets by exercise to use generateExerciseSummary
-                            const exerciseMap = new Map<string, any[]>();
-                            (workout.workout_sets || []).forEach((set: any) => {
-                              // Filter out warmup sets
-                              if (!set.exercise_id || set.is_warmup || set.segment_type === 'warmup') return;
-                              
-                              // For cardio, only include sets with actual data
-                              const isCardio = set.exercise?.modality === 'Cardio';
-                              if (isCardio && !set.distance_meters && !set.duration_seconds && !set.avg_pace) {
-                                return;
-                              }
-                              
-                              // For strength, only include sets with actual data
-                              if (!isCardio && set.actual_weight === null && set.actual_reps === null) {
-                                return;
-                              }
-                              
-                              const key = set.exercise_id;
-                              if (!exerciseMap.has(key)) {
-                                exerciseMap.set(key, []);
-                              }
-                              // Deduplicate sets by ID or set_order
-                              const existing = exerciseMap.get(key)!;
-                              const isDuplicate = existing.some(s => 
-                                (set.id && s.id && set.id === s.id) ||
-                                (!set.id && !s.id && set.set_order === s.set_order && set.exercise_id === s.exercise_id)
+                          <>
+                            {topExercises.map((item) => {
+                              if (!item) return null;
+                              const { exerciseId, exercise, exerciseSets, summary } = item;
+                              return (
+                                <FeedHighlight 
+                                  key={exerciseId} 
+                                  exercise={exercise}
+                                  exerciseSets={exerciseSets}
+                                  summary={summary}
+                                  isDark={isDark} 
+                                />
                               );
-                              if (!isDuplicate) {
-                                existing.push(set);
-                              }
-                            });
-                            
-                            // Get the top exercises (matching the highlights logic)
-                            const exerciseEntries = Array.from(exerciseMap.entries());
-                            const topExercises = exerciseEntries
-                              .map(([exerciseId, exerciseSets]) => {
-                                const exercise = exerciseSets[0]?.exercise;
-                                if (!exercise) return null;
-                                const summary = summarizeWorkoutExercises(exerciseSets).find(s => s.exerciseId === exerciseId);
-                                return { exerciseId, exercise, exerciseSets, summary };
-                              })
-                              .filter(Boolean)
-                              .sort((a, b) => {
-                                // Sort: PRs first, then by volume
-                                if (a?.summary?.isPR && !b?.summary?.isPR) return -1;
-                                if (!a?.summary?.isPR && b?.summary?.isPR) return 1;
-                                return (b?.summary?.totalVolume || 0) - (a?.summary?.totalVolume || 0);
-                              })
-                              .slice(0, 3);
-                            
-                            return (
-                              <>
-                                {topExercises.map((item) => {
-                                  if (!item) return null;
-                                  const { exerciseId, exercise, exerciseSets, summary } = item;
-                                  return (
-                                    <FeedHighlight 
-                                      key={exerciseId} 
-                                      exercise={exercise}
-                                      exerciseSets={exerciseSets}
-                                      summary={summary}
-                                      isDark={isDark} 
-                                    />
-                                  );
-                                })}
-                                {exerciseEntries.length > 3 && (
-                                  <Text className="text-xs mt-1 text-graphite-400" style={{ color: '#6B7485' }}>
-                                    + {exerciseEntries.length - 3} more exercises
-                                  </Text>
-                                )}
-                              </>
-                            );
-                          })()}
+                            })}
+                            {exerciseEntriesLength > 3 && (
+                              <Text className="text-xs mt-1 text-graphite-400" style={{ color: '#6B7485' }}>
+                                + {exerciseEntriesLength - 3} more exercises
+                              </Text>
+                            )}
+                          </>
                         </View>
 
                         {/* Caption */}
@@ -351,7 +352,7 @@ export default function FeedScreen() {
   );
 }
 
-function FeedHighlight({ 
+const FeedHighlight = memo(function FeedHighlight({ 
   exercise, 
   exerciseSets, 
   summary, 
@@ -362,24 +363,30 @@ function FeedHighlight({
   summary: ExerciseSummary | undefined;
   isDark: boolean;
 }) {
-  const iconName = getModalityIcon(exercise?.modality || 'Strength');
+  const iconName = useMemo(() => getModalityIcon(exercise?.modality || 'Strength'), [exercise?.modality]);
   
-  // Use generateExerciseSummary for proper formatting
-  const formattedSummary = generateExerciseSummary(exercise, exerciseSets);
+  // Use generateExerciseSummary for proper formatting - memoize this expensive call
+  const formattedSummary = useMemo(
+    () => generateExerciseSummary(exercise, exerciseSets),
+    [exercise, exerciseSets]
+  );
   
   // Determine progression value for tag
   const showProgression = summary?.isPR || (summary?.progression && ['weight_increase', 'rep_increase', 'e1rm_increase'].includes(summary.progression.type));
 
   // Calculate delta on the fly
-  let deltaValue = 0;
-  let deltaUnit = '';
-  
-  if (summary?.previousBest && summary?.bestSet.weight) {
-    if (summary.primaryMetric === 'Weight' && summary.previousBest.weight) {
-      deltaValue = summary.bestSet.weight - summary.previousBest.weight;
-      deltaUnit = 'lbs';
+  const delta = useMemo(() => {
+    let deltaValue = 0;
+    let deltaUnit = '';
+    
+    if (summary?.previousBest && summary?.bestSet.weight) {
+      if (summary.primaryMetric === 'Weight' && summary.previousBest.weight) {
+        deltaValue = summary.bestSet.weight - summary.previousBest.weight;
+        deltaUnit = 'lbs';
+      }
     }
-  }
+    return { deltaValue, deltaUnit };
+  }, [summary]);
 
   return (
     <View className="flex-row items-center justify-between">
@@ -399,10 +406,10 @@ function FeedHighlight({
         <Text className="text-sm font-lab-mono text-graphite-300" style={{ color: '#C4C8D0' }}>
           {formattedSummary}
         </Text>
-        {showProgression && deltaValue > 0 && (
-          <DeltaTag value={deltaValue} unit={deltaUnit} />
+        {showProgression && delta.deltaValue > 0 && (
+          <DeltaTag value={delta.deltaValue} unit={delta.deltaUnit} />
         )}
       </View>
     </View>
   );
-}
+});
