@@ -203,55 +203,95 @@ function CompactMemoryCard({
 }) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const [applied, setApplied] = React.useState(false);
+
+  const handleApply = () => {
+    if (onApplySuggestion && suggestion) {
+      onApplySuggestion(suggestion.recommendation.weight, suggestion.recommendation.reps);
+      setApplied(true);
+      // Reset after 2 seconds
+      setTimeout(() => setApplied(false), 2000);
+    }
+  };
 
   return (
     <View
-      className={`p-3 rounded-xl ${
-        isDark ? 'bg-signal-500/10' : 'bg-signal-500/5'
-      } border ${isDark ? 'border-signal-500/30' : 'border-signal-500/20'}`}
+      className={`rounded-xl ${
+        isDark ? 'bg-graphite-800' : 'bg-white'
+      } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
     >
-      <View className="flex-row items-center justify-between">
-        <View className="flex-1">
-          <View className="flex-row items-center mb-1">
-            <Ionicons name="time-outline" size={12} color="#2F80ED" />
-            <Text className="text-xs font-semibold ml-1 text-signal-500">
-              Last: {memory.displayText}
-            </Text>
-            {memory.lastDateRelative && (
-              <Text className={`text-xs ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                ({memory.lastDateRelative})
-              </Text>
-            )}
-          </View>
-
-          {suggestion && (
-            <View className="flex-row items-center">
-              <ConfidenceIndicator level={suggestion.confidence} />
-              <Text className={`text-xs ml-1.5 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
-                Try: {suggestion.recommendation.weight} x {suggestion.recommendation.reps}
-              </Text>
-              {suggestion.confidence === 'low' && (
-                <Text className={`text-xs ml-1 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
-                  (limited data)
-                </Text>
-              )}
-            </View>
-          )}
+      {/* Last Performance Row */}
+      <View className="p-3 flex-row items-center justify-between">
+        <View className="flex-row items-center">
+          <Ionicons name="time-outline" size={14} color={isDark ? '#808fb0' : '#607296'} />
+          <Text className={`text-sm ml-1.5 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+            Last: <Text className="font-semibold">{memory.displayText}</Text>
+          </Text>
         </View>
-
-        {onApplySuggestion && suggestion && (
-          <Pressable
-            onPress={() => onApplySuggestion(
-              suggestion.recommendation.weight,
-              suggestion.recommendation.reps
-            )}
-            className="p-2"
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="arrow-forward-circle" size={24} color="#2F80ED" />
-          </Pressable>
+        {memory.lastDateRelative && (
+          <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+            {memory.lastDateRelative}
+          </Text>
         )}
       </View>
+
+      {/* Suggestion Row - more prominent */}
+      {suggestion && (
+        <View
+          className={`p-3 border-t flex-row items-center justify-between ${
+            isDark ? 'border-graphite-700 bg-signal-500/5' : 'border-graphite-200 bg-signal-500/5'
+          }`}
+        >
+          <View className="flex-1 mr-3">
+            <View className="flex-row items-center mb-0.5">
+              <Ionicons name="bulb" size={14} color="#2F80ED" />
+              <Text className="text-xs font-semibold ml-1.5 text-signal-500">
+                Suggested
+              </Text>
+              <ConfidenceIndicator level={suggestion.confidence} />
+            </View>
+            <Text className={`text-base font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              {suggestion.recommendation.weight} lbs × {suggestion.recommendation.reps} reps
+            </Text>
+            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              {suggestion.reasoning}
+            </Text>
+          </View>
+
+          {onApplySuggestion && (
+            <Pressable
+              onPress={handleApply}
+              className={`px-4 py-2 rounded-lg ${
+                applied
+                  ? 'bg-progress-500'
+                  : 'bg-signal-500'
+              }`}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              {applied ? (
+                <View className="flex-row items-center">
+                  <Ionicons name="checkmark" size={16} color="#ffffff" />
+                  <Text className="text-white font-semibold text-sm ml-1">Applied</Text>
+                </View>
+              ) : (
+                <Text className="text-white font-semibold text-sm">Use This</Text>
+              )}
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {/* No suggestion - just show memory */}
+      {!suggestion && (
+        <View className={`px-3 pb-3`}>
+          <View className="flex-row items-center">
+            <ConfidenceIndicator level={memory.confidence} />
+            <Text className={`text-xs ml-1.5 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              {memory.exposureCount} session{memory.exposureCount !== 1 ? 's' : ''} logged
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }

@@ -79,23 +79,33 @@ export function StrengthEntry({
   const currentSet = editingSet || sets[currentSetIndex];
   const totalSets = sets.length;
 
-  // Initialize weight from target or memory (only once, don't reset if user has cleared it)
+  // Initialize weight from target, suggestion (high confidence), or memory
   useEffect(() => {
     if (weight === '' && !isBodyweight) {
       if (targetLoad) {
+        // Explicit target from training block takes priority
         setWeight(targetLoad.toString());
+      } else if (suggestion?.confidence === 'high' && suggestion.recommendation.weight > 0) {
+        // High-confidence suggestion auto-fills
+        setWeight(suggestion.recommendation.weight.toString());
       } else if (movementMemory?.lastWeight) {
+        // Fall back to last weight
         setWeight(movementMemory.lastWeight.toString());
       }
     }
-  }, [targetLoad, movementMemory?.lastWeight, isBodyweight]); // Remove 'weight' from deps to prevent reset loop
+  }, [targetLoad, suggestion?.confidence, suggestion?.recommendation.weight, movementMemory?.lastWeight, isBodyweight]);
 
-  // Initialize reps from target (only once, don't reset if user has cleared it)
+  // Initialize reps from target or high-confidence suggestion
   useEffect(() => {
-    if (reps === '' && targetReps) {
-      setReps(targetReps.toString());
+    if (reps === '') {
+      if (targetReps) {
+        setReps(targetReps.toString());
+      } else if (suggestion?.confidence === 'high' && suggestion.recommendation.reps > 0) {
+        // High-confidence suggestion auto-fills reps too
+        setReps(suggestion.recommendation.reps.toString());
+      }
     }
-  }, [targetReps]); // Remove 'reps' from deps to prevent reset loop
+  }, [targetReps, suggestion?.confidence, suggestion?.recommendation.reps]);
 
   // Load set data when editing
   useEffect(() => {
@@ -116,19 +126,25 @@ export function StrengthEntry({
         setRpe(editingSet.actual_rpe);
       }
     } else {
-      // Reset form when not editing
+      // Reset form when not editing - use same priority as initial load
       if (!weight && !isBodyweight) {
         if (targetLoad) {
           setWeight(targetLoad.toString());
+        } else if (suggestion?.confidence === 'high' && suggestion.recommendation.weight > 0) {
+          setWeight(suggestion.recommendation.weight.toString());
         } else if (movementMemory?.lastWeight) {
           setWeight(movementMemory.lastWeight.toString());
         }
       }
-      if (!reps && targetReps) {
-        setReps(targetReps.toString());
+      if (!reps) {
+        if (targetReps) {
+          setReps(targetReps.toString());
+        } else if (suggestion?.confidence === 'high' && suggestion.recommendation.reps > 0) {
+          setReps(suggestion.recommendation.reps.toString());
+        }
       }
     }
-  }, [editingSet, targetLoad, targetReps, movementMemory?.lastWeight]);
+  }, [editingSet, targetLoad, targetReps, movementMemory?.lastWeight, suggestion]);
 
   // Handle logging a set
   const handleLogSet = useCallback(async () => {
