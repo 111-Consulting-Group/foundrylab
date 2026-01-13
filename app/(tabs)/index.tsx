@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, useMemo } from 'react';
-import { View, Text, ScrollView, RefreshControl, Pressable } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, Pressable, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { CoachButton } from '@/components/CoachChat';
+import { useLogout } from '@/hooks/useAuth';
 import { 
   LabCard, 
   LabStat, 
@@ -29,6 +30,7 @@ import { generateExerciseSummary } from '@/lib/workoutSummary';
 export default function DashboardScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const logoutMutation = useLogout();
 
   // Debug: Verify new design is loading
 
@@ -38,6 +40,33 @@ export default function DashboardScreen() {
   const { data: activeBlock } = useActiveTrainingBlock();
   const { data: history = [], isLoading: loadingHistory, refetch: refetchHistory } = useWorkoutHistory(1);
   const { data: mainLifts = [], isLoading: loadingLifts } = useMainLiftPRs();
+
+  const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Are you sure you want to log out?');
+      if (confirmed) {
+        logoutMutation.mutate();
+      }
+    } else {
+      Alert.alert(
+        'Log Out',
+        'Are you sure you want to log out?',
+        [
+          { 
+            text: 'Cancel', 
+            style: 'cancel',
+          },
+          {
+            text: 'Log Out',
+            style: 'destructive',
+            onPress: () => {
+              logoutMutation.mutate();
+            },
+          },
+        ]
+      );
+    }
+  };
 
   // Prioritize: Next workout from active block > Date-based workout
   const activeSession = nextWorkout || todaysWorkout;
@@ -80,14 +109,23 @@ export default function DashboardScreen() {
               PROGRESS, ENGINEERED
             </Text>
           </View>
-          {/* Scan Workout Button */}
-          <Pressable 
-            onPress={() => router.push('/scan-workout')}
-            className="w-11 h-11 rounded-full items-center justify-center"
-            style={{ backgroundColor: 'rgba(47, 128, 237, 0.1)' }}
-          >
-            <Ionicons name="camera-outline" size={22} color="#2F80ED" />
-          </Pressable>
+          {/* Action Buttons */}
+          <View className="flex-row gap-2">
+            <Pressable 
+              onPress={() => router.push('/scan-workout')}
+              className="w-11 h-11 rounded-full items-center justify-center"
+              style={{ backgroundColor: 'rgba(47, 128, 237, 0.1)' }}
+            >
+              <Ionicons name="camera-outline" size={22} color="#2F80ED" />
+            </Pressable>
+            <Pressable 
+              onPress={handleLogout}
+              className="w-11 h-11 rounded-full items-center justify-center"
+              style={{ backgroundColor: 'rgba(107, 116, 133, 0.1)' }}
+            >
+              <Ionicons name="log-out-outline" size={22} color="#6B7485" />
+            </Pressable>
+          </View>
         </View>
 
         {/* 1. Hero: Today's Target */}
