@@ -238,3 +238,122 @@ function generateSuggestion(exerciseId: string, exerciseName: string, memory: Mo
     alerts: alerts.length > 0 ? alerts : undefined,
   };
 }
+
+/**
+ * Get all next-time suggestions for exercises in a workout
+ */
+export function useWorkoutSuggestions(
+  exerciseIds: string[],
+  exerciseNames: Record<string, string>,
+  workoutId?: string
+) {
+  const userId = useAppStore((state) => state.userId);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['workoutSuggestions', exerciseIds.join(','), workoutId],
+    queryFn: async (): Promise<NextTimeSuggestion[]> => {
+      if (!userId || exerciseIds.length === 0) return [];
+
+      const suggestions: NextTimeSuggestion[] = [];
+
+      // Fetch movement memory for all exercises in parallel
+      const memoryPromises = exerciseIds.map(async (exerciseId) => {
+        // Try movement_memory table first
+        const { data: memoryData } = await supabase
+          .from('movement_memory')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('exercise_id', exerciseId)
+          .single();
+
+        if (memoryData) {
+          const memory = memoryData as MovementMemory;
+          const daysSince = memory.last_date ? differenceInDays(new Date(), new Date(memory.last_date)) : null;
+          const lastDateRelative = memory.last_date ? formatDistanceToNow(new Date(memory.last_date), { addSuffix: true }) : null;
+          const trendDisplay = getTrendDisplay(memory.trend);
+
+          const memoryData2: MovementMemoryData = {
+            lastWeight: memory.last_weight, lastReps: memory.last_reps, lastRPE: memory.last_rpe,
+            lastSets: memory.last_sets, lastDate: memory.last_date, lastDateRelative,
+            lastContext: memory.last_context, exposureCount: memory.exposure_count,
+            avgRPE: memory.avg_rpe,
+            typicalRepRange: memory.typical_rep_min && memory.typical_rep_max ? { min: memory.typical_rep_min, max: memory.typical_rep_max } : null,
+            totalLifetimeVolume: memory.total_lifetime_volume, prWeight: memory.pr_weight,
+            prE1RM: memory.pr_e1rm, confidence: memory.confidence_level, trend: memory.trend,
+            daysSinceLast: daysSince, displayText: '',
+            trendLabel: trendDisplay.label, trendColor: trendDisplay.color,
+          };
+
+          return { exerciseId, memory: memoryData2 };
+        }
+
+        // Fallback to workout_sets
+        let query = supabase
+          .from('workout_sets')
+          .select(`*, workout:workouts!inner(id, date_completed, user_id, context)`)
+          .eq('exercise_id', exerciseId)
+          .eq('workout.user_id', userId)
+          .not('workout.date_completed', 'is', null)
+          .eq('is_warmup', false)
+          .order('workout(date_completed)', { ascending: false })
+          .limit(20);
+
+        if (workoutId) query = query.neq('workout_id', workoutId);
+
+        const { data: sets } = await query;
+        if (!sets || sets.length === 0) return { exerciseId, memory: null };
+
+        const validSets = (sets as any[]).filter((s) => s.actual_weight !== null && s.actual_reps !== null);
+        if (validSets.length === 0) return { exerciseId, memory: null };
+
+        const lastSet = validSets[0];
+        const uniqueDates = new Set(validSets.map((s) => s.workout.date_completed.split('T')[0]));
+        const exposureCount = uniqueDates.size;
+        const daysSince = lastSet.workout.date_completed ? differenceInDays(new Date(), new Date(lastSet.workout.date_completed)) : null;
+        const lastDateRelative = lastSet.workout.date_completed ? formatDistanceToNow(new Date(lastSet.workout.date_completed), { addSuffix: true }) : null;
+
+        const rpeValues = validSets.filter((s) => s.actual_rpe !== null).map((s) => s.actual_rpe);
+        const avgRPE = rpeValues.length > 0 ? rpeValues.reduce((a: number, b: number) => a + b, 0) / rpeValues.length : null;
+        const reps = validSets.map((s) => s.actual_reps);
+        const typicalRepRange = { min: Math.min(...reps), max: Math.max(...reps) };
+
+        const e1rms = validSets.filter((s) => s.actual_weight && s.actual_reps).map((s) => calculateE1RM(s.actual_weight, s.actual_reps));
+        const recentE1RM = e1rms.length >= 2 ? (e1rms[0] + e1rms[1]) / 2 : e1rms[0] || null;
+        const olderE1RM = e1rms.length >= 4 ? (e1rms[2] + e1rms[3]) / 2 : e1rms[2] || null;
+
+        const trend = detectTrend(recentE1RM, olderE1RM);
+        const trendDisplay = getTrendDisplay(trend);
+        const confidence = computeConfidence({ exposureCount, recency: daysSince || 999, consistency: typicalRepRange.max - typicalRepRange.min, rpeReporting: rpeValues.length / validSets.length });
+
+        const memoryData2: MovementMemoryData = {
+          lastWeight: lastSet.actual_weight, lastReps: lastSet.actual_reps, lastRPE: lastSet.actual_rpe,
+          lastSets: null, lastDate: lastSet.workout.date_completed, lastDateRelative,
+          lastContext: lastSet.workout.context, exposureCount, avgRPE, typicalRepRange,
+          totalLifetimeVolume: validSets.reduce((sum: number, s: any) => sum + (s.actual_weight || 0) * (s.actual_reps || 0), 0),
+          prWeight: Math.max(...validSets.map((s: any) => s.actual_weight || 0)),
+          prE1RM: e1rms.length > 0 ? Math.max(...e1rms) : null,
+          confidence, trend, daysSinceLast: daysSince,
+          displayText: '',
+          trendLabel: trendDisplay.label, trendColor: trendDisplay.color,
+        };
+
+        return { exerciseId, memory: memoryData2 };
+      });
+
+      const results = await Promise.all(memoryPromises);
+
+      for (const result of results) {
+        if (result.memory) {
+          const exerciseName = exerciseNames[result.exerciseId] || 'Unknown';
+          suggestions.push(generateSuggestion(result.exerciseId, exerciseName, result.memory));
+        }
+      }
+
+      return suggestions;
+    },
+    enabled: !!userId && exerciseIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return { data: data || [], isLoading, error: error as Error | null };
+}

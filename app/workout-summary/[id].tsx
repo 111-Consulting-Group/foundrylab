@@ -17,7 +17,9 @@ import { captureRef } from 'react-native-view-shot';
 import { useColorScheme } from '@/components/useColorScheme';
 import { ExerciseBreakdown } from '@/components/ExerciseBreakdown';
 import { SaveTemplateModal } from '@/components/TemplatePicker';
+import { NextTimeSummary } from '@/components/NextTimeSummary';
 import { useWorkout, useUncompleteWorkout } from '@/hooks/useWorkouts';
+import { useWorkoutSuggestions } from '@/hooks/useMovementMemory';
 import { useShareWorkout } from '@/hooks/useSocial';
 import { useIsBlockComplete, useBlockSummary } from '@/hooks/useBlockSummary';
 import { useCreateWorkoutTemplate, workoutToTemplate } from '@/hooks/useWorkoutTemplates';
@@ -44,6 +46,31 @@ export default function WorkoutSummaryScreen() {
   const { isBlockComplete, blockId } = useIsBlockComplete(id);
   const { data: blockSummary } = useBlockSummary(blockId || '');
   const [showBlockSummary, setShowBlockSummary] = useState(true);
+
+  // Get "Next Time" suggestions for all exercises in this workout
+  const exerciseData = useMemo(() => {
+    if (!workout?.workout_sets) return { ids: [], names: [] };
+
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    const names: string[] = [];
+
+    workout.workout_sets.forEach((set: WorkoutSet) => {
+      if (set.exercise && !seen.has(set.exercise_id)) {
+        seen.add(set.exercise_id);
+        ids.push(set.exercise_id);
+        names.push(set.exercise.name);
+      }
+    });
+
+    return { ids, names };
+  }, [workout?.workout_sets]);
+
+  const { data: nextTimeSuggestions, isLoading: suggestionsLoading } = useWorkoutSuggestions(
+    exerciseData.ids,
+    exerciseData.names,
+    id || undefined
+  );
 
   // Calculate workout stats
   const stats = workout?.workout_sets?.reduce(
@@ -581,6 +608,23 @@ ${exerciseDetails.join('\n')}
             </View>
           </View>
         </View>
+
+        {/* Next Time Suggestions */}
+        {nextTimeSuggestions && nextTimeSuggestions.length > 0 && (
+          <View className="px-4 pb-4">
+            <View
+              className={`rounded-2xl overflow-hidden ${
+                isDark ? 'bg-graphite-900' : 'bg-white'
+              } shadow-lg`}
+            >
+              <NextTimeSummary
+                suggestions={nextTimeSuggestions}
+                workoutFocus={workout?.focus || undefined}
+                mode="list"
+              />
+            </View>
+          </View>
+        )}
 
         {/* Action Buttons */}
         <View className="px-4 pb-4 gap-3">
