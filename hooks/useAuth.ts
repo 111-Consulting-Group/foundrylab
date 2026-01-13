@@ -331,14 +331,17 @@ export function useLogout() {
     },
     onSuccess: async () => {
       console.log('🚀 Logout mutation succeeded, navigating to login');
-      // For web, use window.location for a full page reload to ensure clean state
-      // For native, use router.replace
+      // Small delay to ensure state is fully cleared
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Navigate to root index, which will check userId and redirect to /login if null
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         console.log('Using window.location.href for web navigation');
-        window.location.href = '/login';
+        window.location.href = '/';
       } else {
         console.log('Using router.replace for native navigation');
-        router.replace('/login');
+        // Navigate to root - index.tsx will check userId and redirect to /login
+        router.replace('/');
       }
     },
     onError: (error: any) => {
