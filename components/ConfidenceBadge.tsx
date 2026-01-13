@@ -73,7 +73,10 @@ export function ConfidenceBadge({
         {config.label}
         {exposureCount !== undefined && level === 'low' && (
           <Text className="opacity-70">
-            {' '}({exposureCount} session{exposureCount !== 1 ? 's' : ''})
+            {exposureCount !== 1 
+              ? ` (${exposureCount} sessions)`
+              : ` (${exposureCount} session)`
+            }
           </Text>
         )}
       </Text>

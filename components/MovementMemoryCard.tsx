@@ -222,11 +222,18 @@ function CompactMemoryCard({
       <View className="p-3 flex-row items-center justify-between">
         <View className="flex-row items-center">
           <Ionicons name="time-outline" size={14} color={isDark ? '#808fb0' : '#607296'} />
-          <Text className="text-sm ml-1.5 text-graphite-300" style={{ color: '#C4C8D0' }}>
-            Last: <Text className="font-semibold">{memory.displayText}</Text>
-          </Text>
+          {memory.displayText && memory.displayText.trim() ? (
+            <Text className="text-sm ml-2 text-graphite-300" style={{ color: '#C4C8D0' }}>
+              <Text>Last: </Text>
+              <Text className="font-semibold">{memory.displayText}</Text>
+            </Text>
+          ) : (
+            <Text className="text-sm ml-2 text-graphite-300" style={{ color: '#C4C8D0' }}>
+              No previous data
+            </Text>
+          )}
         </View>
-        {memory.lastDateRelative && (
+        {memory.lastDateRelative && memory.lastDateRelative.trim() && (
           <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
             {memory.lastDateRelative}
           </Text>
@@ -234,29 +241,35 @@ function CompactMemoryCard({
       </View>
 
       {/* Suggestion Row - more prominent */}
-      {suggestion && (
+      {suggestion && suggestion.recommendation && (
         <View
           className={`p-3 border-t flex-row items-center justify-between ${
             isDark ? 'border-graphite-700 bg-signal-500/5' : 'border-graphite-200 bg-signal-500/5'
           }`}
         >
           <View className="flex-1 mr-3">
-            <View className="flex-row items-center mb-0.5">
+            <View className="flex-row items-center mb-1">
               <Ionicons name="bulb" size={14} color="#2F80ED" />
-              <Text className="text-xs font-semibold ml-1.5 text-signal-500">
+              <Text className="text-xs font-semibold ml-2 text-signal-500">
                 Suggested
               </Text>
-              <ConfidenceIndicator level={suggestion.confidence} />
+              {suggestion.confidence && (
+                <View className="ml-2">
+                  <ConfidenceIndicator level={suggestion.confidence} />
+                </View>
+              )}
             </View>
             <Text className="text-base font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
-              {suggestion.recommendation.weight} lbs × {suggestion.recommendation.reps} reps
+              {suggestion.recommendation?.weight ?? 0} lbs x {suggestion.recommendation?.reps ?? 0} reps
             </Text>
-            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
-              {suggestion.reasoning}
-            </Text>
+            {suggestion.reasoning && suggestion.reasoning.trim() && suggestion.reasoning.trim().length > 1 && (
+              <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
+                {suggestion.reasoning.trim()}
+              </Text>
+            )}
           </View>
 
-          {onApplySuggestion && (
+          {onApplySuggestion && suggestion.recommendation && (
             <Pressable
               onPress={handleApply}
               className={`px-4 py-2 rounded-lg ${
@@ -280,12 +293,17 @@ function CompactMemoryCard({
       )}
 
       {/* No suggestion - just show memory */}
-      {!suggestion && (
+      {!suggestion && memory.confidence && (
         <View className={`px-3 pb-3`}>
           <View className="flex-row items-center">
-            <ConfidenceIndicator level={memory.confidence} />
-            <Text className="text-xs ml-1.5 text-graphite-400" style={{ color: '#6B7485' }}>
-              {memory.exposureCount} session{memory.exposureCount !== 1 ? 's' : ''} logged
+            <View className="mr-2">
+              <ConfidenceIndicator level={memory.confidence} />
+            </View>
+            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
+              {(memory.exposureCount || 0) !== 1 
+                ? `${memory.exposureCount || 0} sessions logged`
+                : `${memory.exposureCount || 0} session logged`
+              }
             </Text>
           </View>
         </View>

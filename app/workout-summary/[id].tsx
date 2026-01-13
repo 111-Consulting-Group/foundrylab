@@ -390,130 +390,92 @@ export default function WorkoutSummaryScreen() {
 
         <ScrollView className="flex-1">
           {/* Shareable Card Content */}
-          <View ref={summaryRef} className="p-4">
+          <View ref={summaryRef} className="bg-carbon-950" style={{ backgroundColor: '#0E1116' }}>
             
-            {/* Session Verdict */}
-            <SessionVerdict workout={workout} />
-
-            {/* Stats Grid */}
-            <View className="flex-row gap-3 mb-6">
-              <LabCard className="flex-1 items-center" noPadding>
-                <View className="p-3 items-center">
-                  <LabStat label="EXERCISES" value={stats.exerciseCount} size="lg" />
-                </View>
-              </LabCard>
-              <LabCard className="flex-1 items-center" noPadding>
-                <View className="p-3 items-center">
-                  <LabStat 
-                    label="PRs" 
-                    value={stats.prCount} 
-                    size="lg" 
-                    trend={stats.prCount > 0 ? 'up' : 'neutral'}
-                  />
-                </View>
-              </LabCard>
-              <LabCard className="flex-1 items-center" noPadding>
-                <View className="p-3 items-center">
-                  <LabStat 
-                    label="AVG RPE" 
-                    value={stats.avgRPE > 0 ? stats.avgRPE : '-'} 
-                    size="lg" 
-                  />
-                </View>
-              </LabCard>
+            {/* Header with Date */}
+            <View className="px-4 pt-6 pb-4">
+              <Text className="text-2xl font-bold text-graphite-50 mb-1" style={{ color: '#E6E8EB' }}>
+                {workout.focus || 'Workout'}
+              </Text>
+              <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
+                {workoutDate}
+              </Text>
             </View>
 
-            {/* Exercise Breakdown Table */}
-            <View>
+            {/* Session Verdict - Shows "Building" status */}
+            <View className="px-4">
+              <SessionVerdict workout={workout} />
+            </View>
+
+            {/* Exercise Summary - Simplified for screenshot */}
+            <View className="px-4 pb-6">
               <Text className="text-sm font-bold uppercase tracking-wide mb-3 text-graphite-400" style={{ color: '#6B7485' }}>
                 Performance Breakdown
               </Text>
               
-              {Array.from(exercisesBySection.entries()).map(([section, exercises]) => (
-                <View key={section} className="mb-4">
-                  {exercisesBySection.size > 1 && (
-                    <Text className="text-xs font-semibold mb-2 text-graphite-500" style={{ color: '#808FB0' }}>
-                      {section}
-                    </Text>
-                  )}
-                  {exercises.map((ex) => {
-                    // Deduplicate sets to prevent doubling
-                    const uniqueSets = ex.sets.filter((set, index, self) => {
-                      if (set.id) {
-                        return index === self.findIndex(s => s.id === set.id);
-                      }
-                      return index === self.findIndex(s => 
-                        s.set_order === set.set_order && 
-                        s.exercise_id === set.exercise_id
+              <View className="rounded-xl border border-graphite-700 bg-graphite-800 overflow-hidden" style={{ borderColor: '#353D4B', backgroundColor: '#1A1F2E' }}>
+                {Array.from(exercisesBySection.entries()).map(([section, exercises], sectionIdx) => (
+                  <View key={section}>
+                    {exercises.map((ex, exIdx) => {
+                      // Deduplicate sets
+                      const uniqueSets = ex.sets.filter((set, index, self) => {
+                        if (set.id) {
+                          return index === self.findIndex(s => s.id === set.id);
+                        }
+                        return index === self.findIndex(s => 
+                          s.set_order === set.set_order && 
+                          s.exercise_id === set.exercise_id
+                        );
+                      });
+                      
+                      // Get work sets only
+                      const workSets = uniqueSets.filter(s => !s.is_warmup && (s.actual_weight !== null || s.actual_reps !== null));
+                      
+                      if (workSets.length === 0) return null;
+                      
+                      // Get the best/top set
+                      const topSet = workSets.reduce((best, current) => {
+                        const currentWeight = current.actual_weight || 0;
+                        const bestWeight = best.actual_weight || 0;
+                        if (currentWeight > bestWeight) return current;
+                        if (currentWeight === bestWeight && (current.actual_reps || 0) > (best.actual_reps || 0)) return current;
+                        return best;
+                      }, workSets[0]);
+                      
+                      // Format: "4x10 @ 40 lbs"
+                      const setCount = workSets.length;
+                      const weight = topSet.actual_weight === 0 ? 'BW' : `${topSet.actual_weight} lbs`;
+                      const reps = topSet.actual_reps || 0;
+                      const summary = `${setCount}x${reps} @ ${weight}`;
+                      
+                      const isNotFirst = sectionIdx > 0 || exIdx > 0;
+                      
+                      return (
+                        <View 
+                          key={ex.exercise.id}
+                          className={`px-4 py-3 ${isNotFirst ? 'border-t border-graphite-700' : ''}`}
+                          style={isNotFirst ? { borderColor: '#353D4B' } : {}}
+                        >
+                          <View className="flex-row justify-between items-center">
+                            <Text className="text-base font-semibold text-graphite-100 flex-1" style={{ color: '#E6E8EB' }}>
+                              {ex.exercise.name}
+                            </Text>
+                            <Text className="text-base font-lab-mono font-bold text-signal-500" style={{ color: '#2F80ED' }}>
+                              {summary}
+                            </Text>
+                          </View>
+                          {topSet.actual_rpe && (
+                            <Text className="text-xs text-graphite-400 mt-1" style={{ color: '#6B7485' }}>
+                              Top Set RPE: {topSet.actual_rpe}
+                            </Text>
+                          )}
+                        </View>
                       );
-                    });
-                    
-                    return (
-                    // Find suggestion for this exercise to get previous best (if available in memory)
-                    // Note: nextTimeSuggestions contains data *after* this workout processed (or before? see analysis above).
-                    // Actually useWorkoutSuggestions returns suggestions for NEXT time. 
-                    // So `last_performance` in suggestion refers to THIS workout (the one just completed).
-                    // We need PREVIOUS best.
-                    // Ideally we should have fetched it. For now, we omit Delta or calculate it if we had previous history loaded.
-                    // We'll pass null for previousBest for now, or assume ExerciseBreakdown handles it.
-                      <ExerciseBreakdown
-                        key={ex.exercise.id}
-                        exercise={ex.exercise}
-                        sets={uniqueSets}
-                        targetReps={ex.targetReps}
-                        targetRPE={ex.targetRPE}
-                        targetLoad={ex.targetLoad}
-                        previousBest={null} // TODO: Pass previous best for delta
-                      />
-                    );
-                  })}
-                </View>
-              ))}
+                    })}
+                  </View>
+                ))}
+              </View>
             </View>
-
-            {/* Next Time Preview */}
-            {nextTimeSuggestions && nextTimeSuggestions.length > 0 && (
-              <View className="mt-6">
-                <Text className="text-sm font-bold uppercase tracking-wide mb-3 text-graphite-400" style={{ color: '#6B7485' }}>
-                  Next Time Targets
-                </Text>
-                <View className="gap-3">
-                  {nextTimeSuggestions.slice(0, 3).map((suggestion) => (
-                    <MovementMemoryCard 
-                      key={suggestion.exercise_id}
-                      memory={{
-                        lastWeight: suggestion.last_performance.weight,
-                        lastReps: suggestion.last_performance.reps,
-                        lastRPE: suggestion.last_performance.rpe,
-                        lastDate: suggestion.last_performance.date,
-                        displayText: '',
-                        trend: suggestion.trend,
-                        confidence: suggestion.confidence,
-                        exposureCount: 0, totalLifetimeVolume: 0, prWeight: 0, prE1RM: 0, daysSinceLast: 0, lastSets: 0, lastDateRelative: '', lastContext: null, avgRPE: 0, typicalRepRange: null, trendLabel: '', trendColor: ''
-                      }}
-                      suggestion={suggestion}
-                      compact
-                    />
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Achievements */}
-            {recentAchievements && recentAchievements.length > 0 && (
-              <View className="mt-6 pt-4 border-t border-graphite-700" style={{ borderColor: '#353D4B' }}>
-                <Text className="text-xs font-medium mb-3 text-graphite-400" style={{ color: '#6B7485' }}>
-                  Recent Achievements
-                </Text>
-                <AchievementRow
-                  achievements={recentAchievements.map((a) => ({
-                    definition: a.definition,
-                    earnedAt: a.stored.earned_at,
-                  }))}
-                  size="sm"
-                />
-              </View>
-            )}
 
           </View>
         </ScrollView>
