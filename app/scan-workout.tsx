@@ -10,11 +10,11 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
 
@@ -59,8 +59,6 @@ interface ParsedWorkout {
 type ScanMode = 'capture' | 'parsing' | 'review';
 
 export default function ScanWorkoutScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const { userId } = useAppStore();
 
   const [mode, setMode] = useState<ScanMode>('capture');
@@ -70,17 +68,8 @@ export default function ScanWorkoutScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Theme colors
-  const bgColor = isDark ? 'bg-black' : 'bg-gray-50';
-  const cardBg = isDark ? 'bg-zinc-900' : 'bg-white';
-  const textColor = isDark ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDark ? 'text-zinc-400' : 'text-gray-500';
-  const borderColor = isDark ? 'border-zinc-800' : 'border-gray-200';
-  const accentColor = 'text-orange-500';
-
   const pickImage = useCallback(async (useCamera: boolean) => {
     try {
-      // Request permissions
       if (useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
@@ -114,7 +103,6 @@ export default function ScanWorkoutScreen() {
         setImageUri(asset.uri);
         setError(null);
 
-        // Start parsing immediately
         if (asset.base64) {
           parseImage(asset.base64);
         }
@@ -138,13 +126,8 @@ export default function ScanWorkoutScreen() {
         },
       });
 
-      if (invokeError) {
-        throw invokeError;
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      if (invokeError) throw invokeError;
+      if (data.error) throw new Error(data.error);
 
       setParsedWorkout(data.workout);
       setMode('review');
@@ -164,7 +147,6 @@ export default function ScanWorkoutScreen() {
     setError(null);
 
     try {
-      // Create the workout
       const { data: workout, error: workoutError } = await supabase
         .from('workouts')
         .insert({
@@ -178,7 +160,6 @@ export default function ScanWorkoutScreen() {
 
       if (workoutError) throw workoutError;
 
-      // Create workout sets for each exercise
       const setsToInsert: any[] = [];
       let setOrder = 1;
 
@@ -186,8 +167,6 @@ export default function ScanWorkoutScreen() {
         if (!exercise.exercise_id) continue;
 
         for (const set of exercise.sets) {
-          // For logged workouts, use the scanned values
-          // For planned workouts, use suggestions as targets
           if (parsedWorkout.mode === 'log') {
             setsToInsert.push({
               workout_id: workout.id,
@@ -199,7 +178,6 @@ export default function ScanWorkoutScreen() {
               is_warmup: false,
             });
           } else {
-            // Plan mode - use suggestions
             const suggestedWeight = exercise.suggestion?.weight || set.weight;
             setsToInsert.push({
               workout_id: workout.id,
@@ -214,19 +192,13 @@ export default function ScanWorkoutScreen() {
       }
 
       if (setsToInsert.length > 0) {
-        const { error: setsError } = await supabase
-          .from('workout_sets')
-          .insert(setsToInsert);
-
+        const { error: setsError } = await supabase.from('workout_sets').insert(setsToInsert);
         if (setsError) throw setsError;
       }
 
-      // Navigate based on mode
       if (parsedWorkout.mode === 'log') {
-        // Logged workout - go to summary
         router.replace(`/workout-summary/${workout.id}`);
       } else {
-        // Planned workout - go to active workout to fill in
         router.replace(`/workout/${workout.id}`);
       }
     } catch (err: any) {
@@ -238,63 +210,127 @@ export default function ScanWorkoutScreen() {
   };
 
   const renderCaptureMode = () => (
-    <View className="flex-1 justify-center items-center px-6">
-      <View className={`${cardBg} rounded-3xl p-8 w-full max-w-sm`}>
-        <View className="items-center mb-8">
-          <View className="w-20 h-20 rounded-full bg-orange-500/10 items-center justify-center mb-4">
-            <Ionicons name="camera-outline" size={40} color="#f97316" />
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
+      {/* Glass Card */}
+      <View
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          borderRadius: 24,
+          padding: 32,
+          width: '100%',
+          maxWidth: 360,
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        {/* Top edge reflection */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 32,
+            right: 32,
+            height: 1,
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+          }}
+        />
+
+        <View style={{ alignItems: 'center', marginBottom: 32 }}>
+          <View
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(59, 130, 246, 0.3)',
+            }}
+          >
+            <Ionicons name="scan-outline" size={40} color={Colors.signal[400]} />
           </View>
-          <Text className={`text-2xl font-bold ${textColor} text-center`}>
+          <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.graphite[50], textAlign: 'center' }}>
             Scan Workout
           </Text>
-          <Text className={`${subtextColor} text-center mt-2`}>
+          <Text style={{ fontSize: 14, color: Colors.graphite[400], textAlign: 'center', marginTop: 8 }}>
             Upload a photo from your camera roll or take a new photo of your whiteboard
           </Text>
         </View>
 
         <Pressable
           onPress={() => pickImage(false)}
-          className="bg-orange-500 py-4 rounded-xl mb-3 flex-row items-center justify-center"
+          style={{
+            backgroundColor: Colors.signal[600],
+            paddingVertical: 16,
+            borderRadius: 12,
+            marginBottom: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: Colors.signal[500],
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.3,
+            shadowRadius: 16,
+          }}
         >
           <Ionicons name="images" size={22} color="white" />
-          <Text className="text-white font-semibold text-lg ml-2">Choose from Library</Text>
+          <Text style={{ color: 'white', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Choose from Library</Text>
         </Pressable>
 
         <Pressable
           onPress={() => pickImage(true)}
-          className={`${isDark ? 'bg-zinc-800' : 'bg-gray-100'} py-4 rounded-xl flex-row items-center justify-center`}
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            paddingVertical: 16,
+            borderRadius: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+          }}
         >
-          <Ionicons name="camera-outline" size={22} color={isDark ? '#fff' : '#374151'} />
-          <Text className={`${textColor} font-semibold text-lg ml-2`}>Take Photo Now</Text>
+          <Ionicons name="camera-outline" size={22} color={Colors.graphite[50]} />
+          <Text style={{ color: Colors.graphite[50], fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Take Photo Now</Text>
         </Pressable>
 
-        <View className={`mt-6 pt-6 border-t ${borderColor}`}>
-          <Text className={`${subtextColor} text-sm text-center`}>
-            Works with photos you've already taken or new photos of handwritten notes, whiteboards, and printed plans
+        <View style={{ marginTop: 24, paddingTop: 24, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
+          <Text style={{ fontSize: 12, color: Colors.graphite[500], textAlign: 'center' }}>
+            Works with photos of handwritten notes, whiteboards, and printed plans
           </Text>
         </View>
       </View>
 
       {error && (
-        <View className="mt-4 bg-red-500/10 rounded-xl p-4">
-          <Text className="text-red-500 text-center">{error}</Text>
+        <View style={{ marginTop: 16, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 12, padding: 16 }}>
+          <Text style={{ color: Colors.regression[400], textAlign: 'center' }}>{error}</Text>
         </View>
       )}
     </View>
   );
 
   const renderParsingMode = () => (
-    <View className="flex-1 justify-center items-center px-6">
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
       {imageUri && (
-        <Image
-          source={{ uri: imageUri }}
-          className="w-64 h-64 rounded-2xl mb-6"
-          resizeMode="cover"
-        />
+        <View
+          style={{
+            borderRadius: 16,
+            overflow: 'hidden',
+            marginBottom: 24,
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+          }}
+        >
+          <Image source={{ uri: imageUri }} style={{ width: 256, height: 256 }} resizeMode="cover" />
+        </View>
       )}
-      <ActivityIndicator size="large" color="#f97316" />
-      <Text className={`${textColor} text-lg font-semibold mt-4`}>Analyzing workout...</Text>
-      <Text className={`${subtextColor} mt-2 text-center`}>
+      <ActivityIndicator size="large" color={Colors.signal[500]} />
+      <Text style={{ fontSize: 18, fontWeight: '600', color: Colors.graphite[50], marginTop: 16 }}>
+        Analyzing workout...
+      </Text>
+      <Text style={{ fontSize: 14, color: Colors.graphite[400], marginTop: 8, textAlign: 'center' }}>
         Reading exercises, sets, reps, and weights
       </Text>
     </View>
@@ -302,36 +338,58 @@ export default function ScanWorkoutScreen() {
 
   const renderReviewMode = () => {
     if (!parsedWorkout) return null;
-
     const isPlan = parsedWorkout.mode === 'plan';
 
     return (
-      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View className={`${cardBg} rounded-2xl p-4 mb-4`}>
-          <View className="flex-row items-center justify-between mb-2">
-            <Text className={`text-xl font-bold ${textColor}`}>
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+        {/* Header Card */}
+        <View
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50] }}>
               {parsedWorkout.title || 'Scanned Workout'}
             </Text>
-            <View className={`px-3 py-1 rounded-full ${isPlan ? 'bg-blue-500/20' : 'bg-green-500/20'}`}>
-              <Text className={isPlan ? 'text-blue-500' : 'text-green-500'}>
+            <View
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 12,
+                backgroundColor: isPlan ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600', color: isPlan ? Colors.signal[400] : Colors.emerald[400] }}>
                 {isPlan ? 'Plan' : 'Log'}
               </Text>
             </View>
           </View>
-          {parsedWorkout.notes && (
-            <Text className={subtextColor}>{parsedWorkout.notes}</Text>
-          )}
+          {parsedWorkout.notes && <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>{parsedWorkout.notes}</Text>}
         </View>
 
-        {/* Goals if present */}
+        {/* Goals */}
         {parsedWorkout.goals && parsedWorkout.goals.length > 0 && (
-          <View className={`${cardBg} rounded-2xl p-4 mb-4`}>
-            <Text className={`font-semibold ${textColor} mb-2`}>Goals Detected</Text>
+          <View
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[50], marginBottom: 12 }}>Goals Detected</Text>
             {parsedWorkout.goals.map((goal, i) => (
-              <View key={i} className="flex-row items-center mb-1">
-                <Ionicons name="flag" size={16} color="#f97316" />
-                <Text className={`${textColor} ml-2`}>
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="flag" size={16} color={Colors.signal[400]} />
+                <Text style={{ fontSize: 14, color: Colors.graphite[200], marginLeft: 8 }}>
                   {goal.exercise}: {goal.target} lbs
                 </Text>
               </View>
@@ -339,98 +397,111 @@ export default function ScanWorkoutScreen() {
           </View>
         )}
 
-        {/* Exercises */}
-        <Text className={`font-semibold ${textColor} mb-2 ml-1`}>
-          Exercises ({parsedWorkout.exercises.length})
-        </Text>
+        {/* Exercises Section Label */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 2, color: Colors.signal[400], textTransform: 'uppercase' }}>
+            Exercises
+          </Text>
+          <Text style={{ fontSize: 10, color: Colors.graphite[500], marginLeft: 8 }}>({parsedWorkout.exercises.length})</Text>
+        </View>
 
+        {/* Exercise Cards */}
         {parsedWorkout.exercises.map((exercise, index) => (
-          <View key={index} className={`${cardBg} rounded-2xl p-4 mb-3`}>
-            <View className="flex-row items-start justify-between mb-2">
-              <View className="flex-1">
-                <Text className={`font-semibold ${textColor}`}>
+          <View
+            key={index}
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 12,
+              borderWidth: 1,
+              borderColor: exercise.exercise_id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.graphite[50] }}>
                   {exercise.matchedName || exercise.name}
                 </Text>
                 {exercise.originalName !== exercise.name && (
-                  <Text className={`${subtextColor} text-xs`}>
+                  <Text style={{ fontSize: 11, color: Colors.graphite[500], marginTop: 2 }}>
                     Read as: "{exercise.originalName}"
                   </Text>
                 )}
               </View>
               {exercise.exercise_id ? (
-                <View className="bg-green-500/20 px-2 py-1 rounded-full">
-                  <Ionicons name="checkmark" size={14} color="#22c55e" />
+                <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', padding: 6, borderRadius: 12 }}>
+                  <Ionicons name="checkmark" size={14} color={Colors.emerald[400]} />
                 </View>
               ) : (
-                <View className="bg-yellow-500/20 px-2 py-1 rounded-full">
-                  <Ionicons name="alert" size={14} color="#eab308" />
+                <View style={{ backgroundColor: 'rgba(251, 191, 36, 0.2)', padding: 6, borderRadius: 12 }}>
+                  <Ionicons name="alert" size={14} color="#FBBF24" />
                 </View>
               )}
             </View>
 
-            {/* Sets summary */}
-            <View className={`border-t ${borderColor} pt-2 mt-2`}>
-              <Text className={subtextColor}>
+            <View style={{ paddingTop: 12, marginTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
+              <Text style={{ fontSize: 13, fontFamily: 'monospace', color: Colors.graphite[400] }}>
                 {exercise.sets.length} set{exercise.sets.length !== 1 ? 's' : ''}:{' '}
-                {exercise.sets.map((s, i) => {
-                  const parts = [];
-                  parts.push(`${s.reps} reps`);
+                {exercise.sets.map((s) => {
+                  const parts = [`${s.reps} reps`];
                   if (s.weight) parts.push(`@ ${s.weight} lbs`);
                   return parts.join(' ');
                 }).join(', ')}
               </Text>
             </View>
 
-            {/* Suggestion for plan mode */}
             {isPlan && exercise.suggestion && (
-              <View className={`mt-3 p-3 rounded-xl ${isDark ? 'bg-orange-500/10' : 'bg-orange-50'}`}>
-                <View className="flex-row items-center mb-1">
-                  <Ionicons name="bulb" size={16} color="#f97316" />
-                  <Text className={`${accentColor} font-semibold ml-1`}>
+              <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <Ionicons name="bulb" size={16} color={Colors.signal[400]} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.signal[400], marginLeft: 6 }}>
                     Suggested: {exercise.suggestion.weight} lbs
                   </Text>
                 </View>
-                <Text className={`${subtextColor} text-sm`}>
-                  {exercise.suggestion.reasoning}
-                </Text>
-                {exercise.suggestion.lastDate && (
-                  <Text className={`${subtextColor} text-xs mt-1`}>
-                    Last: {exercise.suggestion.lastWeight} lbs x {exercise.suggestion.lastReps} reps
-                  </Text>
-                )}
+                <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>{exercise.suggestion.reasoning}</Text>
               </View>
             )}
           </View>
         ))}
 
-        {/* Unmatched exercises warning */}
-        {parsedWorkout.exercises.some(e => !e.exercise_id) && (
-          <View className="bg-yellow-500/10 rounded-xl p-4 mb-4">
-            <View className="flex-row items-center mb-1">
-              <Ionicons name="alert-circle" size={18} color="#eab308" />
-              <Text className="text-yellow-500 font-semibold ml-2">Some exercises not matched</Text>
+        {/* Unmatched Warning */}
+        {parsedWorkout.exercises.some((e) => !e.exercise_id) && (
+          <View style={{ backgroundColor: 'rgba(251, 191, 36, 0.1)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Ionicons name="alert-circle" size={18} color="#FBBF24" />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#FBBF24', marginLeft: 8 }}>Some exercises not matched</Text>
             </View>
-            <Text className={subtextColor}>
+            <Text style={{ fontSize: 13, color: Colors.graphite[400] }}>
               Exercises without a match won't be logged. You can add them manually later.
             </Text>
           </View>
         )}
 
-        {/* Action buttons */}
-        <View className="mt-2 mb-8">
+        {/* Action Buttons */}
+        <View style={{ marginTop: 8 }}>
           <Pressable
             onPress={createWorkoutFromParsed}
             disabled={isCreating}
-            className={`py-4 rounded-xl flex-row items-center justify-center ${
-              isCreating ? 'bg-orange-500/50' : 'bg-orange-500'
-            }`}
+            style={{
+              backgroundColor: isCreating ? 'rgba(37, 99, 235, 0.5)' : Colors.signal[600],
+              paddingVertical: 16,
+              borderRadius: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: Colors.signal[500],
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.3,
+              shadowRadius: 16,
+            }}
           >
             {isCreating ? (
               <ActivityIndicator color="white" />
             ) : (
               <>
                 <Ionicons name={isPlan ? 'barbell' : 'checkmark-circle'} size={22} color="white" />
-                <Text className="text-white font-semibold text-lg ml-2">
+                <Text style={{ color: 'white', fontWeight: '700', fontSize: 16, marginLeft: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
                   {isPlan ? 'Start Workout' : 'Log Workout'}
                 </Text>
               </>
@@ -443,18 +514,26 @@ export default function ScanWorkoutScreen() {
               setImageUri(null);
               setParsedWorkout(null);
             }}
-            className={`mt-3 py-4 rounded-xl flex-row items-center justify-center ${
-              isDark ? 'bg-zinc-800' : 'bg-gray-100'
-            }`}
+            style={{
+              marginTop: 12,
+              paddingVertical: 16,
+              borderRadius: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+            }}
           >
-            <Ionicons name="refresh" size={22} color={isDark ? '#fff' : '#374151'} />
-            <Text className={`${textColor} font-semibold text-lg ml-2`}>Scan Again</Text>
+            <Ionicons name="refresh" size={22} color={Colors.graphite[50]} />
+            <Text style={{ color: Colors.graphite[50], fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Scan Again</Text>
           </Pressable>
         </View>
 
         {error && (
-          <View className="mb-4 bg-red-500/10 rounded-xl p-4">
-            <Text className="text-red-500 text-center">{error}</Text>
+          <View style={{ marginTop: 16, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 12, padding: 16 }}>
+            <Text style={{ color: Colors.regression[400], textAlign: 'center' }}>{error}</Text>
           </View>
         )}
       </ScrollView>
@@ -462,25 +541,57 @@ export default function ScanWorkoutScreen() {
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          className="w-10 h-10 rounded-full items-center justify-center"
-        >
-          <Ionicons name="close" size={28} color={isDark ? '#fff' : '#374151'} />
-        </Pressable>
-        <Text className={`text-lg font-semibold ${textColor}`}>
-          {mode === 'review' ? 'Review Workout' : 'Scan Workout'}
-        </Text>
-        <View className="w-10" />
-      </View>
+    <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+      {/* Ambient Background Glows */}
+      <View
+        style={{
+          position: 'absolute',
+          top: -100,
+          right: -100,
+          width: 300,
+          height: 300,
+          backgroundColor: 'rgba(37, 99, 235, 0.08)',
+          borderRadius: 150,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: -100,
+          width: 350,
+          height: 350,
+          backgroundColor: 'rgba(37, 99, 235, 0.05)',
+          borderRadius: 175,
+        }}
+      />
 
-      {/* Content based on mode */}
-      {mode === 'capture' && renderCaptureMode()}
-      {mode === 'parsing' && renderParsingMode()}
-      {mode === 'review' && renderReviewMode()}
-    </SafeAreaView>
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            <Ionicons name="close" size={24} color={Colors.graphite[50]} />
+          </Pressable>
+          <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.graphite[50] }}>
+            {mode === 'review' ? 'Review Workout' : 'Scan Workout'}
+          </Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        {mode === 'capture' && renderCaptureMode()}
+        {mode === 'parsing' && renderParsingMode()}
+        {mode === 'review' && renderReviewMode()}
+      </SafeAreaView>
+    </View>
   );
 }

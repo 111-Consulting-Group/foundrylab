@@ -214,6 +214,13 @@ function RootLayoutNav() {
               headerShown: false,
             }}
           />
+          <Stack.Screen
+            name="scan-workout"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
         </Stack>
       </GestureHandlerRootView>
     </ThemeProvider>
