@@ -144,7 +144,6 @@ export function useBlockSummary(blockId: string): {
           exercise_id,
           value,
           unit,
-          pr_type,
           exercise:exercises(name)
         `)
         .eq('user_id', userId)
@@ -160,7 +159,7 @@ export function useBlockSummary(blockId: string): {
         exerciseName: pr.exercise?.name || 'Unknown',
         value: pr.value,
         unit: pr.unit,
-        prType: pr.pr_type,
+        prType: 'weight', // Default to weight type since pr_type column doesn't exist
       }));
 
       // Format muscle groups

@@ -25,6 +25,7 @@ interface ExerciseEntryModalProps {
   exercise: Exercise | null;
   sets: SetWithExercise[];
   workoutId: string;
+  targetSets?: number;
   targetReps?: number;
   targetRPE?: number;
   targetLoad?: number;
@@ -43,6 +44,7 @@ export function ExerciseEntryModal({
   exercise,
   sets,
   workoutId,
+  targetSets,
   targetReps,
   targetRPE,
   targetLoad,
@@ -57,7 +59,7 @@ export function ExerciseEntryModal({
   if (!exercise) return null;
 
   const isCardio = exercise.modality === 'Cardio';
-  const prescription = formatPrescription(sets, exercise, targetReps, targetRPE, targetLoad);
+  const prescription = formatPrescription(sets, exercise, targetSets, targetReps, targetRPE, targetLoad);
 
   return (
     <Modal

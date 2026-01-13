@@ -170,10 +170,11 @@ export function NewAchievementToast({
   return (
     <Pressable
       onPress={onDismiss}
-      className={`absolute bottom-24 left-4 right-4 rounded-2xl p-4 flex-row items-center ${
-        isDark ? 'bg-graphite-800' : 'bg-white'
-      } shadow-lg`}
-      style={{ elevation: 5 }}
+      className="absolute bottom-24 left-4 right-4 rounded-2xl p-4 flex-row items-center shadow-lg"
+      style={{ 
+        elevation: 5,
+        backgroundColor: isDark ? '#1A1F2E' : '#FFFFFF',
+      }}
     >
       <View
         className="w-14 h-14 rounded-full items-center justify-center mr-4"
@@ -182,13 +183,22 @@ export function NewAchievementToast({
         <Ionicons name={achievement.icon as any} size={28} color={achievement.iconColor} />
       </View>
       <View className="flex-1">
-        <Text className={`text-xs font-medium ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+        <Text 
+          className="text-xs font-medium"
+          style={{ color: isDark ? '#6B7485' : '#808FB0' }}
+        >
           Achievement Unlocked!
         </Text>
-        <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+        <Text 
+          className="text-lg font-bold"
+          style={{ color: isDark ? '#E6E8EB' : '#0E1116' }}
+        >
           {achievement.name}
         </Text>
-        <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+        <Text 
+          className="text-sm"
+          style={{ color: isDark ? '#6B7485' : '#808FB0' }}
+        >
           {achievement.description}
         </Text>
       </View>

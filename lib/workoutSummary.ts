@@ -308,6 +308,7 @@ export function generateExerciseSummary(exercise: Exercise, sets: SetWithExercis
 export function formatPrescription(
   sets: SetWithExercise[], 
   exercise?: Exercise,
+  targetSets?: number,
   targetReps?: number,
   targetRPE?: number,
   targetLoad?: number
@@ -417,8 +418,9 @@ export function formatPrescription(
   const rpe = targetRPE ?? sets[0]?.target_rpe;
   const load = targetLoad ?? sets[0]?.target_load;
   
-  // Use targetSets if available, otherwise use sets.length
-  const setCount = sets.length;
+  // CRITICAL: Use targetSets if provided, otherwise fall back to target_sets from first set
+  // Do NOT use sets.length as it includes already-logged sets during workout
+  const setCount = targetSets ?? sets[0]?.target_sets ?? sets.length;
   
   // Build prescription parts
   const parts: string[] = [];

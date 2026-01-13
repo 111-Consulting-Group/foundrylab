@@ -14,6 +14,7 @@ import { DeltaTag } from '@/components/ui/DeltaTag';
 interface ExerciseBreakdownProps {
   exercise: Exercise;
   sets: WorkoutSet[];
+  targetSets?: number | null;
   targetReps?: number | null;
   targetRPE?: number | null;
   targetLoad?: number | null;
@@ -27,6 +28,7 @@ interface ExerciseBreakdownProps {
 export function ExerciseBreakdown({
   exercise,
   sets,
+  targetSets,
   targetReps,
   targetRPE,
   targetLoad,
@@ -53,7 +55,8 @@ export function ExerciseBreakdown({
   // The target should show what was planned, not what was logged
   const prescription = formatPrescription(
     allWorkSets, // Use all work sets (planned) for target calculation
-    exercise, 
+    exercise,
+    targetSets ?? firstSet?.target_sets ?? undefined,
     targetReps ?? firstSet?.target_reps ?? undefined, 
     targetRPE ?? firstSet?.target_rpe ?? undefined, 
     targetLoad ?? firstSet?.target_load ?? undefined

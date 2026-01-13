@@ -109,26 +109,34 @@ export function LabButton({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
+  // Force dark mode styles with explicit backgrounds
+  const variantStyles = {
+    primary: { backgroundColor: '#2F80ED' }, // signal-500
+    secondary: { backgroundColor: '#353D4B' }, // graphite-700 (darker)
+    outline: { backgroundColor: 'transparent', borderColor: '#4A5568', borderWidth: 1 }, // graphite-600
+    ghost: { backgroundColor: 'transparent' },
+  };
+
   const variants = {
     primary: 'bg-signal-500 active:bg-signal-600',
-    secondary: isDark ? 'bg-graphite-700 active:bg-graphite-600' : 'bg-graphite-200 active:bg-graphite-300',
-    outline: `border ${isDark ? 'border-graphite-600' : 'border-graphite-300'} bg-transparent`,
+    secondary: 'bg-graphite-700 active:bg-graphite-600',
+    outline: 'border border-graphite-600 bg-transparent',
     ghost: 'bg-transparent',
   };
 
   const textColors = {
     primary: 'text-white',
-    secondary: isDark ? 'text-graphite-100' : 'text-graphite-900',
-    outline: isDark ? 'text-graphite-200' : 'text-graphite-700',
-    ghost: isDark ? 'text-graphite-300' : 'text-graphite-600',
+    secondary: 'text-graphite-100',
+    outline: 'text-graphite-200',
+    ghost: 'text-graphite-300',
   };
 
   // Force dark mode text colors with explicit styles
   const textColorStyles = {
     primary: { color: '#FFFFFF' },
-    secondary: isDark ? { color: '#E6E8EB' } : { color: '#0F172A' },
-    outline: isDark ? { color: '#D4D7DC' } : { color: '#374151' },
-    ghost: isDark ? { color: '#C4C8D0' } : { color: '#4B5563' },
+    secondary: { color: '#E6E8EB' },
+    outline: { color: '#D4D7DC' },
+    ghost: { color: '#C4C8D0' },
   };
 
   const sizes = {
@@ -146,6 +154,7 @@ export function LabButton({
   return (
     <Pressable
       className={`flex-row items-center justify-center rounded-lg ${variants[variant]} ${sizes[size]} ${disabled ? 'opacity-50' : ''} ${className}`}
+      style={variantStyles[variant]}
       disabled={disabled || loading}
       {...props}
     >

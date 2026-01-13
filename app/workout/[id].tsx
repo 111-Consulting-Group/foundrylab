@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -29,11 +30,13 @@ import {
   useCompleteWorkout,
   useCreateWorkout,
   useDeleteWorkoutSet,
+  workoutKeys,
 } from '@/hooks/useWorkouts';
 import { useAppStore, useActiveWorkout } from '@/stores/useAppStore';
 import { supabase } from '@/lib/supabase';
 import { useSmartExerciseSuggestions } from '@/hooks/useProgressionTargets';
 import { useWorkoutTemplate } from '@/hooks/useWorkoutTemplates';
+import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
 import type { Exercise, WorkoutSetInsert, SegmentType } from '@/types/database';
 import type { SetWithExercise } from '@/lib/workoutSummary';
 
@@ -109,9 +112,15 @@ export default function ActiveWorkoutScreen() {
   // Fetch template if starting from one
   const { data: template } = useWorkoutTemplate(templateId || '');
 
+  // Get active training block to set block_id for new workouts
+  const { data: activeBlock } = useActiveTrainingBlock();
+
+  // Query client for cache invalidation
+  const queryClient = useQueryClient();
+
   // Store state
   const activeWorkout = useActiveWorkout();
-  const { startWorkout, endWorkout } = useAppStore();
+  const { startWorkout, endWorkout, userId } = useAppStore();
 
   // Queries & mutations
   const { data: workout, isLoading: workoutLoading } = useWorkout(isNewWorkout ? '' : id);
@@ -134,6 +143,8 @@ export default function ActiveWorkoutScreen() {
   
   // Mutex to prevent race condition in workout creation
   const isCreatingWorkout = useRef(false);
+  // Track if bulk backfill has been run
+  const bulkBackfillRun = useRef(false);
 
   // Modal state for exercise entry
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState<number | null>(null);
@@ -203,6 +214,67 @@ export default function ActiveWorkoutScreen() {
     }, 60000);
     return () => clearInterval(interval);
   }, [workoutStartTime]);
+
+  // Backfill block_id if workout is missing it and there's an active block
+  useEffect(() => {
+    if (workout && !workout.block_id && activeBlock) {
+      // If there's an active block and this workout doesn't have a block_id, assign it
+      // This ensures workouts are properly associated with the active block
+      supabase
+        .from('workouts')
+        .update({ block_id: activeBlock.id })
+        .eq('id', workout.id)
+        .then(({ error, data }) => {
+          if (error) {
+            console.error('Failed to backfill block_id:', error);
+          } else {
+            // Invalidate all workout queries to force a refresh
+            queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+            // Also specifically invalidate this workout
+            queryClient.invalidateQueries({ queryKey: workoutKeys.detail(workout.id) });
+          }
+        });
+    }
+  }, [workout?.id, workout?.block_id, activeBlock?.id, queryClient]);
+
+  // Bulk backfill: Update all workouts without block_id to the active block (runs once)
+  useEffect(() => {
+    if (activeBlock && userId && !bulkBackfillRun.current) {
+      bulkBackfillRun.current = true;
+      
+      // First, update workouts without block_id
+      supabase
+        .from('workouts')
+        .update({ block_id: activeBlock.id })
+        .eq('user_id', userId)
+        .is('block_id', null)
+        .then(({ error, count }) => {
+          if (error) {
+            console.error('Failed to bulk backfill block_id:', error);
+            bulkBackfillRun.current = false; // Allow retry on error
+          } else if (count && count > 0) {
+            queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+          }
+        });
+
+      // Second, clear explicit 'unstructured' context for workouts that have a block_id
+      // This fixes workouts that were imported with context='unstructured' but are part of a block
+      supabase
+        .from('workouts')
+        .update({ context: null })
+        .eq('user_id', userId)
+        .not('block_id', 'is', null)
+        .eq('context', 'unstructured')
+        .then(({ error, count }) => {
+          if (error) {
+            console.error('Failed to clear unstructured context:', error);
+          } else if (count && count > 0) {
+            // Invalidate all workout queries to force refresh
+            queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+          }
+        });
+    }
+  }, [activeBlock?.id, userId, queryClient]);
 
   // Initialize workout from scheduled workout data
   useEffect(() => {
@@ -330,6 +402,7 @@ export default function ActiveWorkoutScreen() {
       const newWorkout = await createWorkoutMutation.mutateAsync({
         focus: focusParam || 'Quick Workout',
         scheduled_date: workoutDate,
+        block_id: activeBlock?.id || null,
       });
       setCurrentWorkoutId(newWorkout.id);
       startWorkout(newWorkout.id);
@@ -340,7 +413,7 @@ export default function ActiveWorkoutScreen() {
     } finally {
       isCreatingWorkout.current = false;
     }
-  }, [currentWorkoutId, createWorkoutMutation, startWorkout, focusParam, scheduledDate]);
+  }, [currentWorkoutId, createWorkoutMutation, startWorkout, focusParam, scheduledDate, activeBlock]);
 
   // Add exercise to workout
   const handleAddExercise = useCallback(
@@ -960,6 +1033,7 @@ export default function ActiveWorkoutScreen() {
         exercise={selectedExercise?.exercise || null}
         sets={selectedExercise?.sets || []}
         workoutId={currentWorkoutId || ''}
+        targetSets={selectedExercise?.targetSets}
         targetReps={selectedExercise?.targetReps}
         targetRPE={selectedExercise?.targetRPE}
         targetLoad={selectedExercise?.targetLoad}

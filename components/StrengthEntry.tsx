@@ -64,34 +64,74 @@ export function StrengthEntry({
   const [showRPESlider, setShowRPESlider] = useState(false);
   const [isLogging, setIsLogging] = useState(false);
 
+  // Deduplicate sets by set_order (keep most recent/logged version)
+  // Then sort by set_order to ensure correct display order
+  const deduplicatedSets = sets.reduce((acc, set) => {
+    const existingIndex = acc.findIndex(s => s.set_order === set.set_order && s.exercise_id === set.exercise_id);
+    if (existingIndex >= 0) {
+      // If current set is logged and existing isn't, replace it
+      const existing = acc[existingIndex];
+      const isCurrentLogged = set.actual_weight !== null || set.actual_reps !== null;
+      const isExistingLogged = existing.actual_weight !== null || existing.actual_reps !== null;
+      
+      if (isCurrentLogged && !isExistingLogged) {
+        acc[existingIndex] = set;
+      } else if (isCurrentLogged && isExistingLogged) {
+        // Both logged - keep the one with an actual database id
+        if (set.id && !set.id.startsWith('temp-')) {
+          acc[existingIndex] = set;
+        }
+      }
+    } else {
+      acc.push(set);
+    }
+    return acc;
+  }, [] as SetWithExercise[]);
+
+  const sortedSets = [...deduplicatedSets].sort((a, b) => (a.set_order || 0) - (b.set_order || 0));
+  
   // Find logged and pending sets
-  const loggedSets = sets.filter(
+  const loggedSets = sortedSets.filter(
     (s) => s.actual_weight !== null || s.actual_reps !== null
   );
   
-  // If editing a set, use that set's index, otherwise use next pending set
-  const editingSet = editingSetId ? sets.find(s => s.id === editingSetId) : null;
-  const currentSetIndex = editingSet 
-    ? sets.findIndex(s => s.id === editingSetId)
-    : loggedSets.length;
-  const currentSet = editingSet || sets[currentSetIndex];
-  const totalSets = sets.length;
+  // If editing a set, use that set, otherwise find the first unlogged set by set_order
+  const editingSet = editingSetId ? sortedSets.find(s => s.id === editingSetId) : null;
+  const firstUnloggedSet = sortedSets.find(s => 
+    (s.actual_weight === null && s.actual_reps === null) || 
+    (!s.actual_weight && !s.actual_reps)
+  );
+  const currentSet = editingSet || firstUnloggedSet || sortedSets[sortedSets.length - 1];
+  const currentSetIndex = currentSet ? sortedSets.findIndex(s => 
+    (s.id && currentSet.id && s.id === currentSet.id) ||
+    (s.set_order === currentSet.set_order && s.exercise_id === currentSet.exercise_id)
+  ) : sortedSets.length;
+  const totalSets = sortedSets.length;
 
-  // Initialize weight from target, suggestion (high confidence), or memory
+  // Initialize weight from target, last logged set, suggestion, or memory
   useEffect(() => {
     if (weight === '' && !isBodyweight) {
+      // Priority 1: Explicit target from training block
       if (targetLoad) {
-        // Explicit target from training block takes priority
         setWeight(targetLoad.toString());
-      } else if (suggestion?.confidence === 'high' && suggestion.recommendation.weight > 0) {
-        // High-confidence suggestion auto-fills
+      } 
+      // Priority 2: Last logged set in this workout (most relevant)
+      else if (loggedSets.length > 0) {
+        const lastLoggedSet = loggedSets[loggedSets.length - 1];
+        if (lastLoggedSet && lastLoggedSet.actual_weight !== null && lastLoggedSet.actual_weight > 0) {
+          setWeight(lastLoggedSet.actual_weight.toString());
+        }
+      }
+      // Priority 3: High-confidence suggestion
+      else if (suggestion?.confidence === 'high' && suggestion.recommendation.weight > 0) {
         setWeight(suggestion.recommendation.weight.toString());
-      } else if (movementMemory?.lastWeight) {
-        // Fall back to last weight
+      } 
+      // Priority 4: Fall back to last weight from history
+      else if (movementMemory?.lastWeight) {
         setWeight(movementMemory.lastWeight.toString());
       }
     }
-  }, [targetLoad, suggestion?.confidence, suggestion?.recommendation.weight, movementMemory?.lastWeight, isBodyweight]);
+  }, [targetLoad, loggedSets, suggestion?.confidence, suggestion?.recommendation.weight, movementMemory?.lastWeight, isBodyweight, weight]);
 
   // Initialize reps from target or high-confidence suggestion
   useEffect(() => {
@@ -124,9 +164,14 @@ export function StrengthEntry({
         setRpe(editingSet.actual_rpe);
       }
     } else {
-      // Reset form when not editing - use same priority as initial load
+      // Reset form when not editing
+      // For weight: keep the last logged weight if available, otherwise use targets/suggestions
+      const lastLoggedSet = loggedSets.length > 0 ? loggedSets[loggedSets.length - 1] : null;
+      
       if (!weight && !isBodyweight) {
-        if (targetLoad) {
+        if (lastLoggedSet && lastLoggedSet.actual_weight !== null && lastLoggedSet.actual_weight > 0) {
+          setWeight(lastLoggedSet.actual_weight.toString());
+        } else if (targetLoad) {
           setWeight(targetLoad.toString());
         } else if (suggestion?.confidence === 'high' && suggestion.recommendation.weight > 0) {
           setWeight(suggestion.recommendation.weight.toString());
@@ -134,12 +179,14 @@ export function StrengthEntry({
           setWeight(movementMemory.lastWeight.toString());
         }
       }
-      if (!reps) {
-        if (targetReps) {
-          setReps(targetReps.toString());
-        } else if (suggestion?.confidence === 'high' && suggestion.recommendation.reps > 0) {
-          setReps(suggestion.recommendation.reps.toString());
-        }
+      
+      // Always default reps to target if available, otherwise use suggestion or memory
+      if (targetReps) {
+        setReps(targetReps.toString());
+      } else if (suggestion?.confidence === 'high' && suggestion.recommendation.reps > 0) {
+        setReps(suggestion.recommendation.reps.toString());
+      } else if (movementMemory?.lastReps && !reps) {
+        setReps(movementMemory.lastReps.toString());
       }
     }
   }, [editingSet, targetLoad, targetReps, movementMemory?.lastWeight, suggestion]);
@@ -154,7 +201,7 @@ export function StrengthEntry({
       return;
     }
 
-    const setOrder = currentSet?.set_order || currentSetIndex + 1;
+    const setOrder = currentSet?.set_order || (currentSetIndex < sortedSets.length ? sortedSets[currentSetIndex]?.set_order : sortedSets.length + 1);
 
     setIsLogging(true);
     try {
@@ -167,20 +214,25 @@ export function StrengthEntry({
         segment_type: 'work',
       });
 
-      // If editing, stop editing. Otherwise, keep weight for next set, clear reps
+      // If editing, stop editing. Otherwise, keep weight for next set, reset reps to target
       if (editingSetId) {
         setEditingSetId(null);
       } else {
-        // Keep weight for next set, clear reps for fresh entry
-        // (Most people do same weight across sets)
-        setReps('');
+        // Keep weight for next set, reset reps to target (or keep current if no target)
+        // This makes it easier to log multiple sets with same target
+        if (targetReps) {
+          setReps(targetReps.toString());
+        } else {
+          // If no target, keep the reps that were just logged
+          setReps(repsNum.toString());
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to log set. Please try again.');
     } finally {
       setIsLogging(false);
     }
-  }, [exercise.id, currentSet, currentSetIndex, weight, reps, rpe, isBodyweight, onSaveSet]);
+  }, [exercise.id, currentSet, currentSetIndex, weight, reps, rpe, isBodyweight, onSaveSet, sortedSets]);
 
   // Handle delete set
   const handleDeleteSet = useCallback(
@@ -207,7 +259,7 @@ export function StrengthEntry({
 
   // Handle duplicate last set
   const handleDuplicate = useCallback(async () => {
-    const loggedSets = sets.filter(
+    const loggedSets = sortedSets.filter(
       (s) => s.actual_weight !== null && s.actual_reps !== null
     );
     
@@ -216,17 +268,20 @@ export function StrengthEntry({
       return;
     }
 
-    const lastSet = loggedSets[loggedSets.length - 1];
+    // Get the last logged set by set_order, not array position
+    const sortedLoggedSets = [...loggedSets].sort((a, b) => (b.set_order || 0) - (a.set_order || 0));
+    const lastSet = sortedLoggedSets[0];
     
-    // Find the next empty set (one without actual_weight or actual_reps)
-    const emptySet = sets.find(
-      (s) => s.actual_weight === null && s.actual_reps === null
+    // Find the next empty set (one without actual_weight or actual_reps) by set_order
+    const emptySet = sortedSets.find(
+      (s) => (s.actual_weight === null && s.actual_reps === null) ||
+             (!s.actual_weight && !s.actual_reps)
     );
     
     // If there's an empty set, fill it. Otherwise, create a new one.
     const setOrder = emptySet 
       ? emptySet.set_order 
-      : Math.max(0, ...sets.map((s) => s.set_order)) + 1;
+      : Math.max(0, ...sortedSets.map((s) => s.set_order || 0)) + 1;
 
     setIsLogging(true);
     try {
@@ -254,7 +309,7 @@ export function StrengthEntry({
     } finally {
       setIsLogging(false);
     }
-  }, [exercise.id, sets, rpe, onSaveSet]);
+  }, [exercise.id, sortedSets, rpe, onSaveSet]);
 
   // All sets logged?
   const allComplete = currentSetIndex >= totalSets;
@@ -300,14 +355,14 @@ export function StrengthEntry({
               <View className="flex-row items-center">
                 <View className="w-6 h-6 rounded bg-signal-500 items-center justify-center mr-2">
                   <Text className="font-lab-mono text-xs font-bold text-white">
-                    {currentSetIndex + 1}
+                    {currentSet?.set_order || currentSetIndex + 1}
                   </Text>
                 </View>
                 <Text
                   className="font-semibold text-graphite-100"
                   style={{ color: '#E6E8EB' }}
                 >
-                  Set {currentSetIndex + 1}
+                  Set {currentSet?.set_order || currentSetIndex + 1}
                 </Text>
               </View>
               {targetLoad && (
@@ -339,15 +394,18 @@ export function StrengthEntry({
                   </Pressable>
                 </View>
                 <TextInput
-                  className={`px-3 py-3 rounded-lg text-center text-xl font-lab-mono font-bold ${
-                    isDark ? 'bg-graphite-800 text-graphite-100' : 'bg-graphite-100 text-graphite-900'
-                  } border ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}
-                  style={isDark ? { backgroundColor: '#1A1F2E', color: '#E6E8EB', borderColor: '#353D4B' } : undefined}
+                  className="px-3 py-3 rounded-lg text-center text-xl font-lab-mono font-bold"
+                  style={{
+                    backgroundColor: '#151B26',
+                    color: '#FFFFFF',
+                    borderColor: '#2C3544',
+                    borderWidth: 1,
+                  }}
                   value={isBodyweight ? 'BW' : weight}
                   onChangeText={isBodyweight ? undefined : setWeight}
                   keyboardType="decimal-pad"
                   placeholder={suggestion?.recommendation.weight?.toString() || "0"}
-                  placeholderTextColor={isDark ? '#808FB0' : '#A5ABB6'} // Much lighter placeholder for visibility on dark background
+                  placeholderTextColor="#5C6A7F"
                   editable={!isBodyweight}
                 />
               </View>
@@ -364,15 +422,18 @@ export function StrengthEntry({
                   </Text>
                 </View>
                 <TextInput
-                  className={`px-3 py-3 rounded-lg text-center text-xl font-lab-mono font-bold ${
-                    isDark ? 'bg-graphite-800 text-graphite-100' : 'bg-graphite-100 text-graphite-900'
-                  } border ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}
-                  style={isDark ? { backgroundColor: '#1A1F2E', color: '#E6E8EB', borderColor: '#353D4B' } : undefined}
+                  className="px-3 py-3 rounded-lg text-center text-xl font-lab-mono font-bold"
+                  style={{
+                    backgroundColor: '#151B26',
+                    color: '#FFFFFF',
+                    borderColor: '#2C3544',
+                    borderWidth: 1,
+                  }}
                   value={reps}
                   onChangeText={setReps}
                   keyboardType="number-pad"
-                  placeholder={suggestion?.recommendation.reps?.toString() || "0"}
-                  placeholderTextColor={isDark ? '#808FB0' : '#A5ABB6'} // Much lighter placeholder for visibility on dark background
+                  placeholder={targetReps?.toString() || suggestion?.recommendation.reps?.toString() || "0"}
+                  placeholderTextColor="#5C6A7F"
                 />
               </View>
 
@@ -387,16 +448,18 @@ export function StrengthEntry({
                 </Text>
                 <Pressable
                   onPress={() => setShowRPESlider(!showRPESlider)}
-                  className={`px-3 py-3 rounded-lg items-center ${
-                    isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-                  } border ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}
-                  style={isDark ? { backgroundColor: '#1A1F2E', borderColor: '#353D4B' } : undefined}
+                  className="px-3 py-3 rounded-lg items-center"
+                  style={{
+                    backgroundColor: '#151B26',
+                    borderColor: '#2C3544',
+                    borderWidth: 1,
+                  }}
                 >
                   <Text
                     className={`text-xl font-lab-mono font-bold ${
-                      rpe >= 9 ? 'text-oxide-500' : isDark ? 'text-graphite-100' : 'text-graphite-900'
+                      rpe >= 9 ? 'text-oxide-500' : ''
                     }`}
-                    style={rpe < 9 && isDark ? { color: '#E6E8EB' } : undefined}
+                    style={rpe < 9 ? { color: '#FFFFFF' } : undefined}
                   >
                     {rpe}
                   </Text>
@@ -469,9 +532,12 @@ export function StrengthEntry({
           Completed Sets
         </Text>
 
-        {sets.map((set, index) => {
+        {sortedSets.map((set, index) => {
           const isLogged = set.actual_weight !== null || set.actual_reps !== null;
-          const isCurrent = index === currentSetIndex;
+          const isCurrent = currentSet && (
+            (set.id && currentSet.id && set.id === currentSet.id) ||
+            (set.set_order === currentSet.set_order && set.exercise_id === currentSet.exercise_id)
+          );
 
           return (
             <Pressable
@@ -484,20 +550,27 @@ export function StrengthEntry({
               disabled={!isLogged || !set.id}
               className={`flex-row items-center p-3 rounded-lg mb-2 border ${
                 isLogged
-                  ? isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
+                  ? 'bg-graphite-800 border-graphite-700'
                   : isCurrent
-                  ? isDark ? 'bg-signal-500/10 border-signal-500/30' : 'bg-signal-500/5 border-signal-500/20'
-                  : isDark ? 'bg-transparent border-dashed border-graphite-700' : 'bg-transparent border-dashed border-graphite-300'
+                  ? 'bg-signal-500/10 border-signal-500/30'
+                  : 'bg-transparent border-dashed border-graphite-700'
               }`}
+              style={
+                isLogged
+                  ? { backgroundColor: '#1A1F2E', borderColor: '#353D4B' }
+                  : isCurrent
+                  ? undefined
+                  : { borderColor: '#353D4B' }
+              }
             >
               {/* Status icon */}
               <View className="mr-3 w-6 items-center">
                 {isLogged ? (
-                  <Text className="font-lab-mono text-sm text-graphite-300" style={{ color: '#C4C8D0' }}>{index + 1}</Text>
+                  <Text className="font-lab-mono text-sm text-graphite-300" style={{ color: '#C4C8D0' }}>{set.set_order || index + 1}</Text>
                 ) : isCurrent ? (
                   <View className="w-2 h-2 rounded-full bg-signal-500" />
                 ) : (
-                  <Text className="font-lab-mono text-sm text-graphite-400" style={{ color: '#6B7485' }}>{index + 1}</Text>
+                  <Text className="font-lab-mono text-sm text-graphite-400" style={{ color: '#6B7485' }}>{set.set_order || index + 1}</Text>
                 )}
               </View>
 
@@ -505,10 +578,10 @@ export function StrengthEntry({
               <View className="flex-1">
                 {isLogged && set.actual_weight !== null && set.actual_reps !== null ? (
                   <View className="flex-row items-baseline gap-2">
-                    <Text className={`text-lg font-lab-mono font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`} style={isDark ? { color: '#E6E8EB' } : undefined}>
+                    <Text className="text-lg font-lab-mono font-bold" style={{ color: '#E6E8EB' }}>
                       {set.actual_weight} <Text className="text-sm font-normal text-graphite-400" style={{ color: '#808FB0' }}>lbs</Text>
                     </Text>
-                    <Text className={`text-lg font-lab-mono font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`} style={isDark ? { color: '#E6E8EB' } : undefined}>
+                    <Text className="text-lg font-lab-mono font-bold" style={{ color: '#E6E8EB' }}>
                       {set.actual_reps} <Text className="text-sm font-normal text-graphite-400" style={{ color: '#808FB0' }}>reps</Text>
                     </Text>
                     {set.actual_rpe && (
@@ -521,7 +594,7 @@ export function StrengthEntry({
                     )}
                   </View>
                 ) : (
-                  <Text className={`text-sm ${isCurrent ? 'text-signal-500 font-medium' : 'text-graphite-300'}`} style={!isCurrent ? { color: '#C4C8D0' } : undefined}>
+                  <Text className={`text-sm ${isCurrent ? 'text-signal-500 font-medium' : ''}`} style={!isCurrent ? { color: '#C4C8D0' } : undefined}>
                     {isCurrent ? 'Current Set' : 'Pending'}
                   </Text>
                 )}
@@ -534,7 +607,7 @@ export function StrengthEntry({
                     onPress={() => handleDeleteSet(set.id)}
                     hitSlop={10}
                   >
-                    <Ionicons name="trash-outline" size={16} color={isDark ? '#424B5C' : '#A5ABB6'} />
+                    <Ionicons name="trash-outline" size={16} color="#424B5C" />
                   </Pressable>
                 </View>
               )}

@@ -58,7 +58,7 @@ export function ExerciseCard({
   // Generate display text
   const displayText = hasLoggedSets
     ? generateExerciseSummary(exercise, sets)
-    : formatPrescription(sets, exercise, targetReps, targetRPE, targetLoad) || getPrescriptionText();
+    : formatPrescription(sets, exercise, targetSets, targetReps, targetRPE, targetLoad) || getPrescriptionText();
   
   // Fallback prescription text from props
   function getPrescriptionText(): string {
