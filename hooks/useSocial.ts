@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
+import { calculateStreak, type StreakInfo } from '@/lib/streakUtils';
 import type { WorkoutWithSets } from '@/types/database';
 
 // Query keys
@@ -45,6 +46,7 @@ interface WorkoutPost {
     email: string | null;
   };
   user_goals?: UserGoal[];
+  user_streak?: StreakInfo;
   like_count?: number;
   is_liked?: boolean;
 }
@@ -207,12 +209,38 @@ export function useFeed(limit: number = 20) {
           }
         });
 
-        // Add like counts, is_liked, and user_goals to posts
+        // Fetch recent completed workouts for streak calculation
+        const { data: recentWorkouts } = await supabase
+          .from('workouts')
+          .select('user_id, date_completed')
+          .in('user_id', postUserIds)
+          .not('date_completed', 'is', null)
+          .order('date_completed', { ascending: false })
+          .limit(500); // Enough to calculate streaks for all users
+
+        // Calculate streaks per user
+        const streaksByUser = new Map<string, StreakInfo>();
+        const workoutDatesByUser = new Map<string, string[]>();
+
+        recentWorkouts?.forEach((w) => {
+          if (w.date_completed) {
+            const dates = workoutDatesByUser.get(w.user_id) || [];
+            dates.push(w.date_completed);
+            workoutDatesByUser.set(w.user_id, dates);
+          }
+        });
+
+        workoutDatesByUser.forEach((dates, usrId) => {
+          streaksByUser.set(usrId, calculateStreak(dates));
+        });
+
+        // Add like counts, is_liked, user_goals, and streak to posts
         return (posts || []).map((post) => ({
           ...post,
           like_count: likeCounts.get(post.id) || 0,
           is_liked: userLikes.has(post.id),
           user_goals: goalsByUser.get(post.user_id) || [],
+          user_streak: streaksByUser.get(post.user_id) || undefined,
         })) as WorkoutPost[];
       }
 

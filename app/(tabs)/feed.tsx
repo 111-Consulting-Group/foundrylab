@@ -5,6 +5,7 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, M
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { StreakBadge, PRCountBadge, BlockContextBadge, AdherenceBadge } from '@/components/FeedBadges';
 import { useFeed, useLikePost, useSearchUsers } from '@/hooks/useSocial';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
 import { summarizeWorkoutExercises, formatExerciseForFeed, getProgressionBadge, getModalityIcon } from '@/lib/feedUtils';
@@ -116,14 +117,12 @@ export default function FeedScreen() {
                           {formatDate(post.created_at)}
                         </Text>
                       </View>
-                      {prCount > 0 && (
-                        <View className="flex-row items-center px-2 py-1 rounded-full bg-signal-500/20">
-                          <Ionicons name="trophy" size={12} color="#2F80ED" />
-                          <Text className="text-xs font-semibold ml-1 text-signal-500">
-                            {prCount} PR{prCount > 1 ? 's' : ''}
-                          </Text>
-                        </View>
-                      )}
+                      <View className="flex-row items-center gap-2">
+                        {post.user_streak && post.user_streak.currentStreak >= 2 && (
+                          <StreakBadge streak={post.user_streak.currentStreak} />
+                        )}
+                        <PRCountBadge count={prCount} />
+                      </View>
                     </View>
 
                     {/* Workout title and context */}
@@ -132,19 +131,11 @@ export default function FeedScreen() {
                         <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
                           {workout.focus}
                         </Text>
-                        {workout.week_number && (
-                          <View
-                            className="px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: contextInfo.bgColor }}
-                          >
-                            <Text
-                              className="text-xs font-semibold"
-                              style={{ color: contextInfo.color }}
-                            >
-                              Wk {workout.week_number}
-                            </Text>
-                          </View>
-                        )}
+                        <BlockContextBadge
+                          blockName={workout.training_block?.name}
+                          weekNumber={workout.week_number || undefined}
+                          context={context}
+                        />
                       </View>
 
                       {/* All exercises with progression */}
@@ -239,23 +230,30 @@ export default function FeedScreen() {
                       )}
                     </View>
 
-                    {/* Like button */}
-                    <Pressable
-                      className="flex-row items-center pt-2 border-t border-graphite-700/30"
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleLike(post.id, post.is_liked || false);
-                      }}
-                    >
-                      <Ionicons
-                        name={post.is_liked ? 'heart' : 'heart-outline'}
-                        size={20}
-                        color={post.is_liked ? '#ef4444' : (isDark ? '#808fb0' : '#607296')}
-                      />
-                      <Text className={`ml-2 text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                        {post.like_count || 0} {post.like_count === 1 ? 'like' : 'likes'}
-                      </Text>
-                    </Pressable>
+                    {/* Footer: Like button + adherence */}
+                    <View className="flex-row items-center justify-between pt-2 border-t border-graphite-700/30">
+                      <Pressable
+                        className="flex-row items-center"
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleLike(post.id, post.is_liked || false);
+                        }}
+                      >
+                        <Ionicons
+                          name={post.is_liked ? 'heart' : 'heart-outline'}
+                          size={20}
+                          color={post.is_liked ? '#ef4444' : (isDark ? '#808fb0' : '#607296')}
+                        />
+                        <Text className={`ml-2 text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                          {post.like_count || 0} {post.like_count === 1 ? 'like' : 'likes'}
+                        </Text>
+                      </Pressable>
+                      {post.user_streak && post.user_streak.weeklyAdherence >= 50 && (
+                        <View className="flex-row items-center">
+                          <AdherenceBadge percent={post.user_streak.weeklyAdherence} />
+                        </View>
+                      )}
+                    </View>
                   </Pressable>
                 );
               })}
