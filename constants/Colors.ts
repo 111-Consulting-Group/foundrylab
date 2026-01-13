@@ -1,77 +1,106 @@
-// Foundry Lab color palette - Industrial lab aesthetic
-// Matches tailwind.config.js theme colors
+// Foundry Lab color palette - Glass-morphic Industrial Blue
+// Deep blacks with blue accents and glass effects
 
 export const Colors = {
-  // Primary palette
-  carbon: {
-    950: '#0E1116', // Primary background
+  // Primary dark palette - deeper blacks
+  void: {
+    950: '#020202', // Deepest background
+    900: '#0A0A0A', // Primary background
+    850: '#0F0F0F', // Slightly elevated
+    800: '#121212', // Card backgrounds
   },
+  // Graphite scale - for glass effects and text
   graphite: {
-    900: '#1C222B', // Surfaces/cards
-    800: '#282F3A', // Slightly lighter surfaces
-    700: '#353D4B', // Borders
-    600: '#424B5C',
-    500: '#525C6E',
-    400: '#6B7485',
-    300: '#878E9C',
-    200: '#A5ABB6',
-    100: '#C4C8D0',
-    50: '#E6E8EB',  // Bone white text
+    900: '#1A1A1A', // Dark surfaces
+    800: '#242424', // Elevated surfaces
+    700: '#2E2E2E', // Borders on dark
+    600: '#3D3D3D',
+    500: '#525252',
+    400: '#6B6B6B', // Secondary text
+    300: '#878787',
+    200: '#A5A5A5',
+    100: '#C4C4C4',
+    50: '#E6E6E6',  // Primary text
   },
-  // Accent colors
+  // Signal blue - primary accent (industrial blue)
   signal: {
-    600: '#1E5FBF',
-    500: '#2F80ED', // Primary accent (blue)
-    400: '#5B9DEF',
-    300: '#8BBAF2',
+    700: '#1D4ED8',
+    600: '#2563EB', // Primary blue
+    500: '#3B82F6', // Bright blue
+    400: '#60A5FA', // Light blue
+    300: '#93C5FD',
+    200: '#BFDBFE',
+    glow: 'rgba(59, 130, 246, 0.4)', // For shadows
   },
-  oxide: {
-    600: '#D77A32',
-    500: '#F2994A', // Secondary accent (orange) - use sparingly
-    400: '#F5AD6F',
+  // Emerald - for completion/success states
+  emerald: {
+    600: '#059669',
+    500: '#10B981', // Primary emerald
+    400: '#34D399',
+    glow: 'rgba(16, 185, 129, 0.4)',
   },
-  // Feedback colors
-  progress: {
-    600: '#1F8A4D',
-    500: '#27AE60', // Green for improvements
-    400: '#51C17E',
-  },
+  // Regression/error - for issues
   regression: {
-    600: '#C93B3B',
-    500: '#EB5757', // Red for issues
-    400: '#EF7A7A',
+    600: '#DC2626',
+    500: '#EF4444',
+    400: '#F87171',
+    glow: 'rgba(239, 68, 68, 0.4)',
   },
-  success: {
-    500: '#27AE60', // Alias for progress
+  // Oxide orange - sparingly for highlights
+  oxide: {
+    600: '#D97706',
+    500: '#F59E0B',
+    400: '#FBBF24',
+  },
+  // Glass effects - for translucent overlays
+  glass: {
+    white: {
+      2: 'rgba(255, 255, 255, 0.02)',
+      5: 'rgba(255, 255, 255, 0.05)',
+      10: 'rgba(255, 255, 255, 0.1)',
+      20: 'rgba(255, 255, 255, 0.2)',
+    },
+    black: {
+      20: 'rgba(0, 0, 0, 0.2)',
+      40: 'rgba(0, 0, 0, 0.4)',
+      60: 'rgba(0, 0, 0, 0.6)',
+      80: 'rgba(0, 0, 0, 0.8)',
+    },
+    blue: {
+      5: 'rgba(59, 130, 246, 0.05)',
+      10: 'rgba(59, 130, 246, 0.1)',
+      20: 'rgba(59, 130, 246, 0.2)',
+    },
   },
 };
 
 // Theme-based color sets for light/dark mode
+// Note: We force dark mode throughout the app
 export default {
   light: {
-    text: Colors.carbon[950],
-    textSecondary: Colors.graphite[600],
-    background: Colors.graphite[50],
-    card: '#ffffff',
+    text: Colors.graphite[50],
+    textSecondary: Colors.graphite[400],
+    background: Colors.void[900],
+    card: Colors.void[800],
     tint: Colors.signal[500],
-    border: Colors.graphite[200],
-    tabIconDefault: Colors.graphite[400],
+    border: 'rgba(255, 255, 255, 0.1)',
+    tabIconDefault: Colors.graphite[500],
     tabIconSelected: Colors.signal[500],
-    accent: Colors.oxide[500],
-    success: Colors.progress[500],
+    accent: Colors.signal[500],
+    success: Colors.emerald[500],
     error: Colors.regression[500],
   },
   dark: {
     text: Colors.graphite[50],
     textSecondary: Colors.graphite[400],
-    background: Colors.carbon[950],
-    card: Colors.graphite[900],
+    background: Colors.void[900],
+    card: Colors.void[800],
     tint: Colors.signal[500],
-    border: Colors.graphite[700],
+    border: 'rgba(255, 255, 255, 0.1)',
     tabIconDefault: Colors.graphite[500],
     tabIconSelected: Colors.signal[500],
-    accent: Colors.oxide[500],
-    success: Colors.progress[500],
+    accent: Colors.signal[500],
+    success: Colors.emerald[500],
     error: Colors.regression[500],
   },
 };

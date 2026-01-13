@@ -10,7 +10,7 @@ import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 
 import { ConfidenceBadge, ConfidenceIndicator } from '@/components/ConfidenceBadge';
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import type { MovementMemoryData } from '@/hooks/useMovementMemory';
 import type { NextTimeSuggestion } from '@/types/database';
 
@@ -27,9 +27,6 @@ export function MovementMemoryCard({
   compact = false,
   onApplySuggestion,
 }: MovementMemoryCardProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   if (compact) {
     return (
       <CompactMemoryCard memory={memory} suggestion={suggestion} onApplySuggestion={onApplySuggestion} />
@@ -46,65 +43,63 @@ export function MovementMemoryCard({
     ? '#22c55e'
     : memory.trend === 'regressing'
     ? '#ef4444'
-    : isDark ? '#808fb0' : '#607296';
+    : Colors.graphite[400];
 
   return (
     <View
-      className="rounded-xl border bg-graphite-800 border-graphite-700"
-      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
+      style={{
+        borderRadius: 12,
+        borderWidth: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
     >
       {/* Last Performance Section */}
-      <View className="p-4 border-b border-graphite-200 dark:border-graphite-700">
-        <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center">
-            <Ionicons name="time-outline" size={14} color="#2F80ED" />
-            <Text className="text-xs font-semibold ml-1 text-signal-500">
+      <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.1)' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="time-outline" size={14} color={Colors.signal[500]} />
+            <Text style={{ fontSize: 12, fontWeight: '600', marginLeft: 4, color: Colors.signal[500] }}>
               Last time
             </Text>
             {memory.lastDateRelative && (
-              <Text className="text-xs ml-2 text-graphite-400" style={{ color: '#6B7485' }}>
+              <Text style={{ fontSize: 12, marginLeft: 8, color: Colors.graphite[400] }}>
                 {memory.lastDateRelative}
               </Text>
             )}
           </View>
-          <View className="flex-row items-center">
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons name={trendIcon} size={16} color={trendColor} />
-            <Text className={`text-xs ml-1 ${memory.trendColor}`}>
+            <Text style={{ fontSize: 12, marginLeft: 4, color: trendColor }}>
               {memory.trendLabel}
             </Text>
           </View>
         </View>
 
-        <Text className="text-lg font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.graphite[50] }}>
           {memory.displayText}
         </Text>
 
         {/* Stats Row */}
-        <View className="flex-row mt-2 gap-4">
+        <View style={{ flexDirection: 'row', marginTop: 8, gap: 16 }}>
           <View>
-            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
-              Sessions
-            </Text>
-            <Text className="text-sm font-semibold text-graphite-200" style={{ color: '#D4D7DC' }}>
+            <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>Sessions</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[200] }}>
               {memory.exposureCount}
             </Text>
           </View>
           {memory.prE1RM && (
             <View>
-              <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
-                E1RM PR
-              </Text>
-              <Text className="text-sm font-semibold text-graphite-200" style={{ color: '#D4D7DC' }}>
+              <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>E1RM PR</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[200] }}>
                 {Math.round(memory.prE1RM)} lbs
               </Text>
             </View>
           )}
           {memory.typicalRepRange && (
             <View>
-              <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
-                Rep Range
-              </Text>
-              <Text className="text-sm font-semibold text-graphite-200" style={{ color: '#D4D7DC' }}>
+              <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>Rep Range</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[200] }}>
                 {memory.typicalRepRange.min}-{memory.typicalRepRange.max}
               </Text>
             </View>
@@ -114,23 +109,23 @@ export function MovementMemoryCard({
 
       {/* Suggestion Section */}
       {suggestion && (
-        <View className="p-4">
-          <View className="flex-row items-center justify-between mb-2">
-            <View className="flex-row items-center">
-              <Ionicons name="bulb-outline" size={14} color={isDark ? '#fbbf24' : '#d97706'} />
-              <Text className={`text-xs font-semibold ml-1 ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
+        <View style={{ padding: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="bulb-outline" size={14} color="#fbbf24" />
+              <Text style={{ fontSize: 12, fontWeight: '600', marginLeft: 4, color: '#fbbf24' }}>
                 Next time
               </Text>
             </View>
             <ConfidenceBadge level={suggestion.confidence} exposureCount={suggestion.exposure_count} />
           </View>
 
-          <View className="flex-row items-center justify-between">
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
-              <Text className="text-lg font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.graphite[50] }}>
                 {suggestion.recommendation.weight} lbs x {suggestion.recommendation.reps}
               </Text>
-              <Text className="text-xs mt-1 text-graphite-400" style={{ color: '#6B7485' }}>
+              <Text style={{ fontSize: 12, marginTop: 4, color: Colors.graphite[400] }}>
                 {suggestion.reasoning}
               </Text>
             </View>
@@ -141,9 +136,9 @@ export function MovementMemoryCard({
                   suggestion.recommendation.weight,
                   suggestion.recommendation.reps
                 )}
-                className="px-3 py-2 rounded-lg bg-signal-500/20"
+                style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
               >
-                <Text className="text-signal-500 font-semibold text-sm">
+                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.signal[500] }}>
                   Apply
                 </Text>
               </Pressable>
@@ -152,15 +147,20 @@ export function MovementMemoryCard({
 
           {/* Alerts */}
           {suggestion.alerts && suggestion.alerts.length > 0 && (
-            <View className="mt-3">
+            <View style={{ marginTop: 12 }}>
               {suggestion.alerts.map((alert, index) => (
                 <View
                   key={index}
-                  className={`flex-row items-start p-2 rounded-lg mt-1 ${
-                    alert.type === 'regression' || alert.type === 'missed_session'
-                      ? isDark ? 'bg-oxide-500/10' : 'bg-oxide-500/5'
-                      : isDark ? 'bg-yellow-500/10' : 'bg-yellow-500/5'
-                  }`}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    padding: 8,
+                    borderRadius: 8,
+                    marginTop: 4,
+                    backgroundColor: alert.type === 'regression' || alert.type === 'missed_session'
+                      ? 'rgba(239, 68, 68, 0.1)'
+                      : 'rgba(245, 158, 11, 0.1)',
+                  }}
                 >
                   <Ionicons
                     name={alert.type === 'regression' ? 'warning' : 'information-circle'}
@@ -168,13 +168,11 @@ export function MovementMemoryCard({
                     color={alert.type === 'regression' ? '#ef4444' : '#f59e0b'}
                     style={{ marginTop: 2 }}
                   />
-                  <View className="ml-2 flex-1">
-                    <Text className={`text-xs font-medium ${
-                      alert.type === 'regression' ? 'text-oxide-500' : 'text-yellow-600'
-                    }`}>
+                  <View style={{ marginLeft: 8, flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '500', color: alert.type === 'regression' ? '#ef4444' : '#f59e0b' }}>
                       {alert.message}
                     </Text>
-                    <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
+                    <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
                       {alert.suggested_action}
                     </Text>
                   </View>
@@ -200,41 +198,41 @@ function CompactMemoryCard({
   suggestion?: NextTimeSuggestion | null;
   onApplySuggestion?: (weight: number, reps: number) => void;
 }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const [applied, setApplied] = React.useState(false);
 
   const handleApply = () => {
     if (onApplySuggestion && suggestion) {
       onApplySuggestion(suggestion.recommendation.weight, suggestion.recommendation.reps);
       setApplied(true);
-      // Reset after 2 seconds
       setTimeout(() => setApplied(false), 2000);
     }
   };
 
   return (
     <View
-      className="rounded-xl bg-graphite-800 border border-graphite-700"
-      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
+      style={{
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
     >
       {/* Last Performance Row */}
-      <View className="p-3 flex-row items-center justify-between">
-        <View className="flex-row items-center">
-          <Ionicons name="time-outline" size={14} color={isDark ? '#808fb0' : '#607296'} />
+      <View style={{ padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="time-outline" size={14} color={Colors.graphite[400]} />
           {memory.displayText && memory.displayText.trim() ? (
-            <Text className="text-sm ml-2 text-graphite-300" style={{ color: '#C4C8D0' }}>
-              <Text>Last: </Text>
-              <Text className="font-semibold">{memory.displayText}</Text>
+            <Text style={{ fontSize: 14, marginLeft: 8, color: Colors.graphite[300] }}>
+              Last: <Text style={{ fontWeight: '600' }}>{memory.displayText}</Text>
             </Text>
           ) : (
-            <Text className="text-sm ml-2 text-graphite-300" style={{ color: '#C4C8D0' }}>
+            <Text style={{ fontSize: 14, marginLeft: 8, color: Colors.graphite[300] }}>
               No previous data
             </Text>
           )}
         </View>
         {memory.lastDateRelative && memory.lastDateRelative.trim() && (
-          <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
+          <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
             {memory.lastDateRelative}
           </Text>
         )}
@@ -243,27 +241,33 @@ function CompactMemoryCard({
       {/* Suggestion Row - more prominent */}
       {suggestion && suggestion.recommendation && (
         <View
-          className={`p-3 border-t flex-row items-center justify-between ${
-            isDark ? 'border-graphite-700 bg-signal-500/5' : 'border-graphite-200 bg-signal-500/5'
-          }`}
+          style={{
+            padding: 12,
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(255, 255, 255, 0.1)',
+            backgroundColor: 'rgba(59, 130, 246, 0.05)',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
         >
-          <View className="flex-1 mr-3">
-            <View className="flex-row items-center mb-1">
-              <Ionicons name="bulb" size={14} color="#2F80ED" />
-              <Text className="text-xs font-semibold ml-2 text-signal-500">
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Ionicons name="bulb" size={14} color={Colors.signal[500]} />
+              <Text style={{ fontSize: 12, fontWeight: '600', marginLeft: 8, color: Colors.signal[500] }}>
                 Suggested
               </Text>
               {suggestion.confidence && (
-                <View className="ml-2">
+                <View style={{ marginLeft: 8 }}>
                   <ConfidenceIndicator level={suggestion.confidence} />
                 </View>
               )}
             </View>
-            <Text className="text-base font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.graphite[50] }}>
               {suggestion.recommendation?.weight ?? 0} lbs x {suggestion.recommendation?.reps ?? 0} reps
             </Text>
             {suggestion.reasoning && suggestion.reasoning.trim() && suggestion.reasoning.trim().length > 1 && (
-              <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
+              <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
                 {suggestion.reasoning.trim()}
               </Text>
             )}
@@ -272,20 +276,21 @@ function CompactMemoryCard({
           {onApplySuggestion && suggestion.recommendation && (
             <Pressable
               onPress={handleApply}
-              className={`px-4 py-2 rounded-lg ${
-                applied
-                  ? 'bg-progress-500'
-                  : 'bg-signal-500'
-              }`}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: applied ? '#22c55e' : Colors.signal[500],
+              }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               {applied ? (
-                <View className="flex-row items-center">
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Ionicons name="checkmark" size={16} color="#ffffff" />
-                  <Text className="text-white font-semibold text-sm ml-1">Applied</Text>
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14, marginLeft: 4 }}>Applied</Text>
                 </View>
               ) : (
-                <Text className="text-white font-semibold text-sm">Use This</Text>
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Use This</Text>
               )}
             </Pressable>
           )}
@@ -294,13 +299,13 @@ function CompactMemoryCard({
 
       {/* No suggestion - just show memory */}
       {!suggestion && memory.confidence && (
-        <View className={`px-3 pb-3`}>
-          <View className="flex-row items-center">
-            <View className="mr-2">
+        <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ marginRight: 8 }}>
               <ConfidenceIndicator level={memory.confidence} />
             </View>
-            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
-              {(memory.exposureCount || 0) !== 1 
+            <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
+              {(memory.exposureCount || 0) !== 1
                 ? `${memory.exposureCount || 0} sessions logged`
                 : `${memory.exposureCount || 0} session logged`
               }
@@ -316,17 +321,19 @@ function CompactMemoryCard({
  * Empty state when no memory exists
  */
 export function EmptyMemoryCard() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   return (
     <View
-      className="p-3 rounded-xl bg-graphite-800 border border-graphite-700"
-      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
+      style={{
+        padding: 12,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
     >
-      <View className="flex-row items-center">
-        <Ionicons name="add-circle-outline" size={16} color="#808FB0" />
-        <Text className="text-sm ml-2 text-graphite-300" style={{ color: '#C4C8D0' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Ionicons name="add-circle-outline" size={16} color={Colors.graphite[400]} />
+        <Text style={{ fontSize: 14, marginLeft: 8, color: Colors.graphite[300] }}>
           First time logging this exercise
         </Text>
       </View>

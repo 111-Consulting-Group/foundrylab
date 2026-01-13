@@ -8,52 +8,85 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Foundry Lab brand colors - industrial lab theme
-        carbon: {
-          950: '#0E1116',
+        // Foundry Lab - Glass-morphic Industrial Blue
+        void: {
+          950: '#020202',
+          900: '#0A0A0A',
+          850: '#0F0F0F',
+          800: '#121212',
         },
         graphite: {
-          950: '#0E1116',
-          900: '#1C222B',
-          800: '#282F3A',
-          700: '#353D4B',
-          600: '#424B5C',
-          500: '#525C6E',
-          400: '#6B7485',
-          300: '#878E9C',
-          200: '#A5ABB6',
-          100: '#C4C8D0',
-          50: '#E6E8EB',
+          950: '#0A0A0A',
+          900: '#1A1A1A',
+          800: '#242424',
+          700: '#2E2E2E',
+          600: '#3D3D3D',
+          500: '#525252',
+          400: '#6B6B6B',
+          300: '#878787',
+          200: '#A5A5A5',
+          100: '#C4C4C4',
+          50: '#E6E6E6',
         },
         signal: {
-          600: '#1E5FBF',
-          500: '#2F80ED',
-          400: '#5B9DEF',
-          300: '#8BBAF2',
+          700: '#1D4ED8',
+          600: '#2563EB',
+          500: '#3B82F6',
+          400: '#60A5FA',
+          300: '#93C5FD',
+          200: '#BFDBFE',
         },
-        oxide: {
-          600: '#D77A32',
-          500: '#F2994A',
-          400: '#F5AD6F',
-        },
-        progress: {
-          600: '#1F8A4D',
-          500: '#27AE60',
-          400: '#51C17E',
+        emerald: {
+          700: '#047857',
+          600: '#059669',
+          500: '#10B981',
+          400: '#34D399',
+          300: '#6EE7B7',
         },
         regression: {
-          600: '#C93B3B',
-          500: '#EB5757',
-          400: '#EF7A7A',
+          600: '#DC2626',
+          500: '#EF4444',
+          400: '#F87171',
+        },
+        oxide: {
+          600: '#D97706',
+          500: '#F59E0B',
+          400: '#FBBF24',
+        },
+        // Legacy aliases for compatibility
+        carbon: {
+          950: '#0A0A0A',
+        },
+        progress: {
+          600: '#059669',
+          500: '#10B981',
+          400: '#34D399',
         },
         success: {
-          500: '#27AE60',
+          500: '#10B981',
         },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
         'lab-mono': ['JetBrains Mono', 'Courier', 'Menlo', 'monospace'],
+      },
+      borderRadius: {
+        '4xl': '2rem',
+        '5xl': '2.5rem',
+        '6xl': '3rem',
+      },
+      backdropBlur: {
+        '2xl': '40px',
+        '3xl': '64px',
+      },
+      boxShadow: {
+        'glow-blue': '0 0 20px -5px rgba(59, 130, 246, 0.4)',
+        'glow-emerald': '0 0 20px -5px rgba(16, 185, 129, 0.4)',
+        'glow-lg': '0 10px 40px -10px rgba(0, 0, 0, 0.5)',
+      },
+      animation: {
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },
   },

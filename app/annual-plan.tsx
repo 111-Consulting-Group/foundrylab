@@ -20,7 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnnualCalendar } from '@/components/AnnualCalendar';
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import {
   useAnnualPlanning,
   useCreateCompetition,

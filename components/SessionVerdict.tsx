@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text } from 'react-native';
-import { useColorScheme } from '@/components/useColorScheme';
 import { LabCard, StatusIndicator } from '@/components/ui/LabPrimitives';
+import { Colors } from '@/constants/Colors';
 import { evaluateSession, getSessionQualityInfo } from '@/lib/sessionQuality';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -12,8 +12,6 @@ interface SessionVerdictProps {
 }
 
 export function SessionVerdict({ workout }: SessionVerdictProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
 
   const sessionQuality = useMemo(() => evaluateSession(workout), [workout]);
   

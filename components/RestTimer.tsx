@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 
 interface RestTimerProps {
   initialSeconds?: number;
@@ -36,9 +36,6 @@ export const RestTimer = React.memo(function RestTimer({
   autoStart = true,
   exerciseName,
 }: RestTimerProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const [seconds, setSeconds] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(autoStart);
   const [totalSeconds, setTotalSeconds] = useState(initialSeconds);
@@ -136,157 +133,130 @@ export const RestTimer = React.memo(function RestTimer({
 
   return (
     <View
-      className={`rounded-xl overflow-hidden ${
-        isDark ? 'bg-graphite-800' : 'bg-white'
-      } border ${
-        isComplete
-          ? 'border-progress-500'
-          : isWarning
-          ? 'border-oxide-500'
-          : isDark
-          ? 'border-graphite-700'
-          : 'border-graphite-200'
-      }`}
+      style={{
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: isComplete ? '#22c55e' : isWarning ? '#ef4444' : 'rgba(255, 255, 255, 0.1)',
+      }}
     >
       {/* Progress bar */}
-      <View className={`h-1 ${isDark ? 'bg-graphite-700' : 'bg-graphite-200'}`}>
+      <View style={{ height: 4, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
         <View
-          className={`h-1 ${
-            isComplete
-              ? 'bg-progress-500'
-              : isWarning
-              ? 'bg-oxide-500'
-              : 'bg-signal-500'
-          }`}
-          style={{ width: `${progress}%` }}
+          style={{
+            height: 4,
+            backgroundColor: isComplete ? '#22c55e' : isWarning ? '#ef4444' : Colors.signal[500],
+            width: `${progress}%`,
+          }}
         />
       </View>
 
-      <View className="p-4">
+      <View style={{ padding: 16 }}>
         {/* Header */}
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons
               name="timer-outline"
               size={18}
-              color={isComplete ? '#22c55e' : isWarning ? '#EF4444' : '#2F80ED'}
+              color={isComplete ? '#22c55e' : isWarning ? '#EF4444' : Colors.signal[500]}
             />
-            <Text
-              className={`ml-2 font-semibold ${
-                isDark ? 'text-graphite-200' : 'text-graphite-800'
-              }`}
-            >
+            <Text style={{ marginLeft: 8, fontWeight: '600', color: Colors.graphite[200] }}>
               {isComplete ? 'Rest Complete!' : 'Rest Timer'}
             </Text>
           </View>
-          <Pressable onPress={onDismiss} className="p-1">
-            <Ionicons
-              name="close"
-              size={20}
-              color={isDark ? '#808fb0' : '#607296'}
-            />
+          <Pressable onPress={onDismiss} style={{ padding: 4 }}>
+            <Ionicons name="close" size={20} color={Colors.graphite[400]} />
           </Pressable>
         </View>
 
         {/* Timer Display */}
         <Animated.View
-          style={{ transform: [{ scale: pulseAnim }] }}
-          className="items-center mb-4"
+          style={{ transform: [{ scale: pulseAnim }], alignItems: 'center', marginBottom: 16 }}
         >
           <Text
-            className={`text-5xl font-bold ${
-              isComplete
-                ? 'text-progress-500'
-                : isWarning
-                ? 'text-oxide-500'
-                : 'text-signal-500'
-            }`}
+            style={{
+              fontSize: 48,
+              fontWeight: '700',
+              color: isComplete ? '#22c55e' : isWarning ? '#ef4444' : Colors.signal[500],
+            }}
           >
             {formatTime(seconds)}
           </Text>
           {exerciseName && (
-            <Text
-              className={`text-sm mt-1 ${
-                isDark ? 'text-graphite-400' : 'text-graphite-500'
-              }`}
-            >
+            <Text style={{ fontSize: 14, marginTop: 4, color: Colors.graphite[400] }}>
               before next set of {exerciseName}
             </Text>
           )}
         </Animated.View>
 
         {/* Controls */}
-        <View className="flex-row items-center justify-center gap-3 mb-4">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 16 }}>
           {isComplete ? (
             <Pressable
               onPress={handleReset}
-              className="flex-row items-center px-6 py-3 rounded-xl bg-signal-500"
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, backgroundColor: Colors.signal[500] }}
             >
               <Ionicons name="refresh" size={20} color="#ffffff" />
-              <Text className="text-white font-semibold ml-2">Restart</Text>
+              <Text style={{ color: '#fff', fontWeight: '600', marginLeft: 8 }}>Restart</Text>
             </Pressable>
           ) : (
             <>
               <Pressable
                 onPress={handleToggle}
-                className={`flex-row items-center px-6 py-3 rounded-xl ${
-                  isRunning ? 'bg-oxide-500' : 'bg-signal-500'
-                }`}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: isRunning ? '#ef4444' : Colors.signal[500],
+                }}
               >
-                <Ionicons
-                  name={isRunning ? 'pause' : 'play'}
-                  size={20}
-                  color="#ffffff"
-                />
-                <Text className="text-white font-semibold ml-2">
+                <Ionicons name={isRunning ? 'pause' : 'play'} size={20} color="#ffffff" />
+                <Text style={{ color: '#fff', fontWeight: '600', marginLeft: 8 }}>
                   {isRunning ? 'Pause' : 'Resume'}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => handleAddTime(30)}
-                className={`flex-row items-center px-4 py-3 rounded-xl ${
-                  isDark ? 'bg-graphite-700' : 'bg-graphite-100'
-                }`}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                }}
               >
-                <Ionicons
-                  name="add"
-                  size={20}
-                  color={isDark ? '#d3d8e4' : '#607296'}
-                />
-                <Text
-                  className={`font-semibold ml-1 ${
-                    isDark ? 'text-graphite-200' : 'text-graphite-700'
-                  }`}
-                >
-                  30s
-                </Text>
+                <Ionicons name="add" size={20} color={Colors.graphite[200]} />
+                <Text style={{ fontWeight: '600', marginLeft: 4, color: Colors.graphite[200] }}>30s</Text>
               </Pressable>
             </>
           )}
         </View>
 
         {/* Quick presets */}
-        <View className="flex-row flex-wrap justify-center gap-2">
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
           {REST_PRESETS.map((preset) => (
             <Pressable
               key={preset.seconds}
               onPress={() => handleSetTime(preset.seconds)}
-              className={`px-3 py-1.5 rounded-full ${
-                totalSeconds === preset.seconds
-                  ? 'bg-signal-500/20 border border-signal-500/50'
-                  : isDark
-                  ? 'bg-graphite-700'
-                  : 'bg-graphite-100'
-              }`}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 12,
+                backgroundColor: totalSeconds === preset.seconds ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                borderWidth: totalSeconds === preset.seconds ? 1 : 0,
+                borderColor: totalSeconds === preset.seconds ? 'rgba(59, 130, 246, 0.5)' : 'transparent',
+              }}
             >
               <Text
-                className={`text-sm ${
-                  totalSeconds === preset.seconds
-                    ? 'text-signal-500 font-semibold'
-                    : isDark
-                    ? 'text-graphite-300'
-                    : 'text-graphite-600'
-                }`}
+                style={{
+                  fontSize: 14,
+                  fontWeight: totalSeconds === preset.seconds ? '600' : '400',
+                  color: totalSeconds === preset.seconds ? Colors.signal[500] : Colors.graphite[300],
+                }}
               >
                 {preset.label}
               </Text>
@@ -310,9 +280,6 @@ export const InlineRestTimer = React.memo(function InlineRestTimer({
   onComplete?: () => void;
   onSkip?: () => void;
 }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const [seconds, setSeconds] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(true);
   const onCompleteRef = useRef(onComplete);
@@ -346,9 +313,9 @@ export const InlineRestTimer = React.memo(function InlineRestTimer({
 
   if (seconds === 0) {
     return (
-      <View className="flex-row items-center justify-center py-2">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}>
         <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-        <Text className="text-progress-500 font-semibold ml-1">
+        <Text style={{ fontWeight: '600', marginLeft: 4, color: '#22c55e' }}>
           Ready for next set!
         </Text>
       </View>
@@ -356,32 +323,22 @@ export const InlineRestTimer = React.memo(function InlineRestTimer({
   }
 
   return (
-    <View className="flex-row items-center justify-between py-2">
-      <View className="flex-row items-center">
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Ionicons
           name="timer-outline"
           size={16}
-          color={seconds <= 10 ? '#EF4444' : '#2F80ED'}
+          color={seconds <= 10 ? '#EF4444' : Colors.signal[500]}
         />
-        <Text
-          className={`ml-2 font-semibold ${
-            seconds <= 10 ? 'text-oxide-500' : 'text-signal-500'
-          }`}
-        >
+        <Text style={{ marginLeft: 8, fontWeight: '600', color: seconds <= 10 ? '#ef4444' : Colors.signal[500] }}>
           Rest: {formatTime(seconds)}
         </Text>
       </View>
       <Pressable
         onPress={onSkip}
-        className={`px-3 py-1 rounded-full ${
-          isDark ? 'bg-graphite-700' : 'bg-graphite-100'
-        }`}
+        style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
       >
-        <Text
-          className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}
-        >
-          Skip
-        </Text>
+        <Text style={{ fontSize: 14, color: Colors.graphite[300] }}>Skip</Text>
       </Pressable>
     </View>
   );

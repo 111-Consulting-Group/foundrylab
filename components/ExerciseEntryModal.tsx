@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CardioEntry } from '@/components/CardioEntry';
 import { StrengthEntry } from '@/components/StrengthEntry';
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { formatPrescription, type SetWithExercise } from '@/lib/workoutSummary';
 import type { Exercise, WorkoutSetInsert, SegmentType } from '@/types/database';
 
@@ -53,9 +53,6 @@ export function ExerciseEntryModal({
   onDeleteSet,
   onAddSet,
 }: ExerciseEntryModalProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   if (!exercise) return null;
 
   const isCardio = exercise.modality === 'Cardio';
@@ -70,110 +67,156 @@ export function ExerciseEntryModal({
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
+        style={{ flex: 1 }}
       >
-        <SafeAreaView
-          className="flex-1 bg-carbon-950"
-          style={{ backgroundColor: '#0E1116' }}
-          edges={['top', 'left', 'right']}
-        >
-          {/* Header */}
+        <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+          {/* Ambient Background Glows */}
           <View
-            className="px-4 py-3 border-b border-graphite-700"
-            style={{ borderColor: '#353D4B' }}
-          >
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text
-                  className="text-lg font-bold text-graphite-100"
-                  style={{ color: '#E6E8EB' }}
-                  numberOfLines={1}
-                >
-                  {exercise.name}
-                </Text>
-                <View className="flex-row items-center mt-1">
-                  <View
-                    className={`px-2 py-0.5 rounded ${
-                      isCardio
-                        ? 'bg-progress-500/20'
-                        : 'bg-signal-500/20'
-                    }`}
+            style={{
+              position: 'absolute',
+              top: -50,
+              right: -80,
+              width: 200,
+              height: 200,
+              backgroundColor: 'rgba(37, 99, 235, 0.06)',
+              borderRadius: 100,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 50,
+              left: -60,
+              width: 180,
+              height: 180,
+              backgroundColor: 'rgba(37, 99, 235, 0.04)',
+              borderRadius: 90,
+            }}
+          />
+
+          <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+            {/* Header */}
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+                backgroundColor: 'rgba(18, 18, 18, 0.9)',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{ fontSize: 18, fontWeight: '700', color: Colors.graphite[50] }}
+                    numberOfLines={1}
                   >
-                    <Text
-                      className={`text-xs ${
-                        isCardio ? 'text-progress-500' : 'text-signal-500'
-                      }`}
+                    {exercise.name}
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                    <View
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: 6,
+                        backgroundColor: isCardio ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                      }}
                     >
-                      {isCardio ? 'Cardio' : 'Strength'}
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          fontWeight: '600',
+                          color: isCardio ? Colors.emerald[400] : Colors.signal[400],
+                        }}
+                      >
+                        {isCardio ? 'CARDIO' : 'STRENGTH'}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{ marginLeft: 8, fontSize: 13, fontFamily: 'monospace', color: Colors.graphite[400] }}
+                    >
+                      {prescription || `${sets.length} set${sets.length > 1 ? 's' : ''}`}
                     </Text>
                   </View>
-                  <Text
-                    className="ml-2 text-sm font-medium text-graphite-300"
-                    style={{ color: '#C4C8D0' }}
-                  >
-                    {prescription || `${sets.length} set${sets.length > 1 ? 's' : ''}`}
-                  </Text>
                 </View>
+                <Pressable
+                  onPress={onClose}
+                  style={{
+                    padding: 8,
+                    borderRadius: 20,
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={24} color={Colors.graphite[50]} />
+                </Pressable>
               </View>
+            </View>
+
+            {/* Content */}
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 100 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {isCardio ? (
+                <CardioEntry
+                  exercise={exercise}
+                  sets={sets}
+                  workoutId={workoutId}
+                  onSaveSet={onSaveSet}
+                  onDeleteSet={onDeleteSet}
+                  onAddSet={onAddSet}
+                />
+              ) : (
+                <StrengthEntry
+                  exercise={exercise}
+                  sets={sets}
+                  workoutId={workoutId}
+                  targetReps={targetReps}
+                  targetRPE={targetRPE}
+                  targetLoad={targetLoad}
+                  onSaveSet={onSaveSet}
+                  onDeleteSet={onDeleteSet}
+                  onAddSet={onAddSet}
+                />
+              )}
+            </ScrollView>
+
+            {/* Done button */}
+            <SafeAreaView
+              edges={['bottom']}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderTopWidth: 1,
+                borderTopColor: 'rgba(255, 255, 255, 0.1)',
+                backgroundColor: 'rgba(18, 18, 18, 0.95)',
+              }}
+            >
               <Pressable
                 onPress={onClose}
-                className="p-2 rounded-full bg-graphite-800"
-                style={{ backgroundColor: '#1A1F2E' }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  backgroundColor: Colors.signal[600],
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  shadowColor: Colors.signal[500],
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 16,
+                }}
               >
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color="#E6E8EB"
-                />
+                <Ionicons name="checkmark-circle" size={20} color="white" style={{ marginRight: 8 }} />
+                <Text style={{ color: 'white', fontWeight: '700', fontSize: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Done
+                </Text>
               </Pressable>
-            </View>
-          </View>
-
-          {/* Content */}
-          <ScrollView
-            className="flex-1"
-            contentContainerStyle={{ paddingBottom: 100 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {isCardio ? (
-              <CardioEntry
-                exercise={exercise}
-                sets={sets}
-                workoutId={workoutId}
-                onSaveSet={onSaveSet}
-                onDeleteSet={onDeleteSet}
-                onAddSet={onAddSet}
-              />
-            ) : (
-              <StrengthEntry
-                exercise={exercise}
-                sets={sets}
-                workoutId={workoutId}
-                targetReps={targetReps}
-                targetRPE={targetRPE}
-                targetLoad={targetLoad}
-                onSaveSet={onSaveSet}
-                onDeleteSet={onDeleteSet}
-                onAddSet={onAddSet}
-              />
-            )}
-          </ScrollView>
-
-          {/* Done button */}
-          <SafeAreaView
-            edges={['bottom']}
-            className="px-4 py-3 border-t border-graphite-700 bg-carbon-950"
-            style={{ borderColor: '#353D4B', backgroundColor: '#0E1116' }}
-          >
-            <Pressable
-              onPress={onClose}
-              className="py-4 rounded-xl bg-signal-500 items-center"
-            >
-              <Text className="text-white font-semibold text-lg">Done</Text>
-            </Pressable>
+            </SafeAreaView>
           </SafeAreaView>
-        </SafeAreaView>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

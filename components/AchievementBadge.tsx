@@ -10,7 +10,7 @@ import React from 'react';
 import { View, Text, Pressable, Modal } from 'react-native';
 import { useState } from 'react';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import type { AchievementDefinition } from '@/lib/achievementUtils';
 
 interface AchievementBadgeProps {
@@ -31,14 +31,12 @@ export function AchievementBadge({
   showLabel = true,
   onPress,
 }: AchievementBadgeProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const [showDetail, setShowDetail] = useState(false);
 
   const sizes = {
-    sm: { badge: 'w-8 h-8', icon: 16, text: 'text-xs' },
-    md: { badge: 'w-12 h-12', icon: 24, text: 'text-sm' },
-    lg: { badge: 'w-16 h-16', icon: 32, text: 'text-base' },
+    sm: { badge: 32, icon: 16, text: 12 },
+    md: { badge: 48, icon: 24, text: 14 },
+    lg: { badge: 64, icon: 32, text: 16 },
   };
 
   const sizeConfig = sizes[size];
@@ -53,10 +51,16 @@ export function AchievementBadge({
 
   return (
     <>
-      <Pressable onPress={handlePress} className="items-center">
+      <Pressable onPress={handlePress} style={{ alignItems: 'center' }}>
         <View
-          className={`${sizeConfig.badge} rounded-full items-center justify-center`}
-          style={{ backgroundColor: achievement.bgColor }}
+          style={{
+            width: sizeConfig.badge,
+            height: sizeConfig.badge,
+            borderRadius: sizeConfig.badge / 2,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: achievement.bgColor,
+          }}
         >
           <Ionicons
             name={achievement.icon as any}
@@ -66,9 +70,13 @@ export function AchievementBadge({
         </View>
         {showLabel && (
           <Text
-            className={`mt-1 font-medium text-center ${sizeConfig.text} ${
-              isDark ? 'text-graphite-300' : 'text-graphite-700'
-            }`}
+            style={{
+              marginTop: 4,
+              fontWeight: '500',
+              textAlign: 'center',
+              fontSize: sizeConfig.text,
+              color: Colors.graphite[300],
+            }}
             numberOfLines={1}
           >
             {achievement.name}
@@ -84,34 +92,55 @@ export function AchievementBadge({
         onRequestClose={() => setShowDetail(false)}
       >
         <Pressable
-          className="flex-1 bg-black/50 items-center justify-center px-8"
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 32,
+          }}
           onPress={() => setShowDetail(false)}
         >
           <View
-            className={`w-full rounded-2xl p-6 items-center ${
-              isDark ? 'bg-graphite-800' : 'bg-white'
-            }`}
+            style={{
+              width: '100%',
+              borderRadius: 16,
+              padding: 24,
+              alignItems: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+            }}
           >
             <View
-              className="w-20 h-20 rounded-full items-center justify-center mb-4"
-              style={{ backgroundColor: achievement.bgColor }}
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+                backgroundColor: achievement.bgColor,
+              }}
             >
               <Ionicons name={achievement.icon as any} size={40} color={achievement.iconColor} />
             </View>
             <Text
-              className={`text-xl font-bold text-center mb-2 ${
-                isDark ? 'text-graphite-100' : 'text-graphite-900'
-              }`}
+              style={{
+                fontSize: 20,
+                fontWeight: '700',
+                textAlign: 'center',
+                marginBottom: 8,
+                color: Colors.graphite[100],
+              }}
             >
               {achievement.name}
             </Text>
-            <Text
-              className={`text-center mb-4 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-            >
+            <Text style={{ textAlign: 'center', marginBottom: 16, color: Colors.graphite[400] }}>
               {achievement.description}
             </Text>
             {earnedAt && (
-              <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+              <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>
                 Earned {new Date(earnedAt).toLocaleDateString()}
               </Text>
             )}
@@ -162,47 +191,55 @@ export function NewAchievementToast({
   visible,
   onDismiss,
 }: NewAchievementToastProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   if (!visible) return null;
 
   return (
     <Pressable
       onPress={onDismiss}
-      className="absolute bottom-24 left-4 right-4 rounded-2xl p-4 flex-row items-center shadow-lg"
-      style={{ 
+      style={{
+        position: 'absolute',
+        bottom: 96,
+        left: 16,
+        right: 16,
+        borderRadius: 16,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
         elevation: 5,
-        backgroundColor: isDark ? '#1A1F2E' : '#FFFFFF',
       }}
     >
       <View
-        className="w-14 h-14 rounded-full items-center justify-center mr-4"
-        style={{ backgroundColor: achievement.bgColor }}
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 16,
+          backgroundColor: achievement.bgColor,
+        }}
       >
         <Ionicons name={achievement.icon as any} size={28} color={achievement.iconColor} />
       </View>
-      <View className="flex-1">
-        <Text 
-          className="text-xs font-medium"
-          style={{ color: isDark ? '#6B7485' : '#808FB0' }}
-        >
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 12, fontWeight: '500', color: Colors.graphite[400] }}>
           Achievement Unlocked!
         </Text>
-        <Text 
-          className="text-lg font-bold"
-          style={{ color: isDark ? '#E6E8EB' : '#0E1116' }}
-        >
+        <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.graphite[100] }}>
           {achievement.name}
         </Text>
-        <Text 
-          className="text-sm"
-          style={{ color: isDark ? '#6B7485' : '#808FB0' }}
-        >
+        <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
           {achievement.description}
         </Text>
       </View>
-      <Ionicons name="close" size={20} color={isDark ? '#808fb0' : '#607296'} />
+      <Ionicons name="close" size={20} color={Colors.graphite[400]} />
     </Pressable>
   );
 }
@@ -216,18 +253,11 @@ interface AchievementGridProps {
 }
 
 export function AchievementGrid({ achievements, emptyMessage }: AchievementGridProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   if (achievements.length === 0) {
     return (
-      <View className="items-center py-8">
-        <Ionicons
-          name="ribbon-outline"
-          size={48}
-          color={isDark ? '#808fb0' : '#607296'}
-        />
-        <Text className={`mt-4 text-center ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+      <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+        <Ionicons name="ribbon-outline" size={48} color={Colors.graphite[400]} />
+        <Text style={{ marginTop: 16, textAlign: 'center', color: Colors.graphite[400] }}>
           {emptyMessage || 'No achievements yet'}
         </Text>
       </View>
@@ -235,9 +265,9 @@ export function AchievementGrid({ achievements, emptyMessage }: AchievementGridP
   }
 
   return (
-    <View className="flex-row flex-wrap">
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
       {achievements.map((item, index) => (
-        <View key={item.definition.id || index} className="w-1/3 p-2">
+        <View key={item.definition.id || index} style={{ width: '33.33%', padding: 8 }}>
           <AchievementBadge
             achievement={item.definition}
             earnedAt={item.earnedAt}
@@ -259,15 +289,18 @@ interface AchievementCountBadgeProps {
 }
 
 export function AchievementCountBadge({ count, recentAchievement }: AchievementCountBadgeProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   if (count === 0) return null;
 
   return (
     <View
-      className="flex-row items-center px-2 py-1 rounded-full"
-      style={{ backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)' }}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+      }}
     >
       {recentAchievement ? (
         <Ionicons
@@ -278,7 +311,7 @@ export function AchievementCountBadge({ count, recentAchievement }: AchievementC
       ) : (
         <Ionicons name="ribbon" size={14} color="#8B5CF6" />
       )}
-      <Text className="ml-1 text-xs font-semibold" style={{ color: '#8B5CF6' }}>
+      <Text style={{ marginLeft: 4, fontSize: 12, fontWeight: '600', color: '#8B5CF6' }}>
         {count}
       </Text>
     </View>

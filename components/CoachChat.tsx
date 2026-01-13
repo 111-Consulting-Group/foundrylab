@@ -18,7 +18,7 @@ import {
   View,
 } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { useCoach, useApplyCoachAction } from '@/hooks/useCoach';
 import type { QuickSuggestion } from '@/lib/coachContext';
 import type { ChatMessage, ConversationContextType, SuggestedAction } from '@/types/database';
@@ -41,27 +41,32 @@ interface CoachChatProps {
 const QuickSuggestionPill = React.memo(function QuickSuggestionPill({
   suggestion,
   onPress,
-  isDark,
 }: {
   suggestion: QuickSuggestion;
   onPress: (prompt: string) => void;
-  isDark: boolean;
 }) {
   return (
     <Pressable
       onPress={() => onPress(suggestion.prompt)}
-      className={`flex-row items-center px-4 py-2 rounded-full mr-2 mb-2 ${
-        isDark ? 'bg-graphite-700' : 'bg-graphite-100'
-      }`}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 8,
+        marginBottom: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
     >
       <Ionicons
         name={suggestion.icon as keyof typeof Ionicons.glyphMap}
         size={16}
-        color={isDark ? '#a3b1cc' : '#607296'}
+        color={Colors.graphite[300]}
       />
-      <Text
-        className={`ml-2 text-sm ${isDark ? 'text-graphite-200' : 'text-graphite-700'}`}
-      >
+      <Text style={{ marginLeft: 8, fontSize: 14, color: Colors.graphite[200] }}>
         {suggestion.label}
       </Text>
     </Pressable>
@@ -74,46 +79,40 @@ const QuickSuggestionPill = React.memo(function QuickSuggestionPill({
 
 const MessageBubble = React.memo(function MessageBubble({
   message,
-  isDark,
   onApplyAction,
 }: {
   message: ChatMessage;
-  isDark: boolean;
   onApplyAction?: (action: SuggestedAction) => void;
 }) {
   const isUser = message.role === 'user';
 
   return (
-    <View
-      className={`mb-3 ${isUser ? 'items-end' : 'items-start'}`}
-    >
+    <View style={{ marginBottom: 12, alignItems: isUser ? 'flex-end' : 'flex-start' }}>
       <View
-        className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-          isUser
-            ? 'bg-signal-500 rounded-br-sm'
-            : isDark
-            ? 'bg-graphite-800 rounded-bl-sm'
-            : 'bg-white rounded-bl-sm border border-graphite-200'
-        }`}
+        style={{
+          maxWidth: '85%',
+          borderRadius: 16,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: isUser ? Colors.signal[500] : 'rgba(255, 255, 255, 0.05)',
+          borderWidth: isUser ? 0 : 1,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          borderBottomRightRadius: isUser ? 4 : 16,
+          borderBottomLeftRadius: isUser ? 16 : 4,
+        }}
       >
         {message.isStreaming ? (
-          <View className="flex-row items-center">
-            <ActivityIndicator size="small" color={isDark ? '#a3b1cc' : '#607296'} />
-            <Text
-              className={`ml-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-            >
-              Thinking...
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={Colors.graphite[300]} />
+            <Text style={{ marginLeft: 8, color: Colors.graphite[400] }}>Thinking...</Text>
           </View>
         ) : (
           <Text
-            className={`text-base leading-6 ${
-              isUser
-                ? 'text-white'
-                : isDark
-                ? 'text-graphite-100'
-                : 'text-graphite-900'
-            }`}
+            style={{
+              fontSize: 16,
+              lineHeight: 24,
+              color: isUser ? '#ffffff' : Colors.graphite[100],
+            }}
           >
             {message.content}
           </Text>
@@ -124,23 +123,27 @@ const MessageBubble = React.memo(function MessageBubble({
       {message.suggestedAction && !message.suggestedAction.applied && onApplyAction && (
         <Pressable
           onPress={() => onApplyAction(message.suggestedAction!)}
-          className={`mt-2 flex-row items-center px-4 py-2 rounded-xl ${
-            isDark ? 'bg-signal-500/20' : 'bg-signal-50'
-          } border border-signal-500/30`}
+          style={{
+            marginTop: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 12,
+            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            borderWidth: 1,
+            borderColor: 'rgba(59, 130, 246, 0.3)',
+          }}
         >
-          <Ionicons name="flash" size={16} color="#2F80ED" />
-          <Text className="ml-2 text-signal-500 font-medium">
+          <Ionicons name="flash" size={16} color={Colors.signal[500]} />
+          <Text style={{ marginLeft: 8, color: Colors.signal[500], fontWeight: '500' }}>
             {message.suggestedAction.label}
           </Text>
         </Pressable>
       )}
 
       {/* Timestamp */}
-      <Text
-        className={`text-xs mt-1 ${
-          isDark ? 'text-graphite-500' : 'text-graphite-400'
-        }`}
-      >
+      <Text style={{ fontSize: 12, marginTop: 4, color: Colors.graphite[500] }}>
         {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </Text>
     </View>
@@ -152,33 +155,31 @@ const MessageBubble = React.memo(function MessageBubble({
 // ============================================================================
 
 const WelcomeMessage = React.memo(function WelcomeMessage({
-  isDark,
   hasReadiness,
   hasBlock,
 }: {
-  isDark: boolean;
   hasReadiness: boolean;
   hasBlock: boolean;
 }) {
   return (
-    <View className="items-center justify-center py-8 px-6">
+    <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32, paddingHorizontal: 24 }}>
       <View
-        className={`w-16 h-16 rounded-full items-center justify-center mb-4 ${
-          isDark ? 'bg-signal-500/20' : 'bg-signal-50'
-        }`}
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 16,
+          backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        }}
       >
-        <Ionicons name="fitness" size={32} color="#2F80ED" />
+        <Ionicons name="fitness" size={32} color={Colors.signal[500]} />
       </View>
-      <Text
-        className={`text-xl font-bold text-center mb-2 ${
-          isDark ? 'text-graphite-100' : 'text-graphite-900'
-        }`}
-      >
+      <Text style={{ fontSize: 20, fontWeight: '700', textAlign: 'center', marginBottom: 8, color: Colors.graphite[100] }}>
         Hey, Coach here!
       </Text>
-      <Text
-        className={`text-center ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-      >
+      <Text style={{ textAlign: 'center', color: Colors.graphite[400] }}>
         I've got your training data loaded.{' '}
         {hasReadiness
           ? "I see you've checked in today - "
@@ -200,46 +201,69 @@ const InputBar = React.memo(function InputBar({
   onChangeText,
   onSend,
   isStreaming,
-  isDark,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
   isStreaming: boolean;
-  isDark: boolean;
 }) {
   const canSend = value.trim().length > 0 && !isStreaming;
 
   return (
     <View
-      className={`flex-row items-end px-4 py-3 border-t ${
-        isDark ? 'border-graphite-800 bg-carbon-950' : 'border-graphite-200 bg-white'
-      }`}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+      }}
     >
       <View
-        className={`flex-1 flex-row items-end rounded-2xl px-4 py-2 min-h-[44px] max-h-32 ${
-          isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-        }`}
+        style={{
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          borderRadius: 20,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          minHeight: 44,
+          maxHeight: 128,
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
       >
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder="Ask your coach..."
-          placeholderTextColor={isDark ? '#607296' : '#a3b1cc'}
+          placeholderTextColor={Colors.graphite[500]}
           multiline
           maxLength={1000}
-          className={`flex-1 text-base py-1 ${
-            isDark ? 'text-graphite-100' : 'text-graphite-900'
-          }`}
-          style={{ maxHeight: 100 }}
+          style={{
+            flex: 1,
+            fontSize: 16,
+            paddingVertical: 4,
+            maxHeight: 100,
+            color: Colors.graphite[100],
+          }}
         />
       </View>
       <Pressable
         onPress={onSend}
         disabled={!canSend}
-        className={`ml-2 w-11 h-11 rounded-full items-center justify-center ${
-          canSend ? 'bg-signal-500' : isDark ? 'bg-graphite-700' : 'bg-graphite-300'
-        }`}
+        style={{
+          marginLeft: 8,
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: canSend ? Colors.signal[500] : 'rgba(255, 255, 255, 0.1)',
+        }}
       >
         {isStreaming ? (
           <ActivityIndicator size="small" color="#ffffff" />
@@ -247,7 +271,7 @@ const InputBar = React.memo(function InputBar({
           <Ionicons
             name="send"
             size={20}
-            color={canSend ? '#ffffff' : isDark ? '#607296' : '#a3b1cc'}
+            color={canSend ? '#ffffff' : Colors.graphite[500]}
           />
         )}
       </Pressable>
@@ -265,9 +289,6 @@ export const CoachChat = React.memo(function CoachChat({
   blockId,
   onClose,
 }: CoachChatProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const flatListRef = useRef<FlatList>(null);
   const [inputText, setInputText] = useState('');
 
@@ -318,22 +339,19 @@ export const CoachChat = React.memo(function CoachChat({
     ({ item }: { item: ChatMessage }) => (
       <MessageBubble
         message={item}
-        isDark={isDark}
         onApplyAction={item.role === 'assistant' ? handleApplyAction : undefined}
       />
     ),
-    [isDark, handleApplyAction]
+    [handleApplyAction]
   );
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="#2F80ED" />
-        <Text
-          className={`mt-4 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-        >
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={Colors.signal[500]} />
+        <Text style={{ marginTop: 16, color: Colors.graphite[400] }}>
           Loading your training context...
         </Text>
       </View>
@@ -343,34 +361,38 @@ export const CoachChat = React.memo(function CoachChat({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1"
+      style={{ flex: 1 }}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       {/* Header */}
       <View
-        className={`flex-row items-center justify-between px-4 py-3 border-b ${
-          isDark ? 'border-graphite-800' : 'border-graphite-200'
-        }`}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        }}
       >
-        <View className="flex-row items-center">
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View
-            className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
-              isDark ? 'bg-signal-500/20' : 'bg-signal-50'
-            }`}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            }}
           >
-            <Ionicons name="fitness" size={20} color="#2F80ED" />
+            <Ionicons name="fitness" size={20} color={Colors.signal[500]} />
           </View>
           <View>
-            <Text
-              className={`font-semibold ${
-                isDark ? 'text-graphite-100' : 'text-graphite-900'
-              }`}
-            >
-              AI Coach
-            </Text>
-            <Text
-              className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-            >
+            <Text style={{ fontWeight: '600', color: Colors.graphite[100] }}>AI Coach</Text>
+            <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
               {context?.currentBlock
                 ? `Week ${Math.ceil((Date.now() - new Date(context.currentBlock.start_date).getTime()) / (7 * 24 * 60 * 60 * 1000))} of ${context.currentBlock.name}`
                 : 'Ready to help'}
@@ -378,12 +400,8 @@ export const CoachChat = React.memo(function CoachChat({
           </View>
         </View>
         {onClose && (
-          <Pressable onPress={onClose} className="p-2">
-            <Ionicons
-              name="close"
-              size={24}
-              color={isDark ? '#d3d8e4' : '#374151'}
-            />
+          <Pressable onPress={onClose} style={{ padding: 8 }}>
+            <Ionicons name="close" size={24} color={Colors.graphite[200]} />
           </Pressable>
         )}
       </View>
@@ -400,30 +418,24 @@ export const CoachChat = React.memo(function CoachChat({
           flexGrow: messages.length === 0 ? 1 : undefined,
         }}
         ListEmptyComponent={
-          <View className="flex-1">
+          <View style={{ flex: 1 }}>
             <WelcomeMessage
-              isDark={isDark}
               hasReadiness={!!context?.todayReadiness}
               hasBlock={!!context?.currentBlock}
             />
 
             {/* Quick Suggestions */}
             {quickSuggestions.length > 0 && (
-              <View className="px-2 mt-4">
-                <Text
-                  className={`text-sm font-medium mb-3 ${
-                    isDark ? 'text-graphite-400' : 'text-graphite-500'
-                  }`}
-                >
+              <View style={{ paddingHorizontal: 8, marginTop: 16 }}>
+                <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12, color: Colors.graphite[400] }}>
                   Quick questions
                 </Text>
-                <View className="flex-row flex-wrap">
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                   {quickSuggestions.map((suggestion) => (
                     <QuickSuggestionPill
                       key={suggestion.id}
                       suggestion={suggestion}
                       onPress={handleQuickSuggestion}
-                      isDark={isDark}
                     />
                   ))}
                 </View>
@@ -440,7 +452,6 @@ export const CoachChat = React.memo(function CoachChat({
         onChangeText={setInputText}
         onSend={handleSend}
         isStreaming={isStreaming}
-        isDark={isDark}
       />
     </KeyboardAvoidingView>
   );
@@ -457,16 +468,16 @@ export const CoachButton = React.memo(function CoachButton({
   onPress: () => void;
   hasNotification?: boolean;
 }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   return (
     <Pressable
       onPress={onPress}
-      className={`w-14 h-14 rounded-full items-center justify-center shadow-lg ${
-        isDark ? 'bg-signal-600' : 'bg-signal-500'
-      }`}
       style={{
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.signal[500],
         shadowColor: '#2F80ED',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -476,7 +487,19 @@ export const CoachButton = React.memo(function CoachButton({
     >
       <Ionicons name="chatbubble-ellipses" size={24} color="#ffffff" />
       {hasNotification && (
-        <View className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 border-white" />
+        <View
+          style={{
+            position: 'absolute',
+            top: -4,
+            right: -4,
+            width: 16,
+            height: 16,
+            borderRadius: 8,
+            backgroundColor: '#ef4444',
+            borderWidth: 2,
+            borderColor: '#ffffff',
+          }}
+        />
       )}
     </Pressable>
   );

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { View, Text } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { formatPrescription, generateExerciseSummary, type SetWithExercise } from '@/lib/workoutSummary';
 import type { Exercise, WorkoutSet } from '@/types/database';
 import { LabCard, LabStat } from '@/components/ui/LabPrimitives';
@@ -34,9 +34,6 @@ export function ExerciseBreakdown({
   targetLoad,
   previousBest,
 }: ExerciseBreakdownProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const isCardio = exercise.modality === 'Cardio';
   
   // Convert WorkoutSet to SetWithExercise for summary functions

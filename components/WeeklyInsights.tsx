@@ -1,6 +1,6 @@
 /**
  * Weekly Insights Component
- * 
+ *
  * Shows pattern recognition and quiet education for the week
  */
 
@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, Text } from 'react-native';
 import { useMemo } from 'react';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import type { WorkoutWithSets } from '@/types/database';
 
 interface WeeklyInsightsProps {
@@ -16,8 +16,6 @@ interface WeeklyInsightsProps {
 }
 
 export function WeeklyInsights({ workouts }: WeeklyInsightsProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
 
   // Calculate weekly stats
   const insights = useMemo(() => {
@@ -82,20 +80,26 @@ export function WeeklyInsights({ workouts }: WeeklyInsightsProps) {
 
   return (
     <View
-      className="p-4 rounded-xl mb-4 bg-graphite-800 border border-graphite-700"
-      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
+      style={{
+        padding: 16,
+        borderRadius: 16,
+        marginBottom: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
     >
-      <View className="flex-row items-center mb-3">
-        <Ionicons name="analytics-outline" size={20} color="#2F80ED" />
-        <Text className="text-lg font-bold ml-2 text-graphite-100" style={{ color: '#E6E8EB' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+        <Ionicons name="analytics-outline" size={20} color={Colors.signal[400]} />
+        <Text style={{ fontSize: 18, fontWeight: '700', marginLeft: 8, color: Colors.graphite[50] }}>
           This Week
         </Text>
       </View>
 
       {/* Key insights */}
-      <View className="gap-2">
+      <View style={{ gap: 8 }}>
         {insights.frequentExercises.length > 0 && (
-          <Text className="text-sm text-graphite-300" style={{ color: '#C4C8D0' }}>
+          <Text style={{ fontSize: 14, color: Colors.graphite[300] }}>
             {insights.frequentExercises[0]?.count} exposures to {insights.frequentExercises[0]?.name}.{' '}
             {insights.totalVolume >= 1000
               ? `Volume: ${(insights.totalVolume / 1000).toFixed(1)}k lbs.`

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { InlineRestTimer } from '@/components/RestTimer';
 import { usePreviousPerformance } from '@/hooks/useWorkouts';
 import { useExerciseMemory } from '@/hooks/useExerciseMemory';
@@ -52,9 +52,6 @@ export const SetInput = React.memo(function SetInput({
   onSave,
   onPRDetected,
 }: SetInputProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   // Fetch previous performance for this exercise
   const { data: rawPreviousPerformance = [] } = usePreviousPerformance(exercise.id, workoutId);
   
@@ -251,35 +248,33 @@ export const SetInput = React.memo(function SetInput({
 
   return (
     <Animated.View
-      style={{ transform: [{ scale: scaleAnim }] }}
-      className={`p-4 rounded-xl mb-3 ${
-        isCompleted
-          ? isDark
-            ? 'bg-progress-500/20 border-progress-500/50'
-            : 'bg-progress-500/20 border-progress-500/50'
-          : isDark
-          ? 'bg-graphite-800'
-          : 'bg-white'
-      } border ${
-        isCompleted
-          ? ''
-          : isDark
-          ? 'border-graphite-700'
-          : 'border-graphite-200'
-      }`}
+      style={{
+        transform: [{ scale: scaleAnim }],
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        backgroundColor: isCompleted ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: isCompleted ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+      }}
     >
       {/* Exercise Memory - Last Time (Strength only) */}
       {!isCardio && exerciseMemory && !isWarmup && !isCompleted && (
         <View
-          className={`mb-3 p-3 rounded-lg ${
-            isDark ? 'bg-signal-500/10 border-signal-500/30' : 'bg-signal-500/5 border-signal-500/20'
-          } border`}
+          style={{
+            marginBottom: 12,
+            padding: 12,
+            borderRadius: 8,
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 1,
+            borderColor: 'rgba(59, 130, 246, 0.2)',
+          }}
         >
-          <View className="flex-row items-center mb-1">
-            <Ionicons name="time-outline" size={14} color="#2F80ED" />
-            <Text className={`text-xs font-semibold ml-1 text-signal-500`}>Last time</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Ionicons name="time-outline" size={14} color={Colors.signal[500]} />
+            <Text style={{ fontSize: 12, fontWeight: '600', marginLeft: 4, color: Colors.signal[500] }}>Last time</Text>
           </View>
-          <Text className={`text-sm ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+          <Text style={{ fontSize: 14, color: Colors.graphite[100] }}>
             {exerciseMemory.displayText}
           </Text>
         </View>
@@ -296,25 +291,30 @@ export const SetInput = React.memo(function SetInput({
             actual_reps: p.actual_reps || null,
             actual_rpe: p.actual_rpe || null,
           }));
-        
+
         const suggestion = suggestProgression(exercise, historyForSuggestion);
-        
+
         if (suggestion && !isWarmup && !isCompleted) {
           return (
             <View
-              className={`mb-3 p-3 rounded-lg ${
-                isDark ? 'bg-progress-500/10 border-progress-500/30' : 'bg-progress-500/5 border-progress-500/20'
-              } border`}
+              style={{
+                marginBottom: 12,
+                padding: 12,
+                borderRadius: 8,
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(34, 197, 94, 0.2)',
+              }}
             >
-              <View className="flex-row items-center mb-1">
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                 <Ionicons name="trending-up-outline" size={14} color="#22c55e" />
-                <Text className={`text-xs font-semibold ml-1 text-progress-500`}>Suggested</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', marginLeft: 4, color: '#22c55e' }}>Suggested</Text>
               </View>
-              <Text className={`text-sm font-medium ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: Colors.graphite[100] }}>
                 {formatProgressionSuggestion(suggestion)}
               </Text>
               {suggestion.targetWeight && (
-                <Text className={`text-xs mt-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                <Text style={{ fontSize: 12, marginTop: 4, color: Colors.graphite[400] }}>
                   {suggestion.targetWeight} lb × {suggestion.targetReps || reps || '?'} reps @ RPE {suggestion.targetRPE?.toFixed(1) || '?'}
                 </Text>
               )}
@@ -325,39 +325,37 @@ export const SetInput = React.memo(function SetInput({
       })()}
 
       {/* Set Header */}
-      <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row items-center">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View
-            className={`w-8 h-8 rounded-full items-center justify-center mr-2 ${
-              isWarmup
-                ? isDark
-                  ? 'bg-graphite-700'
-                  : 'bg-graphite-200'
-                : isDark
-                ? 'bg-signal-500/30'
-                : 'bg-graphite-100'
-            }`}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 8,
+              backgroundColor: isWarmup ? 'rgba(255, 255, 255, 0.1)' : 'rgba(59, 130, 246, 0.2)',
+            }}
           >
             <Text
-              className={`font-bold text-sm ${
-                isWarmup
-                  ? isDark
-                    ? 'text-graphite-400'
-                    : 'text-graphite-500'
-                  : 'text-signal-500'
-              }`}
+              style={{
+                fontWeight: '700',
+                fontSize: 14,
+                color: isWarmup ? Colors.graphite[400] : Colors.signal[500],
+              }}
             >
               {isWarmup ? 'W' : setNumber}
             </Text>
           </View>
-          <Text className={`font-medium ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+          <Text style={{ fontWeight: '500', color: Colors.graphite[100] }}>
             {isWarmup ? 'Warm-up Set' : `Set ${setNumber}`}
           </Text>
         </View>
 
         {/* Completed Check */}
         {isCompleted && (
-          <View className="flex-row items-center">
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
           </View>
         )}
@@ -365,7 +363,7 @@ export const SetInput = React.memo(function SetInput({
 
       {/* Rest Timer - shown after completing a set */}
       {showRestTimer && isCompleted && (
-        <View className="mb-3">
+        <View style={{ marginBottom: 12 }}>
           <InlineRestTimer
             seconds={restSeconds}
             onComplete={() => setShowRestTimer(false)}
@@ -377,81 +375,116 @@ export const SetInput = React.memo(function SetInput({
       {/* Input Row */}
       {isCardio ? (
         // Cardio Inputs
-        <View className="gap-3 mb-3">
+        <View style={{ gap: 12, marginBottom: 12 }}>
           {/* Duration and Pace Row */}
-          <View className="flex-row items-center gap-3">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             {/* Duration Input */}
-            <View className="flex-1">
-              <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, marginBottom: 4, color: Colors.graphite[400] }}>
                 Duration (min)
               </Text>
               <TextInput
-                className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
-                  isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  textAlign: 'center',
+                  fontSize: 18,
+                  fontWeight: '600',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  color: Colors.graphite[100],
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
                 value={durationMinutes}
                 onChangeText={setDurationMinutes}
                 keyboardType="decimal-pad"
                 placeholder="0"
-                placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+                placeholderTextColor={Colors.graphite[500]}
                 editable={!isCompleted}
               />
             </View>
 
             {/* Pace Input */}
-            <View className="flex-1">
-              <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, marginBottom: 4, color: Colors.graphite[400] }}>
                 Pace (optional)
               </Text>
               <TextInput
-                className={`px-3 py-2 rounded-lg text-center text-base font-semibold ${
-                  isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  textAlign: 'center',
+                  fontSize: 16,
+                  fontWeight: '600',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  color: Colors.graphite[100],
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
                 value={pace}
                 onChangeText={setPace}
                 placeholder="7:30/mile"
-                placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+                placeholderTextColor={Colors.graphite[500]}
                 editable={!isCompleted}
               />
             </View>
           </View>
 
           {/* Heart Rate and RPE Row */}
-          <View className="flex-row items-center gap-3">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             {/* Heart Rate Input */}
-            <View className="flex-1">
-              <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, marginBottom: 4, color: Colors.graphite[400] }}>
                 Heart Rate (bpm)
               </Text>
               <TextInput
-                className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
-                  isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  textAlign: 'center',
+                  fontSize: 18,
+                  fontWeight: '600',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  color: Colors.graphite[100],
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
                 value={heartRate}
                 onChangeText={setHeartRate}
                 keyboardType="number-pad"
                 placeholder="0"
-                placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+                placeholderTextColor={Colors.graphite[500]}
                 editable={!isCompleted}
               />
             </View>
 
             {/* RPE Button/Display */}
-            <View className="flex-1">
-              <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, marginBottom: 4, color: Colors.graphite[400] }}>
                 RPE
               </Text>
               <Pressable
-                className={`px-3 py-2 rounded-lg items-center ${
-                  isDark ? 'bg-graphite-900' : 'bg-graphite-50'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
                 onPress={() => !isCompleted && setShowRPESlider(!showRPESlider)}
                 disabled={isCompleted}
               >
                 <Text
-                  className={`text-lg font-semibold ${
-                    rpe >= 9 ? 'text-oxide-500' : isDark ? 'text-graphite-100' : 'text-graphite-900'
-                  }`}
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '600',
+                    color: rpe >= 9 ? '#ef4444' : Colors.graphite[100],
+                  }}
                 >
                   {rpe}
                 </Text>
@@ -461,11 +494,11 @@ export const SetInput = React.memo(function SetInput({
         </View>
       ) : (
         // Strength Inputs
-        <View className="flex-row items-center gap-3 mb-3">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           {/* Weight Input */}
-          <View className="flex-1">
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
                 Weight (lbs)
               </Text>
               <Pressable
@@ -479,34 +512,43 @@ export const SetInput = React.memo(function SetInput({
                 }}
                 disabled={isCompleted}
               >
-                <View className={`flex-row items-center px-2 py-0.5 rounded ${
-                  isBodyweight 
-                    ? 'bg-signal-500/20' 
-                    : isDark 
-                      ? 'bg-graphite-700' 
-                      : 'bg-graphite-100'
-                }`}>
-                  <Ionicons 
-                    name={isBodyweight ? 'checkmark-circle' : 'ellipse-outline'} 
-                    size={14} 
-                    color={isBodyweight ? '#2F80ED' : (isDark ? '#808fb0' : '#607296')} 
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  backgroundColor: isBodyweight ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                }}>
+                  <Ionicons
+                    name={isBodyweight ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={14}
+                    color={isBodyweight ? Colors.signal[500] : Colors.graphite[400]}
                   />
-                  <Text className={`text-xs ml-1 ${
-                    isBodyweight 
-                      ? 'text-signal-500 font-semibold' 
-                      : isDark 
-                        ? 'text-graphite-400' 
-                        : 'text-graphite-500'
-                  }`}>
+                  <Text style={{
+                    fontSize: 12,
+                    marginLeft: 4,
+                    fontWeight: isBodyweight ? '600' : '400',
+                    color: isBodyweight ? Colors.signal[500] : Colors.graphite[400],
+                  }}>
                     BW
                   </Text>
                 </View>
               </Pressable>
             </View>
             <TextInput
-              className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
-                isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-              } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 8,
+                textAlign: 'center',
+                fontSize: 18,
+                fontWeight: '600',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                color: Colors.graphite[100],
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              }}
               value={isBodyweight ? 'BW' : weight}
               onChangeText={(text) => {
                 if (isBodyweight) return;
@@ -514,49 +556,66 @@ export const SetInput = React.memo(function SetInput({
               }}
               keyboardType="decimal-pad"
               placeholder={isBodyweight ? 'BW' : '0'}
-              placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+              placeholderTextColor={Colors.graphite[500]}
               editable={!isCompleted && !isBodyweight}
             />
           </View>
 
-          <Text className={`text-xl ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>x</Text>
+          <Text style={{ fontSize: 20, color: Colors.graphite[400] }}>x</Text>
 
           {/* Reps Input */}
-          <View className="flex-1">
-            <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, marginBottom: 4, color: Colors.graphite[400] }}>
               Reps
             </Text>
             <TextInput
-              className={`px-3 py-2 rounded-lg text-center text-lg font-semibold ${
-                isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-              } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 8,
+                textAlign: 'center',
+                fontSize: 18,
+                fontWeight: '600',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                color: Colors.graphite[100],
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              }}
               value={reps}
               onChangeText={setReps}
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+              placeholderTextColor={Colors.graphite[500]}
               editable={!isCompleted}
             />
           </View>
 
-          <Text className={`text-xl ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>@</Text>
+          <Text style={{ fontSize: 20, color: Colors.graphite[400] }}>@</Text>
 
           {/* RPE Button/Display */}
-          <View className="flex-1">
-            <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, marginBottom: 4, color: Colors.graphite[400] }}>
               RPE
             </Text>
             <Pressable
-              className={`px-3 py-2 rounded-lg items-center ${
-                isDark ? 'bg-graphite-900' : 'bg-graphite-50'
-              } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 8,
+                alignItems: 'center',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              }}
               onPress={() => !isCompleted && setShowRPESlider(!showRPESlider)}
               disabled={isCompleted}
             >
               <Text
-                className={`text-lg font-semibold ${
-                  rpe >= 9 ? 'text-oxide-500' : isDark ? 'text-graphite-100' : 'text-graphite-900'
-                }`}
+                style={{
+                  fontSize: 18,
+                  fontWeight: '600',
+                  color: rpe >= 9 ? '#ef4444' : Colors.graphite[100],
+                }}
               >
                 {rpe}
               </Text>
@@ -567,12 +626,17 @@ export const SetInput = React.memo(function SetInput({
 
       {/* RPE Slider (expandable) */}
       {showRPESlider && !isCompleted && (
-        <View className={`p-3 rounded-lg mb-3 ${isDark ? 'bg-graphite-900' : 'bg-graphite-50'}`}>
-          <View className="flex-row justify-between mb-2">
-            <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+        <View style={{
+          padding: 12,
+          borderRadius: 8,
+          marginBottom: 12,
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
               RPE {rpe}
             </Text>
-            <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
               {RPE_DESCRIPTIONS[rpe] || ''}
             </Text>
           </View>
@@ -582,57 +646,65 @@ export const SetInput = React.memo(function SetInput({
             step={0.5}
             value={rpe}
             onValueChange={setRpe}
-            minimumTrackTintColor="#2F80ED"
-            maximumTrackTintColor={isDark ? '#353D4B' : '#A5ABB6'}
-            thumbTintColor="#2F80ED"
+            minimumTrackTintColor={Colors.signal[500]}
+            maximumTrackTintColor="rgba(255, 255, 255, 0.2)"
+            thumbTintColor={Colors.signal[500]}
           />
         </View>
       )}
 
       {/* Tempo Input (Strength only) */}
       {!isCardio && !isCompleted && (
-        <View className="flex-row items-center mb-3">
-          <Text className={`text-xs mr-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, marginRight: 8, color: Colors.graphite[400] }}>
             Tempo:
           </Text>
           <TextInput
-            className={`px-3 py-2 rounded-lg text-center text-sm flex-1 ${
-              isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              textAlign: 'center',
+              fontSize: 14,
+              flex: 1,
+              maxWidth: 120,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              color: Colors.graphite[100],
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+            }}
             value={tempo}
             onChangeText={setTempo}
             placeholder="3-0-1-0"
-            placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+            placeholderTextColor={Colors.graphite[500]}
             editable={!isCompleted}
-            style={{ maxWidth: 120 }}
           />
         </View>
       )}
 
       {/* E1RM and Save Button */}
-      <View className="flex-row items-center justify-between">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         {!isCardio && currentE1RM > 0 && (
-          <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-            Est. 1RM: <Text className="font-semibold text-signal-500">{currentE1RM} lbs</Text>
+          <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
+            Est. 1RM: <Text style={{ fontWeight: '600', color: Colors.signal[500] }}>{currentE1RM} lbs</Text>
           </Text>
         )}
 
         {/* Save Button */}
         {!isCompleted && (
           <Pressable
-            className={`px-6 py-2 rounded-full ${
-              isCardio
+            style={{
+              paddingHorizontal: 24,
+              paddingVertical: 8,
+              borderRadius: 20,
+              backgroundColor: isCardio
                 ? durationMinutes && parseFloat(durationMinutes) > 0
-                  ? 'bg-signal-500'
-                  : isDark
-                  ? 'bg-graphite-700'
-                  : 'bg-graphite-200'
+                  ? Colors.signal[500]
+                  : 'rgba(255, 255, 255, 0.1)'
                 : (isBodyweight || weight) && reps
-                ? 'bg-signal-500'
-                : isDark
-                ? 'bg-graphite-700'
-                : 'bg-graphite-200'
-            }`}
+                ? Colors.signal[500]
+                : 'rgba(255, 255, 255, 0.1)',
+            }}
             onPress={handleSaveSet}
             disabled={
               isCardio
@@ -641,19 +713,16 @@ export const SetInput = React.memo(function SetInput({
             }
           >
             <Text
-              className={`font-semibold ${
-                isCardio
+              style={{
+                fontWeight: '600',
+                color: isCardio
                   ? durationMinutes && parseFloat(durationMinutes) > 0
-                    ? 'text-white'
-                    : isDark
-                    ? 'text-graphite-500'
-                    : 'text-graphite-400'
+                    ? '#ffffff'
+                    : Colors.graphite[500]
                   : (isBodyweight || weight) && reps
-                  ? 'text-white'
-                  : isDark
-                  ? 'text-graphite-500'
-                  : 'text-graphite-400'
-              }`}
+                  ? '#ffffff'
+                  : Colors.graphite[500],
+              }}
             >
               Log Set
             </Text>
@@ -662,18 +731,14 @@ export const SetInput = React.memo(function SetInput({
 
         {isCompleted && (
           <Pressable
-            className="flex-row items-center"
+            style={{ flexDirection: 'row', alignItems: 'center' }}
             onPress={() => {
               setIsCompleted(false);
               setShowRestTimer(false);
             }}
           >
-            <Ionicons
-              name="create-outline"
-              size={16}
-              color={isDark ? '#808fb0' : '#607296'}
-            />
-            <Text className={`ml-1 text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Ionicons name="create-outline" size={16} color={Colors.graphite[400]} />
+            <Text style={{ marginLeft: 4, fontSize: 14, color: Colors.graphite[400] }}>
               Edit
             </Text>
           </Pressable>

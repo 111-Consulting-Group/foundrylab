@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, Alert, Platform } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { formatDistance, formatPace, type SetWithExercise } from '@/lib/workoutSummary';
 import type { Exercise, WorkoutSetInsert, SegmentType } from '@/types/database';
 
@@ -84,9 +84,6 @@ export function CardioEntry({
   onDeleteSet,
   onAddSet,
 }: CardioEntryProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   // Form state
   const [segmentType, setSegmentType] = useState<SegmentType>('work');
   const [selectedDistance, setSelectedDistance] = useState<number | null>(400);
@@ -210,37 +207,32 @@ export function CardioEntry({
   return (
     <View className="px-4 pt-4">
       {/* Segment Type Picker */}
-      <View className="mb-4">
-        <Text
-          className={`text-sm font-semibold mb-2 ${
-            isDark ? 'text-graphite-300' : 'text-graphite-600'
-          }`}
-        >
+      <View style={{ marginBottom: 16 }}>
+        <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
           Segment Type
         </Text>
-        <View className="flex-row gap-2">
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           {SEGMENT_TYPES.map((seg) => (
             <Pressable
               key={seg.type}
               onPress={() => setSegmentType(seg.type)}
-              className={`flex-1 py-2 px-3 rounded-lg items-center ${
-                segmentType === seg.type ? '' : isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-              }`}
-              style={
-                segmentType === seg.type
-                  ? { backgroundColor: seg.bgColor, borderWidth: 2, borderColor: seg.color }
-                  : undefined
-              }
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderRadius: 8,
+                alignItems: 'center',
+                backgroundColor: segmentType === seg.type ? seg.bgColor : 'rgba(255, 255, 255, 0.05)',
+                borderWidth: segmentType === seg.type ? 2 : 1,
+                borderColor: segmentType === seg.type ? seg.color : 'rgba(255, 255, 255, 0.1)',
+              }}
             >
               <Text
-                className={`text-sm font-semibold ${
-                  segmentType === seg.type
-                    ? ''
-                    : isDark
-                    ? 'text-graphite-400'
-                    : 'text-graphite-500'
-                }`}
-                style={segmentType === seg.type ? { color: seg.color } : undefined}
+                style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: segmentType === seg.type ? seg.color : Colors.graphite[400],
+                }}
               >
                 {seg.label}
               </Text>
@@ -250,17 +242,13 @@ export function CardioEntry({
       </View>
 
       {/* Distance Presets */}
-      <View className="mb-4">
-        <View className="flex-row items-center justify-between mb-2">
-          <Text
-            className={`text-sm font-semibold ${
-              isDark ? 'text-graphite-300' : 'text-graphite-600'
-            }`}
-          >
+      <View style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
             Distance
           </Text>
           {/* Unit Toggle */}
-          <View className="flex-row gap-1">
+          <View style={{ flexDirection: 'row', gap: 4 }}>
             {(['meters', 'miles', 'km'] as const).map((unit) => (
               <Pressable
                 key={unit}
@@ -269,22 +257,19 @@ export function CardioEntry({
                   setSelectedDistance(null);
                   setCustomDistance('');
                 }}
-                className={`px-2 py-1 rounded ${
-                  distanceUnit === unit
-                    ? 'bg-signal-500'
-                    : isDark
-                    ? 'bg-graphite-800'
-                    : 'bg-graphite-100'
-                }`}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 4,
+                  backgroundColor: distanceUnit === unit ? Colors.signal[500] : 'rgba(255, 255, 255, 0.05)',
+                }}
               >
                 <Text
-                  className={`text-xs font-semibold ${
-                    distanceUnit === unit
-                      ? 'text-white'
-                      : isDark
-                      ? 'text-graphite-400'
-                      : 'text-graphite-500'
-                  }`}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: distanceUnit === unit ? '#fff' : Colors.graphite[400],
+                  }}
                 >
                   {unit === 'meters' ? 'm' : unit === 'miles' ? 'mi' : 'km'}
                 </Text>
@@ -292,7 +277,7 @@ export function CardioEntry({
             ))}
           </View>
         </View>
-        <View className="flex-row gap-2 mb-2">
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
           {getDistancePresets(distanceUnit).map((preset) => (
             <Pressable
               key={preset.meters}
@@ -300,22 +285,21 @@ export function CardioEntry({
                 setSelectedDistance(preset.meters);
                 setCustomDistance('');
               }}
-              className={`flex-1 py-3 rounded-lg items-center border ${
-                selectedDistance === preset.meters
-                  ? 'border-signal-500 bg-signal-500/10'
-                  : isDark
-                  ? 'border-graphite-700 bg-graphite-800'
-                  : 'border-graphite-200 bg-white'
-              }`}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 8,
+                alignItems: 'center',
+                borderWidth: 1,
+                backgroundColor: selectedDistance === preset.meters ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                borderColor: selectedDistance === preset.meters ? Colors.signal[500] : 'rgba(255, 255, 255, 0.1)',
+              }}
             >
               <Text
-                className={`font-semibold ${
-                  selectedDistance === preset.meters
-                    ? 'text-signal-500'
-                    : isDark
-                    ? 'text-graphite-100'
-                    : 'text-graphite-900'
-                }`}
+                style={{
+                  fontWeight: '600',
+                  color: selectedDistance === preset.meters ? Colors.signal[500] : Colors.graphite[100],
+                }}
               >
                 {preset.label}
               </Text>
@@ -323,22 +307,22 @@ export function CardioEntry({
           ))}
         </View>
         {/* Custom distance input */}
-        <View className="flex-row items-center">
-          <Text
-            className={`text-sm mr-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-          >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ fontSize: 14, marginRight: 8, color: Colors.graphite[400] }}>
             Custom:
           </Text>
           <TextInput
-            className={`flex-1 px-3 py-2 rounded-lg text-center ${
-              isDark ? 'bg-graphite-800 text-graphite-100' : 'bg-white text-graphite-900'
-            } border ${
-              customDistance
-                ? 'border-signal-500'
-                : isDark
-                ? 'border-graphite-700'
-                : 'border-graphite-200'
-            }`}
+            style={{
+              flex: 1,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              textAlign: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              color: Colors.graphite[100],
+              borderWidth: 1,
+              borderColor: customDistance ? Colors.signal[500] : 'rgba(255, 255, 255, 0.1)',
+            }}
             value={customDistance}
             onChangeText={(text) => {
               setCustomDistance(text);
@@ -346,48 +330,39 @@ export function CardioEntry({
             }}
             keyboardType="decimal-pad"
             placeholder="0"
-            placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+            placeholderTextColor={Colors.graphite[500]}
           />
-          <Text
-            className={`ml-2 text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-          >
+          <Text style={{ marginLeft: 8, fontSize: 14, color: Colors.graphite[400] }}>
             {distanceUnit === 'meters' ? 'meters' : distanceUnit === 'miles' ? 'miles' : 'km'}
           </Text>
         </View>
       </View>
 
       {/* Pace Input */}
-      <View className="mb-4">
-        <View className="flex-row items-center justify-between mb-2">
-          <Text
-            className={`text-sm font-semibold ${
-              isDark ? 'text-graphite-300' : 'text-graphite-600'
-            }`}
-          >
+      <View style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
             Pace
           </Text>
           {/* Pace Unit Toggle */}
-          <View className="flex-row gap-1">
+          <View style={{ flexDirection: 'row', gap: 4 }}>
             {(['/mi', '/km', '/m'] as const).map((unit) => (
               <Pressable
                 key={unit}
                 onPress={() => setPaceUnit(unit)}
-                className={`px-2 py-1 rounded ${
-                  paceUnit === unit
-                    ? 'bg-signal-500'
-                    : isDark
-                    ? 'bg-graphite-800'
-                    : 'bg-graphite-100'
-                }`}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 4,
+                  backgroundColor: paceUnit === unit ? Colors.signal[500] : 'rgba(255, 255, 255, 0.05)',
+                }}
               >
                 <Text
-                  className={`text-xs font-semibold ${
-                    paceUnit === unit
-                      ? 'text-white'
-                      : isDark
-                      ? 'text-graphite-400'
-                      : 'text-graphite-500'
-                  }`}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: paceUnit === unit ? '#fff' : Colors.graphite[400],
+                  }}
                 >
                   {unit}
                 </Text>
@@ -395,20 +370,28 @@ export function CardioEntry({
             ))}
           </View>
         </View>
-        <View className="flex-row items-center">
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TextInput
-            className={`flex-1 px-4 py-3 rounded-lg text-center text-lg font-semibold ${
-              isDark ? 'bg-graphite-800 text-graphite-100' : 'bg-white text-graphite-900'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+            style={{
+              flex: 1,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderRadius: 8,
+              textAlign: 'center',
+              fontSize: 18,
+              fontWeight: '600',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              color: Colors.graphite[100],
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+            }}
             value={pace}
             onChangeText={setPace}
             placeholder="8:45"
-            placeholderTextColor={isDark ? '#607296' : '#808fb0'}
+            placeholderTextColor={Colors.graphite[500]}
             keyboardType="numbers-and-punctuation"
           />
-          <Text
-            className={`ml-3 text-lg ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-          >
+          <Text style={{ marginLeft: 12, fontSize: 18, color: Colors.graphite[400] }}>
             {paceUnit}
           </Text>
         </View>
@@ -431,11 +414,7 @@ export function CardioEntry({
       {/* Logged Segments */}
       {loggedSegments.length > 0 && (
         <View>
-          <Text
-            className={`text-sm font-semibold mb-3 ${
-              isDark ? 'text-graphite-300' : 'text-graphite-600'
-            }`}
-          >
+          <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 12, color: Colors.graphite[300] }}>
             Logged ({loggedSegments.length})
           </Text>
 
@@ -449,21 +428,20 @@ export function CardioEntry({
             return (
               <View
                 key={segment.id || index}
-                className="flex-row items-center p-3 rounded-xl mb-2"
-                style={{ backgroundColor: config.bgColor }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 12,
+                  borderRadius: 12,
+                  marginBottom: 8,
+                  backgroundColor: config.bgColor,
+                }}
               >
-                <View className="flex-1">
-                  <Text
-                    className="font-semibold"
-                    style={{ color: config.color }}
-                  >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '600', color: config.color }}>
                     {config.label}
                   </Text>
-                  <Text
-                    className={`text-sm mt-0.5 ${
-                      isDark ? 'text-graphite-300' : 'text-graphite-700'
-                    }`}
-                  >
+                  <Text style={{ fontSize: 14, marginTop: 2, color: Colors.graphite[300] }}>
                     {distanceStr}
                     {distanceStr && paceStr ? ' @ ' : ''}
                     {paceStr}
@@ -474,7 +452,7 @@ export function CardioEntry({
                 {segment.id && (
                   <Pressable
                     onPress={() => handleDeleteSegment(segment.id)}
-                    className="p-2"
+                    style={{ padding: 8 }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Ionicons name="trash-outline" size={18} color="#ef4444" />
@@ -488,20 +466,20 @@ export function CardioEntry({
           <Pressable
             onPress={handleDuplicate}
             disabled={isLogging}
-            className={`flex-row items-center justify-center py-3 rounded-xl border border-dashed mt-2 ${
-              isDark ? 'border-graphite-600' : 'border-graphite-300'
-            }`}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderStyle: 'dashed',
+              marginTop: 8,
+              borderColor: 'rgba(255, 255, 255, 0.2)',
+            }}
           >
-            <Ionicons
-              name="copy-outline"
-              size={18}
-              color={isDark ? '#808fb0' : '#607296'}
-            />
-            <Text
-              className={`ml-2 font-medium ${
-                isDark ? 'text-graphite-400' : 'text-graphite-500'
-              }`}
-            >
+            <Ionicons name="copy-outline" size={18} color={Colors.graphite[400]} />
+            <Text style={{ marginLeft: 8, fontWeight: '500', color: Colors.graphite[400] }}>
               + Duplicate Last
             </Text>
           </Pressable>

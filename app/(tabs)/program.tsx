@@ -229,10 +229,17 @@ export default function ProgramScreen() {
                         return (
                           <Pressable
                             key={workout.id}
-                            className="p-4 rounded-xl flex-row items-center bg-graphite-800 border"
+                            className="p-4 rounded-xl flex-row items-center"
                             style={{
-                              backgroundColor: '#1A1F2E',
-                              borderColor: isNext ? '#2F80ED' : '#353D4B',
+                              backgroundColor: isNext ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                              borderWidth: 1,
+                              borderColor: isNext ? 'rgba(96, 165, 250, 0.5)' : 'rgba(255, 255, 255, 0.1)',
+                              ...(isNext && {
+                                shadowColor: Colors.signal[500],
+                                shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: 0.2,
+                                shadowRadius: 12,
+                              }),
                             }}
                             onPress={() => router.push(`/workout/${workout.id}`)}
                           >

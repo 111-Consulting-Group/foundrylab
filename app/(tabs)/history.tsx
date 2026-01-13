@@ -203,24 +203,39 @@ export default function HistoryScreen() {
           <>
             {/* Incomplete Workouts Section */}
             {filteredIncomplete.length > 0 && (
-              <View className="mb-6">
-                <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
+              <View style={{ marginBottom: 24 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
                   Continue Workout
                 </Text>
-                <View className="gap-2">
+                <View style={{ gap: 8 }}>
                   {filteredIncomplete.map((workout) => (
                     <Pressable
                       key={workout.id}
-                      className="p-4 rounded-xl bg-graphite-800 border-2"
-                      style={{ backgroundColor: '#1A1F2E', borderColor: 'rgba(47, 128, 237, 0.5)' }}
+                      style={{
+                        padding: 16,
+                        borderRadius: 16,
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        borderColor: 'rgba(96, 165, 250, 0.5)',
+                        shadowColor: Colors.signal[500],
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 12,
+                      }}
                       onPress={() => router.push(`/workout/${workout.id}`)}
                     >
-                      <View className="flex-row items-start justify-between mb-2">
-                        <View className="flex-row items-center">
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                           <View
-                            className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
-                              workout.totalVolume > 0 ? 'bg-signal-500' : 'bg-progress-500'
-                            }`}
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 20,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginRight: 12,
+                              backgroundColor: workout.totalVolume > 0 ? Colors.signal[500] : Colors.emerald[500],
+                            }}
                           >
                             <Ionicons
                               name={workout.totalVolume > 0 ? 'barbell' : 'heart'}
@@ -229,49 +244,41 @@ export default function HistoryScreen() {
                             />
                           </View>
                           <View>
-                            <View className="flex-row items-center">
-                              <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text style={{ fontWeight: '600', color: Colors.graphite[50] }}>
                                 {workout.focus}
                               </Text>
-                              <View className="ml-2 px-2 py-0.5 rounded-full bg-signal-500/20">
-                                <Text className="text-signal-500 text-xs font-semibold">In Progress</Text>
+                              <View style={{ marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, backgroundColor: 'rgba(59, 130, 246, 0.2)' }}>
+                                <Text style={{ color: Colors.signal[400], fontSize: 10, fontWeight: '600' }}>In Progress</Text>
                               </View>
                             </View>
-                            <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
+                            <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
                               Last updated {format(workout.date, 'MMM d')}
                             </Text>
                           </View>
                         </View>
                         {workout.prCount > 0 && (
-                          <View className="flex-row items-center bg-oxide-500/20 px-2 py-1 rounded-full">
+                          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(242, 153, 74, 0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
                             <Ionicons name="trophy" size={12} color="#F2994A" />
-                            <Text className="text-oxide-500 text-xs font-semibold ml-1">
+                            <Text style={{ color: '#F2994A', fontSize: 10, fontWeight: '600', marginLeft: 4 }}>
                               {workout.prCount} PR{workout.prCount > 1 ? 's' : ''}
                             </Text>
                           </View>
                         )}
                       </View>
 
-                      <View className="flex-row gap-4">
-                        <View className="flex-row items-center">
-                          <Ionicons
-                            name="fitness-outline"
-                            size={14}
-                            color={Colors.graphite[400]}
-                          />
-                          <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
+                      <View style={{ flexDirection: 'row', gap: 16 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Ionicons name="fitness-outline" size={14} color={Colors.graphite[400]} />
+                          <Text style={{ fontSize: 12, marginLeft: 4, color: Colors.graphite[400] }}>
                             {workout.exerciseCount} exercises
                           </Text>
                         </View>
                         {workout.totalVolume > 0 && (
-                          <View className="flex-row items-center">
-                            <Ionicons
-                              name="trending-up"
-                              size={14}
-                              color={Colors.graphite[400]}
-                            />
-                            <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
-                              {workout.totalVolume >= 1000 
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Ionicons name="trending-up" size={14} color={Colors.graphite[400]} />
+                            <Text style={{ fontSize: 12, marginLeft: 4, color: Colors.graphite[400] }}>
+                              {workout.totalVolume >= 1000
                                 ? `${(workout.totalVolume / 1000).toFixed(1)}k lbs`
                                 : `${Math.round(workout.totalVolume)} lbs`}
                             </Text>
@@ -286,106 +293,99 @@ export default function HistoryScreen() {
 
             {/* Completed Workouts Section */}
             <View>
-              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
                 Recent Workouts
               </Text>
 
               {filteredCompleted.length === 0 ? (
-                <View className="items-center justify-center py-12">
-                  <Ionicons
-                    name="barbell-outline"
-                    size={48}
-                    color={Colors.graphite[400]}
-                  />
-                  <Text className="mt-4 text-center text-graphite-400" style={{ color: '#6B7485' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+                  <Ionicons name="barbell-outline" size={48} color={Colors.graphite[500]} />
+                  <Text style={{ marginTop: 16, textAlign: 'center', color: Colors.graphite[400] }}>
                     No completed workouts yet.{'\n'}Start your first workout to see it here!
                   </Text>
                 </View>
               ) : (
-                <View className="gap-2">
+                <View style={{ gap: 8 }}>
                   {filteredCompleted.map((workout) => (
                     <View
                       key={workout.id}
-                      className="p-4 rounded-xl bg-graphite-800 border border-graphite-700"
-                      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
+                      style={{
+                        padding: 16,
+                        borderRadius: 16,
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                      }}
                     >
-                      <Pressable
-                        onPress={() => router.push(`/workout-summary/${workout.id}`)}
-                      >
-                      <View className="flex-row items-start justify-between mb-2">
-                        <View className="flex-row items-center">
-                          <View
-                            className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
-                              workout.totalVolume > 0 ? 'bg-signal-500' : 'bg-progress-500'
-                            }`}
-                          >
-                            <Ionicons
-                              name={workout.totalVolume > 0 ? 'barbell' : 'heart'}
-                              size={20}
-                              color="#ffffff"
-                            />
-                          </View>
-                          <View>
-                              <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
+                      <Pressable onPress={() => router.push(`/workout-summary/${workout.id}`)}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 20,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginRight: 12,
+                                backgroundColor: workout.totalVolume > 0 ? Colors.signal[500] : Colors.emerald[500],
+                              }}
+                            >
+                              <Ionicons
+                                name={workout.totalVolume > 0 ? 'barbell' : 'heart'}
+                                size={20}
+                                color="#ffffff"
+                              />
+                            </View>
+                            <View>
+                              <Text style={{ fontWeight: '600', color: Colors.graphite[50] }}>
                                 {workout.focus}
                               </Text>
-                              <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
-                              {format(workout.date, 'EEEE, MMM d')}
-                            </Text>
+                              <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
+                                {format(workout.date, 'EEEE, MMM d')}
+                              </Text>
+                            </View>
                           </View>
+                          {workout.prCount > 0 && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(242, 153, 74, 0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
+                              <Ionicons name="trophy" size={12} color="#F2994A" />
+                              <Text style={{ color: '#F2994A', fontSize: 10, fontWeight: '600', marginLeft: 4 }}>
+                                {workout.prCount} PR{workout.prCount > 1 ? 's' : ''}
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                        {workout.prCount > 0 && (
-                          <View className="flex-row items-center bg-oxide-500/20 px-2 py-1 rounded-full">
-                            <Ionicons name="trophy" size={12} color="#F2994A" />
-                            <Text className="text-oxide-500 text-xs font-semibold ml-1">
-                              {workout.prCount} PR{workout.prCount > 1 ? 's' : ''}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
 
-                      <View className="flex-row gap-4">
-                        {workout.duration_minutes && (
-                          <View className="flex-row items-center">
-                            <Ionicons
-                              name="time-outline"
-                              size={14}
-                              color={Colors.graphite[400]}
-                            />
-                            <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
-                              {workout.duration_minutes} min
+                        <View style={{ flexDirection: 'row', gap: 16 }}>
+                          {workout.duration_minutes && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Ionicons name="time-outline" size={14} color={Colors.graphite[400]} />
+                              <Text style={{ fontSize: 12, marginLeft: 4, color: Colors.graphite[400] }}>
+                                {workout.duration_minutes} min
+                              </Text>
+                            </View>
+                          )}
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Ionicons name="fitness-outline" size={14} color={Colors.graphite[400]} />
+                            <Text style={{ fontSize: 12, marginLeft: 4, color: Colors.graphite[400] }}>
+                              {workout.exerciseCount} exercises
                             </Text>
                           </View>
-                        )}
-                        <View className="flex-row items-center">
-                          <Ionicons
-                            name="fitness-outline"
-                            size={14}
-                            color={Colors.graphite[400]}
-                          />
-                          <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
-                            {workout.exerciseCount} exercises
-                          </Text>
+                          {workout.totalVolume > 0 && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Ionicons name="trending-up" size={14} color={Colors.graphite[400]} />
+                              <Text style={{ fontSize: 12, marginLeft: 4, color: Colors.graphite[400] }}>
+                                {workout.totalVolume >= 1000
+                                  ? `${(workout.totalVolume / 1000).toFixed(1)}k lbs`
+                                  : `${Math.round(workout.totalVolume)} lbs`}
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                        {workout.totalVolume > 0 && (
-                          <View className="flex-row items-center">
-                            <Ionicons
-                              name="trending-up"
-                              size={14}
-                              color={Colors.graphite[400]}
-                            />
-                            <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
-                              {workout.totalVolume >= 1000 
-                                ? `${(workout.totalVolume / 1000).toFixed(1)}k lbs`
-                                : `${Math.round(workout.totalVolume)} lbs`}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
                       </Pressable>
-                      
+
                       {/* Action Buttons */}
-                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.graphite[700] }}>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
                         <Pressable
                           style={{
                             flex: 1,
@@ -394,7 +394,7 @@ export default function HistoryScreen() {
                             justifyContent: 'center',
                             paddingVertical: 8,
                             borderRadius: 8,
-                            backgroundColor: Colors.graphite[700],
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
                           }}
                           onPress={() => {
                             Alert.alert(
@@ -424,8 +424,8 @@ export default function HistoryScreen() {
                             );
                           }}
                         >
-                          <Ionicons name="refresh-outline" size={16} color="#2F80ED" />
-                          <Text className="text-signal-500 font-medium ml-1 text-sm">Uncomplete</Text>
+                          <Ionicons name="refresh-outline" size={16} color={Colors.signal[400]} />
+                          <Text style={{ color: Colors.signal[400], fontWeight: '500', marginLeft: 4, fontSize: 12 }}>Uncomplete</Text>
                         </Pressable>
                         <Pressable
                           style={{
@@ -435,12 +435,12 @@ export default function HistoryScreen() {
                             justifyContent: 'center',
                             paddingVertical: 8,
                             borderRadius: 8,
-                            backgroundColor: Colors.graphite[700],
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
                           }}
                           onPress={() => router.push(`/workout/${workout.id}`)}
                         >
-                          <Ionicons name="create-outline" size={16} color="#2F80ED" />
-                          <Text className="text-signal-500 font-medium ml-1 text-sm">Edit</Text>
+                          <Ionicons name="create-outline" size={16} color={Colors.signal[400]} />
+                          <Text style={{ color: Colors.signal[400], fontWeight: '500', marginLeft: 4, fontSize: 12 }}>Edit</Text>
                         </Pressable>
                       </View>
                     </View>

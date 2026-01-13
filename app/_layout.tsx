@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
@@ -23,17 +24,17 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
-// Custom dark theme matching Foundry Lab brand colors
+// Custom dark theme matching Foundry Lab glass design system
 const FoundryLabDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    primary: '#2F80ED', // Signal Blue
-    background: '#0E1116', // Carbon Black
-    card: '#1C222B', // Graphite Gray
-    text: '#E6E8EB', // Bone White
-    border: '#353D4B', // Graphite 700
-    notification: '#EB5757', // Regression Red
+    primary: Colors.signal[500],
+    background: Colors.void[900],
+    card: Colors.void[800],
+    text: Colors.graphite[50],
+    border: 'rgba(255, 255, 255, 0.1)',
+    notification: Colors.regression[500],
   },
 };
 
@@ -41,12 +42,12 @@ const FoundryLabLightTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#2F80ED', // Signal Blue
-    background: '#E6E8EB', // Bone White
+    primary: Colors.signal[500],
+    background: Colors.graphite[50],
     card: '#ffffff',
-    text: '#0E1116', // Carbon Black
-    border: '#A5ABB6', // Graphite 200
-    notification: '#EB5757', // Regression Red
+    text: Colors.void[900],
+    border: Colors.graphite[200],
+    notification: Colors.regression[500],
   },
 };
 

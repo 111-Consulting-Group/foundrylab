@@ -5,6 +5,7 @@ import { useSignup } from '@/hooks/useAuth';
 import { validateEmail, getPasswordStrength, validatePassword } from '@/lib/validation';
 import { Colors } from '@/constants/Colors';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { FoundryLabLogo } from '@/components/FoundryLabLogo';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -90,7 +91,8 @@ export default function SignupScreen() {
       contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 48 }}
       keyboardShouldPersistTaps="handled"
     >
-      <View className="mb-8">
+      <View style={{ marginBottom: 48, alignItems: 'center' }}>
+        <FoundryLabLogo size={100} style={{ marginBottom: 24 }} />
         <Text className="text-4xl font-bold text-graphite-50 mb-2">Join Foundry Lab</Text>
         <Text className="text-graphite-400 text-lg">Create your account to get started</Text>
       </View>

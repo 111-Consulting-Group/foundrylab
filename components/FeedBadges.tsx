@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { View, Text } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import type { PerformanceTrend } from '@/types/database';
 
 /**
@@ -23,35 +23,35 @@ interface StreakBadgeProps {
 }
 
 export function StreakBadge({ streak, size = 'sm' }: StreakBadgeProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   if (streak < 2) return null;
 
   const isHot = streak >= 7;
   const isOnFire = streak >= 14;
 
-  const iconColor = isOnFire ? '#EF4444' : isHot ? '#F59E0B' : '#808fb0';
-  const textColor = isOnFire ? '#EF4444' : isHot ? '#F59E0B' : isDark ? '#808fb0' : '#607296';
+  const iconColor = isOnFire ? '#EF4444' : isHot ? '#F59E0B' : Colors.graphite[400];
+  const textColor = isOnFire ? '#EF4444' : isHot ? '#F59E0B' : Colors.graphite[400];
   const bgColor = isOnFire
     ? 'rgba(239, 68, 68, 0.15)'
     : isHot
     ? 'rgba(245, 158, 11, 0.15)'
-    : isDark
-    ? 'rgba(128, 143, 176, 0.1)'
-    : 'rgba(128, 143, 176, 0.1)';
+    : 'rgba(255, 255, 255, 0.1)';
 
-  const sizeClasses = size === 'sm' ? 'px-2 py-0.5' : 'px-3 py-1';
+  const padding = size === 'sm' ? { paddingHorizontal: 8, paddingVertical: 2 } : { paddingHorizontal: 12, paddingVertical: 4 };
   const iconSize = size === 'sm' ? 12 : 14;
-  const textSize = size === 'sm' ? 'text-xs' : 'text-sm';
+  const fontSize = size === 'sm' ? 12 : 14;
 
   return (
     <View
-      className={`flex-row items-center rounded-full ${sizeClasses}`}
-      style={{ backgroundColor: bgColor }}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 12,
+        ...padding,
+        backgroundColor: bgColor,
+      }}
     >
       <Ionicons name={isOnFire ? 'flame' : 'flame-outline'} size={iconSize} color={iconColor} />
-      <Text className={`ml-1 font-semibold ${textSize}`} style={{ color: textColor }}>
+      <Text style={{ marginLeft: 4, fontWeight: '600', fontSize, color: textColor }}>
         {streak}
       </Text>
     </View>
@@ -97,14 +97,11 @@ const TREND_CONFIG: Record<PerformanceTrend, {
 };
 
 export function TrendBadge({ trend, compact = false }: TrendBadgeProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const config = TREND_CONFIG[trend];
 
   if (compact) {
     return (
-      <View className="flex-row items-center">
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Ionicons name={config.icon as any} size={14} color={config.color} />
       </View>
     );
@@ -112,11 +109,17 @@ export function TrendBadge({ trend, compact = false }: TrendBadgeProps) {
 
   return (
     <View
-      className="flex-row items-center px-2 py-0.5 rounded-full"
-      style={{ backgroundColor: isDark ? config.bgDark : config.bgLight }}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        backgroundColor: config.bgDark,
+      }}
     >
       <Ionicons name={config.icon as any} size={12} color={config.color} />
-      <Text className="ml-1 text-xs font-medium" style={{ color: config.color }}>
+      <Text style={{ marginLeft: 4, fontSize: 12, fontWeight: '500', color: config.color }}>
         {config.label}
       </Text>
     </View>
@@ -143,55 +146,67 @@ export function KeyLiftBadge({
   delta,
   trend,
 }: KeyLiftBadgeProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   return (
     <View
-      className={`flex-row items-center justify-between py-2 px-3 rounded-xl mb-2 ${
-        isDark ? 'bg-graphite-700/50' : 'bg-graphite-100'
-      }`}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        marginBottom: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      }}
     >
-      <View className="flex-1">
-        <View className="flex-row items-center">
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {isPR && (
-            <View className="mr-2 px-1.5 py-0.5 rounded bg-signal-500/20">
-              <Ionicons name="trophy" size={10} color="#2F80ED" />
+            <View
+              style={{
+                marginRight: 8,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4,
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+              }}
+            >
+              <Ionicons name="trophy" size={10} color={Colors.signal[500]} />
             </View>
           )}
-          <Text
-            className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
-            numberOfLines={1}
-          >
+          <Text style={{ fontWeight: '600', color: Colors.graphite[100] }} numberOfLines={1}>
             {exerciseName}
           </Text>
         </View>
       </View>
 
-      <View className="flex-row items-center">
-        <Text className={`font-bold mr-2 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontWeight: '700', marginRight: 8, color: Colors.graphite[100] }}>
           {weight} × {reps}
         </Text>
 
         {delta && (
           <View
-            className="px-1.5 py-0.5 rounded"
             style={{
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4,
               backgroundColor: delta.startsWith('+')
                 ? 'rgba(34, 197, 94, 0.15)'
                 : delta.startsWith('-')
                 ? 'rgba(239, 68, 68, 0.15)'
-                : 'rgba(128, 143, 176, 0.15)',
+                : 'rgba(255, 255, 255, 0.1)',
             }}
           >
             <Text
-              className="text-xs font-semibold"
               style={{
+                fontSize: 12,
+                fontWeight: '600',
                 color: delta.startsWith('+')
                   ? '#22C55E'
                   : delta.startsWith('-')
                   ? '#EF4444'
-                  : '#808fb0',
+                  : Colors.graphite[400],
               }}
             >
               {delta}
@@ -214,29 +229,22 @@ interface AdherenceBadgeProps {
 }
 
 export function AdherenceBadge({ percent, size = 'sm' }: AdherenceBadgeProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   if (percent < 50) return null;
 
-  const color = percent >= 100 ? '#22C55E' : percent >= 75 ? '#2F80ED' : '#808fb0';
+  const color = percent >= 100 ? '#22C55E' : percent >= 75 ? Colors.signal[500] : Colors.graphite[400];
   const bgColor =
     percent >= 100
       ? 'rgba(34, 197, 94, 0.1)'
       : percent >= 75
-      ? 'rgba(47, 128, 237, 0.1)'
-      : isDark
-      ? 'rgba(128, 143, 176, 0.1)'
-      : 'rgba(128, 143, 176, 0.1)';
+      ? 'rgba(59, 130, 246, 0.1)'
+      : 'rgba(255, 255, 255, 0.1)';
 
-  const sizeClasses = size === 'sm' ? 'px-2 py-0.5' : 'px-3 py-1';
-  const textSize = size === 'sm' ? 'text-xs' : 'text-sm';
+  const padding = size === 'sm' ? { paddingHorizontal: 8, paddingVertical: 2 } : { paddingHorizontal: 12, paddingVertical: 4 };
+  const fontSize = size === 'sm' ? 12 : 14;
 
   return (
-    <View className={`rounded-full ${sizeClasses}`} style={{ backgroundColor: bgColor }}>
-      <Text className={`font-medium ${textSize}`} style={{ color }}>
-        {percent}%
-      </Text>
+    <View style={{ borderRadius: 12, ...padding, backgroundColor: bgColor }}>
+      <Text style={{ fontWeight: '500', fontSize, color }}>{percent}%</Text>
     </View>
   );
 }
@@ -279,9 +287,6 @@ interface BlockContextBadgeProps {
 }
 
 export function BlockContextBadge({ blockName, weekNumber, context }: BlockContextBadgeProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   if (!blockName && !weekNumber && !context) return null;
 
   const contextColors: Record<string, { text: string; bg: string }> = {
@@ -305,10 +310,17 @@ export function BlockContextBadge({ blockName, weekNumber, context }: BlockConte
   }
 
   return (
-    <View className="flex-row items-center px-2 py-0.5 rounded-full" style={{ backgroundColor: colors.bg }}>
-      <Text className="text-xs font-medium" style={{ color: colors.text }}>
-        {label}
-      </Text>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        backgroundColor: colors.bg,
+      }}
+    >
+      <Text style={{ fontSize: 12, fontWeight: '500', color: colors.text }}>{label}</Text>
     </View>
   );
 }

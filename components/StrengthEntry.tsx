@@ -6,7 +6,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, Alert, Platform } from 'react-native';
 import Slider from '@react-native-community/slider';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { MovementMemoryCard, EmptyMemoryCard } from '@/components/MovementMemoryCard';
 import { useMovementMemory, useNextTimeSuggestion } from '@/hooks/useMovementMemory';
 import { type SetWithExercise } from '@/lib/workoutSummary';
@@ -48,9 +48,6 @@ export function StrengthEntry({
   onDeleteSet,
   onAddSet,
 }: StrengthEntryProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   // Fetch movement memory and suggestion (Training Intelligence)
   const { data: movementMemory } = useMovementMemory(exercise.id, workoutId);
   const { data: suggestion } = useNextTimeSuggestion(exercise.id, exercise.name, workoutId);
@@ -358,16 +355,13 @@ export function StrengthEntry({
                     {currentSet?.set_order || currentSetIndex + 1}
                   </Text>
                 </View>
-                <Text
-                  className="font-semibold text-graphite-100"
-                  style={{ color: '#E6E8EB' }}
-                >
+                <Text style={{ fontWeight: '600', color: Colors.graphite[50] }}>
                   Set {currentSet?.set_order || currentSetIndex + 1}
                 </Text>
               </View>
               {targetLoad && (
-                <View className="bg-graphite-700 px-2 py-0.5 rounded" style={{ backgroundColor: '#353D4B' }}>
-                  <Text className="text-xs font-lab-mono text-graphite-200" style={{ color: '#D4D7DC' }}>
+                <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'monospace', color: Colors.graphite[200] }}>
                     Target: {targetLoad} lbs
                   </Text>
                 </View>
@@ -379,7 +373,7 @@ export function StrengthEntry({
               {/* Weight */}
               <View className="flex-1">
                 <View className="flex-row items-center justify-between mb-1">
-                  <Text className="text-xs text-graphite-300" style={{ color: '#C4C8D0' }}>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[300] }}>
                     Lbs {movementMemory?.lastWeight ? `(Last: ${movementMemory.lastWeight})` : ''}
                   </Text>
                   <Pressable
@@ -388,7 +382,7 @@ export function StrengthEntry({
                       if (!isBodyweight) setWeight('0');
                     }}
                   >
-                    <Text className={`text-xs ${isBodyweight ? 'text-signal-500 font-bold' : 'text-graphite-300'}`} style={!isBodyweight ? { color: '#C4C8D0' } : undefined}>
+                    <Text style={{ fontSize: 12, fontWeight: isBodyweight ? '700' : '400', color: isBodyweight ? Colors.signal[500] : Colors.graphite[300] }}>
                       BW
                     </Text>
                   </Pressable>
@@ -396,62 +390,62 @@ export function StrengthEntry({
                 <TextInput
                   className="px-3 py-3 rounded-lg text-center text-xl font-lab-mono font-bold"
                   style={{
-                    backgroundColor: '#151B26',
-                    color: '#FFFFFF',
-                    borderColor: '#2C3544',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: Colors.graphite[50],
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
                     borderWidth: 1,
                   }}
                   value={isBodyweight ? 'BW' : weight}
                   onChangeText={isBodyweight ? undefined : setWeight}
                   keyboardType="decimal-pad"
                   placeholder={suggestion?.recommendation.weight?.toString() || "0"}
-                  placeholderTextColor="#5C6A7F"
+                  placeholderTextColor={Colors.graphite[500]}
                   editable={!isBodyweight}
                 />
               </View>
 
-              <Text className="text-xl pb-3 font-lab-mono text-graphite-400" style={{ color: '#808FB0' }}>
+              <Text style={{ fontSize: 20, paddingBottom: 12, fontFamily: 'monospace', color: Colors.graphite[400] }}>
                 ×
               </Text>
 
               {/* Reps */}
               <View className="flex-1">
                 <View className="flex-row justify-between mb-1">
-                  <Text className="text-xs text-graphite-300" style={{ color: '#C4C8D0' }}>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[300] }}>
                     Reps {movementMemory?.lastReps ? `(Last: ${movementMemory.lastReps})` : ''}
                   </Text>
                 </View>
                 <TextInput
                   className="px-3 py-3 rounded-lg text-center text-xl font-lab-mono font-bold"
                   style={{
-                    backgroundColor: '#151B26',
-                    color: '#FFFFFF',
-                    borderColor: '#2C3544',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: Colors.graphite[50],
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
                     borderWidth: 1,
                   }}
                   value={reps}
                   onChangeText={setReps}
                   keyboardType="number-pad"
                   placeholder={targetReps?.toString() || suggestion?.recommendation.reps?.toString() || "0"}
-                  placeholderTextColor="#5C6A7F"
+                  placeholderTextColor={Colors.graphite[500]}
                 />
               </View>
 
-              <Text className="text-xl pb-3 font-lab-mono text-graphite-400" style={{ color: '#808FB0' }}>
+              <Text style={{ fontSize: 20, paddingBottom: 12, fontFamily: 'monospace', color: Colors.graphite[400] }}>
                 @
               </Text>
 
               {/* RPE */}
               <View className="flex-1">
-                <Text className="text-xs mb-1 text-graphite-300" style={{ color: '#C4C8D0' }}>
+                <Text style={{ fontSize: 12, marginBottom: 4, color: Colors.graphite[300] }}>
                   RPE
                 </Text>
                 <Pressable
                   onPress={() => setShowRPESlider(!showRPESlider)}
                   className="px-3 py-3 rounded-lg items-center"
                   style={{
-                    backgroundColor: '#151B26',
-                    borderColor: '#2C3544',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
                     borderWidth: 1,
                   }}
                 >
@@ -459,7 +453,7 @@ export function StrengthEntry({
                     className={`text-xl font-lab-mono font-bold ${
                       rpe >= 9 ? 'text-oxide-500' : ''
                     }`}
-                    style={rpe < 9 ? { color: '#FFFFFF' } : undefined}
+                    style={rpe < 9 ? { color: Colors.graphite[50] } : undefined}
                   >
                     {rpe}
                   </Text>
@@ -470,15 +464,18 @@ export function StrengthEntry({
             {/* RPE Slider */}
             {showRPESlider && (
               <View
-                className={`p-3 rounded-lg mb-4 ${
-                  isDark ? 'bg-graphite-950' : 'bg-graphite-100'
-                }`}
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  marginBottom: 16,
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                }}
               >
                 <View className="flex-row justify-between mb-2">
-                  <Text className="text-sm font-lab-mono text-graphite-300" style={{ color: '#C4C8D0' }}>
+                  <Text style={{ fontSize: 14, fontFamily: 'monospace', color: Colors.graphite[300] }}>
                     RPE {rpe}
                   </Text>
-                  <Text className="text-xs text-graphite-300" style={{ color: '#C4C8D0' }}>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[300] }}>
                     {RPE_DESCRIPTIONS[Math.round(rpe)] || ''}
                   </Text>
                 </View>
@@ -488,9 +485,9 @@ export function StrengthEntry({
                   step={0.5}
                   value={rpe}
                   onValueChange={setRpe}
-                  minimumTrackTintColor="#2F80ED"
-                  maximumTrackTintColor={isDark ? '#353D4B' : '#A5ABB6'}
-                  thumbTintColor="#2F80ED"
+                  minimumTrackTintColor={Colors.signal[500]}
+                  maximumTrackTintColor="rgba(255, 255, 255, 0.1)"
+                  thumbTintColor={Colors.signal[500]}
                 />
               </View>
             )}
@@ -528,7 +525,7 @@ export function StrengthEntry({
 
       {/* Set List */}
       <View>
-        <Text className="text-xs font-bold uppercase tracking-wide mb-3 text-graphite-300" style={{ color: '#C4C8D0' }}>
+        <Text style={{ fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12, color: Colors.graphite[300] }}>
           Completed Sets
         </Text>
 
@@ -548,29 +545,26 @@ export function StrengthEntry({
                 }
               }}
               disabled={!isLogged || !set.id}
-              className={`flex-row items-center p-3 rounded-lg mb-2 border ${
-                isLogged
-                  ? 'bg-graphite-800 border-graphite-700'
-                  : isCurrent
-                  ? 'bg-signal-500/10 border-signal-500/30'
-                  : 'bg-transparent border-dashed border-graphite-700'
-              }`}
-              style={
-                isLogged
-                  ? { backgroundColor: '#1A1F2E', borderColor: '#353D4B' }
-                  : isCurrent
-                  ? undefined
-                  : { borderColor: '#353D4B' }
-              }
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 12,
+                borderRadius: 8,
+                marginBottom: 8,
+                borderWidth: 1,
+                backgroundColor: isLogged ? 'rgba(255, 255, 255, 0.05)' : isCurrent ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                borderColor: isLogged ? 'rgba(255, 255, 255, 0.1)' : isCurrent ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                borderStyle: !isLogged && !isCurrent ? 'dashed' : 'solid',
+              }}
             >
               {/* Status icon */}
-              <View className="mr-3 w-6 items-center">
+              <View style={{ marginRight: 12, width: 24, alignItems: 'center' }}>
                 {isLogged ? (
-                  <Text className="font-lab-mono text-sm text-graphite-300" style={{ color: '#C4C8D0' }}>{set.set_order || index + 1}</Text>
+                  <Text style={{ fontFamily: 'monospace', fontSize: 14, color: Colors.graphite[300] }}>{set.set_order || index + 1}</Text>
                 ) : isCurrent ? (
                   <View className="w-2 h-2 rounded-full bg-signal-500" />
                 ) : (
-                  <Text className="font-lab-mono text-sm text-graphite-400" style={{ color: '#6B7485' }}>{set.set_order || index + 1}</Text>
+                  <Text style={{ fontFamily: 'monospace', fontSize: 14, color: Colors.graphite[500] }}>{set.set_order || index + 1}</Text>
                 )}
               </View>
 
@@ -578,23 +572,23 @@ export function StrengthEntry({
               <View className="flex-1">
                 {isLogged && set.actual_weight !== null && set.actual_reps !== null ? (
                   <View className="flex-row items-baseline gap-2">
-                    <Text className="text-lg font-lab-mono font-bold" style={{ color: '#E6E8EB' }}>
-                      {set.actual_weight} <Text className="text-sm font-normal text-graphite-400" style={{ color: '#808FB0' }}>lbs</Text>
+                    <Text style={{ fontSize: 18, fontFamily: 'monospace', fontWeight: '700', color: Colors.graphite[50] }}>
+                      {set.actual_weight} <Text style={{ fontSize: 14, fontWeight: '400', color: Colors.graphite[400] }}>lbs</Text>
                     </Text>
-                    <Text className="text-lg font-lab-mono font-bold" style={{ color: '#E6E8EB' }}>
-                      {set.actual_reps} <Text className="text-sm font-normal text-graphite-400" style={{ color: '#808FB0' }}>reps</Text>
+                    <Text style={{ fontSize: 18, fontFamily: 'monospace', fontWeight: '700', color: Colors.graphite[50] }}>
+                      {set.actual_reps} <Text style={{ fontSize: 14, fontWeight: '400', color: Colors.graphite[400] }}>reps</Text>
                     </Text>
                     {set.actual_rpe && (
-                      <Text className="text-sm font-lab-mono text-graphite-300" style={{ color: '#C4C8D0' }}>
+                      <Text style={{ fontSize: 14, fontFamily: 'monospace', color: Colors.graphite[300] }}>
                         @ {set.actual_rpe}
                       </Text>
                     )}
                     {editingSetId === set.id && (
-                      <Text className="text-xs text-signal-500 font-bold ml-2">EDITING</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', marginLeft: 8, color: Colors.signal[500] }}>EDITING</Text>
                     )}
                   </View>
                 ) : (
-                  <Text className={`text-sm ${isCurrent ? 'text-signal-500 font-medium' : ''}`} style={!isCurrent ? { color: '#C4C8D0' } : undefined}>
+                  <Text style={{ fontSize: 14, fontWeight: isCurrent ? '500' : '400', color: isCurrent ? Colors.signal[500] : Colors.graphite[300] }}>
                     {isCurrent ? 'Current Set' : 'Pending'}
                   </Text>
                 )}
@@ -607,7 +601,7 @@ export function StrengthEntry({
                     onPress={() => handleDeleteSet(set.id)}
                     hitSlop={10}
                   >
-                    <Ionicons name="trash-outline" size={16} color="#424B5C" />
+                    <Ionicons name="trash-outline" size={16} color={Colors.graphite[500]} />
                   </Pressable>
                 </View>
               )}
@@ -618,22 +612,22 @@ export function StrengthEntry({
         {/* Duplicate and Add Set Buttons */}
         <View className="flex-row gap-3 mt-4">
           {loggedSets.length > 0 && (
-            <LabButton 
-              label="Duplicate Last" 
-              variant="secondary" 
+            <LabButton
+              label="Duplicate Last"
+              variant="secondary"
               size="sm"
               className="flex-1"
-              icon={<Ionicons name="copy-outline" size={14} color="#C4C8D0" />}
+              icon={<Ionicons name="copy-outline" size={14} color={Colors.graphite[300]} />}
               onPress={handleDuplicate}
               disabled={isLogging}
             />
           )}
-          <LabButton 
-            label="Add Set" 
-            variant="outline" 
+          <LabButton
+            label="Add Set"
+            variant="outline"
             size="sm"
             className="flex-1 border-dashed"
-            icon={<Ionicons name="add" size={14} color="#C4C8D0" />}
+            icon={<Ionicons name="add" size={14} color={Colors.graphite[300]} />}
             onPress={onAddSet}
           />
         </View>

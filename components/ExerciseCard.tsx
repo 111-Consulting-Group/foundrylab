@@ -3,9 +3,9 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { View, Text, Pressable, Modal, Alert } from 'react-native';
+import { View, Text, Pressable, Modal } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import {
   generateExerciseSummary,
   formatPrescription,
@@ -40,26 +40,24 @@ export function ExerciseCard({
   showDelete = false,
   onLongPress,
 }: ExerciseCardProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const [showMenu, setShowMenu] = useState(false);
-  
+
   const isCardio = exercise.modality === 'Cardio';
   const status = getCompletionStatus(sets, isCardio, targetSets);
-  
+
   // Check if any sets have been logged
-  const hasLoggedSets = sets.some(s => {
+  const hasLoggedSets = sets.some((s) => {
     if (isCardio) {
       return s.distance_meters || s.duration_seconds || s.avg_pace;
     }
     return s.actual_weight !== null || s.actual_reps !== null;
   });
-  
+
   // Generate display text
   const displayText = hasLoggedSets
     ? generateExerciseSummary(exercise, sets)
     : formatPrescription(sets, exercise, targetSets, targetReps, targetRPE, targetLoad) || getPrescriptionText();
-  
+
   // Fallback prescription text from props
   function getPrescriptionText(): string {
     if (isCardio) {
@@ -73,21 +71,35 @@ export function ExerciseCard({
     }
     return text;
   }
-  
-  // Status colors and icons
-  const statusConfig = getStatusConfig(status, isDark);
-  
-  // Force dark mode styling
-  const bgColor = status === 'completed' 
-    ? 'rgba(34, 197, 94, 0.1)' 
-    : status === 'in_progress'
-    ? 'rgba(47, 128, 237, 0.1)'
-    : '#1A1F2E';
-  const borderColor = status === 'completed'
-    ? 'rgba(34, 197, 94, 0.3)'
-    : status === 'in_progress'
-    ? 'rgba(47, 128, 237, 0.3)'
-    : '#353D4B';
+
+  // Glass-morphic status styles
+  const getStatusStyles = () => {
+    switch (status) {
+      case 'completed':
+        return {
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderColor: 'rgba(16, 185, 129, 0.3)',
+          textColor: Colors.emerald[400],
+          subtextColor: Colors.emerald[500],
+        };
+      case 'in_progress':
+        return {
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderColor: 'rgba(96, 165, 250, 0.5)',
+          textColor: Colors.graphite[50],
+          subtextColor: Colors.graphite[400],
+        };
+      default:
+        return {
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          textColor: Colors.graphite[50],
+          subtextColor: Colors.graphite[500],
+        };
+    }
+  };
+
+  const styles = getStatusStyles();
 
   const handleLongPress = () => {
     if (onLongPress) {
@@ -102,156 +114,182 @@ export function ExerciseCard({
       <Pressable
         onPress={onPress}
         onLongPress={handleLongPress}
-        className={`flex-row items-center p-4 rounded-xl mb-2 ${
-          statusConfig.bgClass
-        } border ${statusConfig.borderClass}`}
         style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: 16,
+          borderRadius: 16,
+          marginBottom: 8,
+          backgroundColor: styles.backgroundColor,
+          borderWidth: 1,
+          borderColor: styles.borderColor,
           opacity: pressed ? 0.7 : 1,
-          backgroundColor: bgColor,
-          borderColor,
+          // Glow effect for active state
+          ...(status === 'in_progress' && {
+            shadowColor: Colors.signal[500],
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.3,
+            shadowRadius: 12,
+          }),
         })}
       >
-      {/* Status indicator */}
-      <View className="mr-3">
-        {status === 'completed' ? (
-          <View className="w-6 h-6 rounded-full bg-progress-500 items-center justify-center">
-            <Ionicons name="checkmark" size={16} color="#fff" />
-          </View>
-        ) : status === 'in_progress' ? (
-          <View className="w-6 h-6 rounded-full border-2 border-signal-500 items-center justify-center">
-            <View className="w-3 h-3 rounded-full bg-signal-500" />
-          </View>
-        ) : (
-          <View className="w-6 h-6 rounded-full border-2 border-graphite-600" style={{ borderColor: '#4A5568' }} />
-        )}
-      </View>
-      
-      {/* Content */}
-      <View className="flex-1">
-        <Text
-          className={`font-semibold ${
-            status === 'completed'
-              ? 'text-progress-500'
-              : 'text-graphite-100'
-          }`}
-          style={status !== 'completed' ? { color: '#E6E8EB' } : undefined}
-          numberOfLines={1}
-        >
-          {exercise.name}
-        </Text>
-        <Text
-          className={`text-sm mt-0.5 ${
-            status === 'completed'
-              ? 'text-progress-400'
-              : 'text-graphite-400'
-          }`}
-          style={status === 'completed' ? undefined : { color: '#6B7485' }}
-          numberOfLines={1}
-        >
-          {displayText}
-        </Text>
-      </View>
-      
-      {/* Actions */}
-      <View className="flex-row items-center gap-2">
-        {showDelete && onDelete && (
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="p-1.5 rounded-full"
-            style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
-          >
-            <Ionicons name="trash-outline" size={18} color="#EF4444" />
-          </Pressable>
-        )}
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color="#607296"
-        />
-      </View>
-    </Pressable>
-
-    {/* Long-press menu */}
-    {showMenu && (
-      <Modal
-        visible={showMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMenu(false)}
-      >
-        <Pressable
-          className="flex-1 items-center justify-center"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-          onPress={() => setShowMenu(false)}
-        >
-          <View
-            className="bg-graphite-900 rounded-xl p-4 min-w-[200px]"
-            style={{ backgroundColor: '#1A1F2E' }}
-          >
-            <Text
-              className="text-sm font-semibold mb-3 text-graphite-100"
-              style={{ color: '#E6E8EB' }}
-            >
-              {exercise.name}
-            </Text>
-            <Pressable
-              onPress={() => {
-                setShowMenu(false);
-                onPress();
+        {/* Status indicator */}
+        <View style={{ marginRight: 12 }}>
+          {status === 'completed' ? (
+            <View
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: Colors.emerald[500],
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-              className="py-3 border-b border-graphite-700"
-              style={{ borderColor: '#353D4B' }}
             >
-              <Text className="text-graphite-200" style={{ color: '#D4D7DC' }}>
-                Edit Exercise
-              </Text>
+              <Ionicons name="checkmark" size={16} color="#000" />
+            </View>
+          ) : status === 'in_progress' ? (
+            <View
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: Colors.signal[500],
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: Colors.signal[500],
+                }}
+              />
+            </View>
+          ) : (
+            <View
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: Colors.graphite[600],
+              }}
+            />
+          )}
+        </View>
+
+        {/* Content */}
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: '600',
+              color: styles.textColor,
+            }}
+            numberOfLines={1}
+          >
+            {exercise.name}
+          </Text>
+          <Text
+            style={{
+              fontSize: 13,
+              marginTop: 2,
+              fontFamily: 'monospace',
+              color: styles.subtextColor,
+            }}
+            numberOfLines={1}
+          >
+            {displayText}
+          </Text>
+        </View>
+
+        {/* Actions */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {showDelete && onDelete && (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              style={{
+                padding: 6,
+                borderRadius: 20,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              }}
+            >
+              <Ionicons name="trash-outline" size={18} color={Colors.regression[400]} />
             </Pressable>
-            {onDelete && (
+          )}
+          <Ionicons name="chevron-forward" size={20} color={Colors.graphite[500]} />
+        </View>
+      </Pressable>
+
+      {/* Long-press menu */}
+      {showMenu && (
+        <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
+          <Pressable
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            }}
+            onPress={() => setShowMenu(false)}
+          >
+            <View
+              style={{
+                backgroundColor: Colors.void[800],
+                borderRadius: 16,
+                padding: 16,
+                minWidth: 200,
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  marginBottom: 12,
+                  color: Colors.graphite[50],
+                }}
+              >
+                {exercise.name}
+              </Text>
               <Pressable
                 onPress={() => {
                   setShowMenu(false);
-                  onDelete();
+                  onPress();
                 }}
-                className="py-3"
+                style={{
+                  paddingVertical: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+                }}
               >
-                <Text className="text-regression-500" style={{ color: '#EF4444' }}>
-                  Remove Exercise
-                </Text>
+                <Text style={{ color: Colors.graphite[200] }}>Edit Exercise</Text>
               </Pressable>
-            )}
-          </View>
-        </Pressable>
-      </Modal>
-    )}
+              {onDelete && (
+                <Pressable
+                  onPress={() => {
+                    setShowMenu(false);
+                    onDelete();
+                  }}
+                  style={{ paddingVertical: 12 }}
+                >
+                  <Text style={{ color: Colors.regression[400] }}>Remove Exercise</Text>
+                </Pressable>
+              )}
+            </View>
+          </Pressable>
+        </Modal>
+      )}
     </>
   );
-}
-
-function getStatusConfig(
-  status: CompletionStatus,
-  isDark: boolean
-): { bgClass: string; borderClass: string } {
-  // Force dark mode
-  switch (status) {
-    case 'completed':
-      return {
-        bgClass: 'bg-progress-500/10',
-        borderClass: 'border-progress-500/30',
-      };
-    case 'in_progress':
-      return {
-        bgClass: 'bg-signal-500/10',
-        borderClass: 'border-signal-500/30',
-      };
-    default:
-      return {
-        bgClass: 'bg-graphite-800',
-        borderClass: 'border-graphite-700',
-      };
-  }
 }
 
 // Section header for grouping exercises
@@ -261,16 +299,25 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ title }: SectionHeaderProps) {
   return (
-    <View className="flex-row items-center mb-3 mt-4">
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginTop: 16 }}>
       <Text
-        className="text-xs font-bold uppercase tracking-wide text-graphite-400"
-        style={{ color: '#6B7485' }}
+        style={{
+          fontSize: 10,
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: 2,
+          color: Colors.signal[400],
+        }}
       >
         {title}
       </Text>
       <View
-        className="flex-1 h-px ml-3 bg-graphite-700"
-        style={{ backgroundColor: '#353D4B' }}
+        style={{
+          flex: 1,
+          height: 1,
+          marginLeft: 12,
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        }}
       />
     </View>
   );

@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter, Redirect } from 'expo-router';
-import { Platform, TouchableOpacity, Alert } from 'react-native';
+import { Platform, TouchableOpacity, Alert, View, Pressable, Text } from 'react-native';
 import { useEffect, useState } from 'react';
+import { BlurView } from 'expo-blur';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { useLogout } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/useAppStore';
 import { supabase } from '@/lib/supabase';
+import { Colors } from '@/constants/Colors';
 
 type TabIconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -14,16 +15,23 @@ function TabBarIcon({ name, color, focused }: { name: TabIconName; color: string
   return (
     <Ionicons
       name={name}
-      size={24}
+      size={22}
       color={color}
-      style={{ opacity: focused ? 1 : 0.7 }}
+      style={{
+        opacity: focused ? 1 : 0.7,
+        // Glow effect on focused
+        ...(focused && {
+          shadowColor: Colors.signal[500],
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.5,
+          shadowRadius: 8,
+        }),
+      }}
     />
   );
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const logoutMutation = useLogout();
   const userId = useAppStore((state) => state.userId);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -51,19 +59,17 @@ export default function TabLayout() {
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
-      // On web, use window.confirm for better compatibility
       const confirmed = window.confirm('Are you sure you want to log out?');
       if (confirmed) {
         logoutMutation.mutate();
       }
     } else {
-      // On native, use Alert.alert
       Alert.alert(
         'Log Out',
         'Are you sure you want to log out?',
         [
-          { 
-            text: 'Cancel', 
+          {
+            text: 'Cancel',
             style: 'cancel',
           },
           {
@@ -81,38 +87,65 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#2F80ED', // signal-500
-        tabBarInactiveTintColor: '#6B7485', // graphite-400 - force dark
+        tabBarActiveTintColor: Colors.signal[500],
+        tabBarInactiveTintColor: Colors.graphite[500],
         tabBarStyle: {
-          backgroundColor: '#0E1116', // carbon-950 - force dark
-          borderTopColor: '#353D4B', // graphite-700 - force dark
-          borderTopWidth: 1,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 12,
-          paddingTop: 8,
-          height: Platform.OS === 'ios' ? 88 : 72,
+          position: 'absolute',
+          bottom: Platform.OS === 'ios' ? 24 : 16,
+          left: 20,
+          right: 20,
+          height: 72,
+          backgroundColor: 'rgba(18, 18, 18, 0.9)',
+          borderRadius: 32,
+          borderTopWidth: 0,
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          paddingBottom: 0,
+          paddingTop: 0,
+          paddingHorizontal: 8,
+          // Glass shadow effect
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 20 },
+          shadowOpacity: 0.5,
+          shadowRadius: 50,
+          elevation: 20,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          fontSize: 9,
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+          marginTop: 4,
         },
         headerStyle: {
-          backgroundColor: '#0E1116', // carbon-950 - force dark
+          backgroundColor: Colors.void[900],
+          borderBottomWidth: 0,
+          shadowOpacity: 0,
+          elevation: 0,
         },
-        headerTintColor: '#E6E8EB', // graphite-100 - force dark
+        headerTintColor: Colors.graphite[50],
         headerTitleStyle: {
           fontWeight: '700',
-          color: '#E6E8EB', // Ensure header text is light
+          fontSize: 16,
+          letterSpacing: 0.5,
+        },
+        // Add padding to content so it doesn't get hidden behind floating nav
+        sceneContainerStyle: {
+          backgroundColor: Colors.void[900],
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'Train',
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} focused={focused} />
+            <TabBarIcon name={focused ? 'pulse' : 'pulse-outline'} color={color} focused={focused} />
           ),
-          headerShown: false, // Hide header - we have our own in the component
+          headerShown: false,
         }}
       />
       <Tabs.Screen
@@ -128,7 +161,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: 'History',
+          title: 'Log',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'time' : 'time-outline'} color={color} focused={focused} />
           ),
@@ -138,7 +171,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="analytics"
         options={{
-          title: 'Analytics',
+          title: 'Stats',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} focused={focused} />
           ),

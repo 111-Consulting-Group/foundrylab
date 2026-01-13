@@ -9,7 +9,7 @@ import {
   Easing,
 } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import type { Exercise } from '@/types/database';
 
 type PRType = 'weight' | 'reps' | 'volume' | 'e1rm';
@@ -50,9 +50,6 @@ export function PRCelebration({
   value,
   previousValue,
 }: PRCelebrationProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   // Animation values
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -123,19 +120,37 @@ export function PRCelebration({
       onRequestClose={onClose}
     >
       <Animated.View
-        style={{ opacity: opacityAnim }}
-        className="flex-1 bg-black/60 items-center justify-center px-6"
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          opacity: opacityAnim,
+        }}
       >
         <Animated.View
           style={{
+            width: '100%',
+            maxWidth: 384,
+            borderRadius: 24,
+            overflow: 'hidden',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
             transform: [{ scale: scaleAnim }],
           }}
-          className={`w-full max-w-sm rounded-3xl overflow-hidden ${
-            isDark ? 'bg-graphite-900' : 'bg-white'
-          }`}
         >
           {/* Oxide Orange Gradient Header - Special PR moment */}
-          <View className="bg-gradient-to-br from-oxide-500 to-oxide-600 py-8 items-center relative overflow-hidden">
+          <View
+            style={{
+              paddingVertical: 32,
+              alignItems: 'center',
+              position: 'relative',
+              overflow: 'hidden',
+              backgroundColor: '#F2994A',
+            }}
+          >
             {/* Animated confetti/sparkles */}
             {[...Array(8)].map((_, i) => (
               <Animated.View
@@ -164,7 +179,7 @@ export function PRCelebration({
                   }),
                 }}
               >
-                <Text className="text-2xl">
+                <Text style={{ fontSize: 24 }}>
                   {['✨', '⭐', '🔥', '💪'][i % 4]}
                 </Text>
               </Animated.View>
@@ -173,46 +188,56 @@ export function PRCelebration({
             {/* Trophy Icon */}
             <Animated.View
               style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
                 transform: [{ translateY: trophyBounceAnim }],
               }}
-              className="w-20 h-20 rounded-full bg-white/20 items-center justify-center mb-4"
             >
               <Ionicons name="trophy" size={48} color="#ffffff" />
             </Animated.View>
 
-            <Text className="text-white text-2xl font-bold text-center">
+            <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700', textAlign: 'center' }}>
               {prMessage.title}
             </Text>
-            <Text className="text-white/80 text-center mt-1">
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', textAlign: 'center', marginTop: 4 }}>
               {prMessage.subtitle}
             </Text>
           </View>
 
           {/* Content */}
-          <View className="p-6 items-center">
+          <View style={{ padding: 24, alignItems: 'center' }}>
             <Text
-              className={`text-lg font-semibold mb-2 ${
-                isDark ? 'text-graphite-100' : 'text-graphite-900'
-              }`}
+              style={{
+                fontSize: 18,
+                fontWeight: '600',
+                marginBottom: 8,
+                color: Colors.graphite[100],
+              }}
             >
               {exercise.name}
             </Text>
 
-            <View className="flex-row items-center justify-center mb-4">
-              <Text
-                className={`text-4xl font-bold text-oxide-500`}
-              >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 36, fontWeight: '700', color: '#F2994A' }}>
                 {value}
               </Text>
             </View>
 
             {previousValue && (
               <View
-                className={`px-4 py-2 rounded-full ${
-                  isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-                }`}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                }}
               >
-                <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
                   Previous best: {previousValue}
                 </Text>
               </View>
@@ -220,10 +245,17 @@ export function PRCelebration({
 
             {/* Close Button */}
             <Pressable
-              className="mt-6 w-full py-3 rounded-xl bg-oxide-500 items-center"
+              style={{
+                marginTop: 24,
+                width: '100%',
+                paddingVertical: 12,
+                borderRadius: 12,
+                backgroundColor: '#F2994A',
+                alignItems: 'center',
+              }}
               onPress={onClose}
             >
-              <Text className="text-white font-semibold text-lg">
+              <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 18 }}>
                 Keep Crushing It!
               </Text>
             </Pressable>

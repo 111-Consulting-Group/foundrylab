@@ -10,8 +10,8 @@ import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { GoalCard } from '@/components/GoalCard';
+import { Colors } from '@/constants/Colors';
 import {
   useAllGoals,
   useCreateGoal,
@@ -24,8 +24,6 @@ import {
 import { useMainLiftPRs } from '@/hooks/usePersonalRecords';
 
 export default function GoalsScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
 
   const { data: goals = [], isLoading } = useAllGoals();
   const { data: mainLiftPRs = [] } = useMainLiftPRs();
@@ -85,227 +83,245 @@ export default function GoalsScreen() {
       <Stack.Screen
         options={{
           title: 'Goals',
-          headerStyle: { backgroundColor: isDark ? '#0E1116' : '#ffffff' },
-          headerTintColor: isDark ? '#E6E8EB' : '#0E1116',
+          headerStyle: { backgroundColor: Colors.void[900] },
+          headerTintColor: Colors.graphite[50],
         }}
       />
-      <SafeAreaView className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`} edges={['left', 'right']}>
-        <ScrollView className="flex-1 px-4">
-          {/* Header */}
-          <View className="flex-row items-center justify-between mt-4 mb-6">
-            <View>
-              <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                Your Goals
-              </Text>
-              <Text className={`text-sm mt-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                Track progress toward your targets
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => setShowCreateModal(true)}
-              className="flex-row items-center px-4 py-2 rounded-full bg-signal-500"
-            >
-              <Ionicons name="add" size={20} color="#ffffff" />
-              <Text className="text-white font-semibold ml-1">New Goal</Text>
-            </Pressable>
-          </View>
+      <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+        {/* Ambient Background Glows */}
+        <View style={{ position: 'absolute', top: -60, right: -100, width: 260, height: 260, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 130 }} />
+        <View style={{ position: 'absolute', bottom: 100, left: -80, width: 220, height: 220, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 110 }} />
 
-          {isLoading ? (
-            <View className="items-center justify-center py-12">
-              <ActivityIndicator size="large" color="#2F80ED" />
-            </View>
-          ) : activeGoals.length === 0 && achievedGoals.length === 0 ? (
-            <View className={`p-8 rounded-xl items-center ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
-              <Ionicons
-                name="flag-outline"
-                size={64}
-                color={isDark ? '#353D4B' : '#A5ABB6'}
-              />
-              <Text className={`mt-4 text-lg font-semibold ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
-                No Goals Yet
-              </Text>
-              <Text className={`mt-2 text-center ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                Set a goal to track your progress.{'\n'}
-                What do you want to achieve?
-              </Text>
+        <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+          <ScrollView style={{ flex: 1, paddingHorizontal: 16 }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 24 }}>
+              <View>
+                <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.graphite[50] }}>
+                  Your Goals
+                </Text>
+                <Text style={{ fontSize: 14, marginTop: 4, color: Colors.graphite[400] }}>
+                  Track progress toward your targets
+                </Text>
+              </View>
               <Pressable
                 onPress={() => setShowCreateModal(true)}
-                className="mt-6 px-6 py-3 rounded-full bg-signal-500"
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, backgroundColor: Colors.signal[500] }}
               >
-                <Text className="text-white font-semibold">Set Your First Goal</Text>
+                <Ionicons name="add" size={20} color="#ffffff" />
+                <Text style={{ color: '#fff', fontWeight: '600', marginLeft: 4 }}>New Goal</Text>
               </Pressable>
             </View>
-          ) : (
-            <>
-              {/* Active Goals */}
-              {activeGoals.length > 0 && (
-                <View className="mb-6">
-                  <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                    Active Goals
-                  </Text>
-                  <View className="gap-3">
-                    {activeGoals.map((goal) => (
-                      <GoalCard key={goal.id} goal={goal} />
-                    ))}
+
+            {isLoading ? (
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+                <ActivityIndicator size="large" color={Colors.signal[500]} />
+              </View>
+            ) : activeGoals.length === 0 && achievedGoals.length === 0 ? (
+              <View
+                style={{
+                  padding: 32,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <Ionicons name="flag-outline" size={64} color={Colors.graphite[600]} />
+                <Text style={{ marginTop: 16, fontSize: 18, fontWeight: '600', color: Colors.graphite[200] }}>
+                  No Goals Yet
+                </Text>
+                <Text style={{ marginTop: 8, textAlign: 'center', color: Colors.graphite[400] }}>
+                  Set a goal to track your progress.{'\n'}
+                  What do you want to achieve?
+                </Text>
+                <Pressable
+                  onPress={() => setShowCreateModal(true)}
+                  style={{ marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, backgroundColor: Colors.signal[500] }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600' }}>Set Your First Goal</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                {/* Active Goals */}
+                {activeGoals.length > 0 && (
+                  <View style={{ marginBottom: 24 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
+                      Active Goals
+                    </Text>
+                    <View style={{ gap: 12 }}>
+                      {activeGoals.map((goal) => (
+                        <GoalCard key={goal.id} goal={goal} />
+                      ))}
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
 
-              {/* Achieved Goals */}
-              {achievedGoals.length > 0 && (
-                <View className="mb-6">
-                  <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                    Achieved
-                  </Text>
-                  <View className="gap-3">
-                    {achievedGoals.map((goal) => (
-                      <GoalCard key={goal.id} goal={goal} />
-                    ))}
+                {/* Achieved Goals */}
+                {achievedGoals.length > 0 && (
+                  <View style={{ marginBottom: 24 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
+                      Achieved
+                    </Text>
+                    <View style={{ gap: 12 }}>
+                      {achievedGoals.map((goal) => (
+                        <GoalCard key={goal.id} goal={goal} />
+                      ))}
+                    </View>
                   </View>
-                </View>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
 
-          <View className="h-8" />
-        </ScrollView>
+            <View style={{ height: 32 }} />
+          </ScrollView>
 
-        {/* Create Goal Modal */}
-        <Modal
-          visible={showCreateModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowCreateModal(false)}
-        >
-          <Pressable
-            className="flex-1 bg-black/50 justify-end"
-            onPress={() => setShowCreateModal(false)}
+          {/* Create Goal Modal */}
+          <Modal
+            visible={showCreateModal}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowCreateModal(false)}
           >
             <Pressable
-              className={`rounded-t-3xl ${isDark ? 'bg-graphite-900' : 'bg-white'} p-6`}
-              onPress={(e) => e.stopPropagation()}
+              style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
+              onPress={() => setShowCreateModal(false)}
             >
-              <View className="w-10 h-1 bg-graphite-400 rounded-full self-center mb-4" />
-              <Text className={`text-xl font-bold mb-2 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                Set a New Goal
-              </Text>
-              <Text className={`mb-6 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                What do you want to achieve?
-              </Text>
-
-              {/* Exercise Selection */}
-              <Text className={`text-sm font-semibold mb-2 ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
-                Exercise
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
-                <View className="flex-row gap-2">
-                  {exerciseOptions.map((exercise) => (
-                    <Pressable
-                      key={exercise.id}
-                      className={`px-4 py-3 rounded-xl border ${
-                        selectedExercise?.id === exercise.id
-                          ? 'bg-signal-500/20 border-signal-500'
-                          : isDark
-                          ? 'bg-graphite-800 border-graphite-700'
-                          : 'bg-graphite-50 border-graphite-200'
-                      }`}
-                      onPress={() => setSelectedExercise(exercise)}
-                    >
-                      <Text
-                        className={`font-medium ${
-                          selectedExercise?.id === exercise.id
-                            ? 'text-signal-500'
-                            : isDark
-                            ? 'text-graphite-200'
-                            : 'text-graphite-800'
-                        }`}
-                      >
-                        {exercise.name}
-                      </Text>
-                      {exercise.currentPR && (
-                        <Text className={`text-xs mt-1 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
-                          Current: {exercise.currentPR} lbs
-                        </Text>
-                      )}
-                    </Pressable>
-                  ))}
-                </View>
-              </ScrollView>
-
-              {/* Target Value */}
-              <Text className={`text-sm font-semibold mb-2 ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
-                Target (lbs)
-              </Text>
-              <View
-                className={`flex-row items-center px-4 py-3 rounded-xl mb-4 ${
-                  isDark ? 'bg-graphite-800' : 'bg-graphite-50'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+              <Pressable
+                style={{
+                  borderTopLeftRadius: 24,
+                  borderTopRightRadius: 24,
+                  backgroundColor: Colors.void[800],
+                  padding: 24,
+                  borderWidth: 1,
+                  borderBottomWidth: 0,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+                onPress={(e) => e.stopPropagation()}
               >
-                <TextInput
-                  className={`flex-1 text-lg font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
-                  placeholder="405"
-                  placeholderTextColor={isDark ? '#808fb0' : '#A5ABB6'}
-                  value={targetValue}
-                  onChangeText={setTargetValue}
-                  keyboardType="numeric"
-                />
-                <Text className={`text-lg ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>lbs</Text>
-              </View>
+                <View style={{ width: 40, height: 4, backgroundColor: Colors.graphite[600], borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
+                <Text style={{ fontSize: 20, fontWeight: '700', marginBottom: 8, color: Colors.graphite[50] }}>
+                  Set a New Goal
+                </Text>
+                <Text style={{ marginBottom: 24, color: Colors.graphite[400] }}>
+                  What do you want to achieve?
+                </Text>
 
-              {/* Current vs Target */}
-              {selectedExercise?.currentPR && targetValue && (
-                <View className={`p-4 rounded-xl mb-4 ${isDark ? 'bg-graphite-800' : 'bg-graphite-100'}`}>
-                  <View className="flex-row items-center justify-between">
-                    <View>
-                      <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
-                        Current
-                      </Text>
-                      <Text className={`text-xl font-bold ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
-                        {selectedExercise.currentPR}
-                      </Text>
-                    </View>
-                    <Ionicons name="arrow-forward" size={24} color="#2F80ED" />
-                    <View className="items-end">
-                      <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
-                        Target
-                      </Text>
-                      <Text className="text-xl font-bold text-signal-500">
-                        {targetValue}
-                      </Text>
-                    </View>
+                {/* Exercise Selection */}
+                <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
+                  Exercise
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {exerciseOptions.map((exercise) => (
+                      <Pressable
+                        key={exercise.id}
+                        style={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 12,
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          backgroundColor: selectedExercise?.id === exercise.id ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                          borderColor: selectedExercise?.id === exercise.id ? Colors.signal[500] : 'rgba(255, 255, 255, 0.1)',
+                        }}
+                        onPress={() => setSelectedExercise(exercise)}
+                      >
+                        <Text style={{ fontWeight: '500', color: selectedExercise?.id === exercise.id ? Colors.signal[400] : Colors.graphite[200] }}>
+                          {exercise.name}
+                        </Text>
+                        {exercise.currentPR && (
+                          <Text style={{ fontSize: 10, marginTop: 4, color: Colors.graphite[500] }}>
+                            Current: {exercise.currentPR} lbs
+                          </Text>
+                        )}
+                      </Pressable>
+                    ))}
                   </View>
-                  <Text className={`text-sm mt-2 text-center ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                    +{(parseFloat(targetValue) - selectedExercise.currentPR).toFixed(0)} lbs to go
-                  </Text>
-                </View>
-              )}
+                </ScrollView>
 
-              {/* Action Buttons */}
-              <View className="flex-row gap-3 mt-2">
-                <Pressable
-                  className={`flex-1 py-4 rounded-xl items-center ${isDark ? 'bg-graphite-800' : 'bg-graphite-100'}`}
-                  onPress={() => setShowCreateModal(false)}
+                {/* Target Value */}
+                <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
+                  Target (lbs)
+                </Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    marginBottom: 16,
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
                 >
-                  <Text className={`font-semibold ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
-                    Cancel
-                  </Text>
-                </Pressable>
-                <Pressable
-                  className={`flex-1 py-4 rounded-xl items-center ${
-                    selectedExercise && targetValue ? 'bg-signal-500' : 'bg-graphite-400'
-                  }`}
-                  onPress={handleCreateGoal}
-                  disabled={!selectedExercise || !targetValue || createGoal.isPending}
-                >
-                  <Text className="text-white font-semibold">
-                    {createGoal.isPending ? 'Creating...' : 'Set Goal'}
-                  </Text>
-                </Pressable>
-              </View>
+                  <TextInput
+                    style={{ flex: 1, fontSize: 18, fontWeight: '600', color: Colors.graphite[50] }}
+                    placeholder="405"
+                    placeholderTextColor={Colors.graphite[500]}
+                    value={targetValue}
+                    onChangeText={setTargetValue}
+                    keyboardType="numeric"
+                  />
+                  <Text style={{ fontSize: 18, color: Colors.graphite[400] }}>lbs</Text>
+                </View>
+
+                {/* Current vs Target */}
+                {selectedExercise?.currentPR && targetValue && (
+                  <View style={{ padding: 16, borderRadius: 12, marginBottom: 16, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View>
+                        <Text style={{ fontSize: 10, color: Colors.graphite[500] }}>Current</Text>
+                        <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[300] }}>
+                          {selectedExercise.currentPR}
+                        </Text>
+                      </View>
+                      <Ionicons name="arrow-forward" size={24} color={Colors.signal[400]} />
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 10, color: Colors.graphite[500] }}>Target</Text>
+                        <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.signal[400] }}>
+                          {targetValue}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 14, marginTop: 8, textAlign: 'center', color: Colors.graphite[400] }}>
+                      +{(parseFloat(targetValue) - selectedExercise.currentPR).toFixed(0)} lbs to go
+                    </Text>
+                  </View>
+                )}
+
+                {/* Action Buttons */}
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                  <Pressable
+                    style={{ flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+                    onPress={() => setShowCreateModal(false)}
+                  >
+                    <Text style={{ fontWeight: '600', color: Colors.graphite[300] }}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    style={{
+                      flex: 1,
+                      paddingVertical: 16,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      backgroundColor: selectedExercise && targetValue ? Colors.signal[500] : Colors.graphite[600],
+                    }}
+                    onPress={handleCreateGoal}
+                    disabled={!selectedExercise || !targetValue || createGoal.isPending}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '600' }}>
+                      {createGoal.isPending ? 'Creating...' : 'Set Goal'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </Pressable>
             </Pressable>
-          </Pressable>
-        </Modal>
-      </SafeAreaView>
+          </Modal>
+        </SafeAreaView>
+      </View>
     </>
   );
 }

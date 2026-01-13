@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import type { WorkoutWithSets } from '@/types/database';
 
 interface CalendarStripProps {
@@ -14,9 +14,6 @@ interface CalendarStripProps {
 type DayStatus = 'completed' | 'planned' | 'missed' | 'none';
 
 export function CalendarStrip({ selectedDate, onSelectDate, workouts, rescheduleMode }: CalendarStripProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   // Generate array of 7 days (Sun-Sat)
   const weekDays = useMemo(() => {
     const today = new Date();

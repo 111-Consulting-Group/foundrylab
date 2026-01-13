@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { ConfidenceIndicator } from '@/components/ConfidenceBadge';
 import type { DetectedPattern } from '@/lib/patternDetection';
 import type { ConfidenceLevel } from '@/types/database';
@@ -33,9 +33,6 @@ interface PatternCardProps {
 }
 
 export function PatternCard({ pattern, onPress, compact = false }: PatternCardProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const iconMap: Record<string, string> = {
     training_split: 'calendar-outline',
     exercise_pairing: 'link-outline',
@@ -49,28 +46,34 @@ export function PatternCard({ pattern, onPress, compact = false }: PatternCardPr
   if (compact) {
     return (
       <View
-        className="flex-row items-center p-3 rounded-xl bg-graphite-800"
-        style={{ backgroundColor: '#1A1F2E' }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
       >
         <View
-          className="w-8 h-8 rounded-full items-center justify-center mr-3 bg-graphite-700"
-          style={{ backgroundColor: '#353D4B' }}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          }}
         >
-          <Ionicons name={icon as any} size={16} color="#808fb0" />
+          <Ionicons name={icon as any} size={16} color={Colors.graphite[400]} />
         </View>
-        <View className="flex-1">
-          <Text
-            className="font-medium text-graphite-200"
-            style={{ color: '#D4D7DC' }}
-            numberOfLines={1}
-          >
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: '500', color: Colors.graphite[200] }} numberOfLines={1}>
             {pattern.name}
           </Text>
-          <Text
-            className="text-xs text-graphite-400"
-            style={{ color: '#6B7485' }}
-            numberOfLines={1}
-          >
+          <Text style={{ fontSize: 12, color: Colors.graphite[400] }} numberOfLines={1}>
             {pattern.description}
           </Text>
         </View>
@@ -82,62 +85,76 @@ export function PatternCard({ pattern, onPress, compact = false }: PatternCardPr
   return (
     <Pressable
       onPress={onPress}
-      className="p-4 rounded-xl bg-graphite-800 border border-graphite-700"
-      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
+      style={{
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
     >
-      <View className="flex-row items-start">
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
         <View
-          className="w-10 h-10 rounded-full items-center justify-center mr-3 bg-graphite-700"
-          style={{ backgroundColor: '#353D4B' }}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          }}
         >
-          <Ionicons name={icon as any} size={20} color="#808fb0" />
+          <Ionicons name={icon as any} size={20} color={Colors.graphite[400]} />
         </View>
-        <View className="flex-1">
-          <View className="flex-row items-center justify-between mb-1">
-            <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <Text style={{ fontWeight: '600', color: Colors.graphite[100] }}>
               {pattern.name}
             </Text>
-            <View className="flex-row items-center">
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <ConfidenceIndicator level={confidenceLevel} />
-              <Text
-                className="text-xs ml-1 text-graphite-400"
-                style={{ color: '#6B7485' }}
-              >
+              <Text style={{ fontSize: 12, marginLeft: 4, color: Colors.graphite[400] }}>
                 {Math.round(pattern.confidence * 100)}%
               </Text>
             </View>
           </View>
-          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
+          <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
             {pattern.description}
           </Text>
 
           {/* Additional pattern-specific data */}
           {pattern.type === 'training_split' && pattern.data.splits && (
-            <View className="flex-row flex-wrap mt-2 gap-1">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 4 }}>
               {(pattern.data.splits as string[]).map((split, index) => (
                 <View
                   key={index}
-                  className="px-2 py-0.5 rounded bg-graphite-700"
-                  style={{ backgroundColor: '#353D4B' }}
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
                 >
-                  <Text className="text-xs text-graphite-300" style={{ color: '#C4C8D0' }}>
-                    {split}
-                  </Text>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[300] }}>{split}</Text>
                 </View>
               ))}
             </View>
           )}
 
           {pattern.type === 'training_day' && pattern.data.preferred_days && (
-            <View className="flex-row flex-wrap mt-2 gap-1">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 4 }}>
               {(pattern.data.preferred_days as string[]).map((day, index) => (
                 <View
                   key={index}
-                  className={`px-2 py-0.5 rounded ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
                 >
-                  <Text className={`text-xs ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
-                    {day}
-                  </Text>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[300] }}>{day}</Text>
                 </View>
               ))}
             </View>
@@ -166,26 +183,16 @@ export function PatternInsightsList({
   compact = false,
   onPatternPress,
 }: PatternInsightsListProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const displayPatterns = patterns.slice(0, maxItems);
 
   if (displayPatterns.length === 0) {
     return (
-      <View className="py-8 items-center">
-        <Ionicons
-          name="analytics-outline"
-          size={48}
-          color={isDark ? '#808fb0' : '#607296'}
-        />
-        <Text className="mt-4 text-center text-graphite-400" style={{ color: '#6B7485' }}>
+      <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+        <Ionicons name="analytics-outline" size={48} color={Colors.graphite[400]} />
+        <Text style={{ marginTop: 16, textAlign: 'center', color: Colors.graphite[400] }}>
           Keep training to discover your patterns
         </Text>
-        <Text
-          className="text-sm text-center mt-1 text-graphite-400"
-          style={{ color: '#6B7485' }}
-        >
+        <Text style={{ fontSize: 14, textAlign: 'center', marginTop: 4, color: Colors.graphite[400] }}>
           We need at least 4 workouts to detect patterns
         </Text>
       </View>
@@ -195,14 +202,11 @@ export function PatternInsightsList({
   return (
     <View>
       {title && (
-        <Text
-          className="text-lg font-bold mb-4 text-graphite-100"
-          style={{ color: '#E6E8EB' }}
-        >
+        <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 16, color: Colors.graphite[100] }}>
           {title}
         </Text>
       )}
-      <View className={compact ? 'gap-2' : 'gap-3'}>
+      <View style={{ gap: compact ? 8 : 12 }}>
         {displayPatterns.map((pattern, index) => (
           <PatternCard
             key={`${pattern.type}-${index}`}
@@ -234,46 +238,60 @@ export function TrainingSplitSummary({
   confidence,
   preferredDays,
 }: TrainingSplitSummaryProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   return (
     <View
-      className="p-4 rounded-xl bg-graphite-800 border border-graphite-700"
-      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
+      style={{
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
     >
-      <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row items-center">
-          <View className="w-10 h-10 rounded-full bg-signal-500/20 items-center justify-center mr-3">
-            <Ionicons name="calendar" size={20} color="#2F80ED" />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}
+          >
+            <Ionicons name="calendar" size={20} color={Colors.signal[500]} />
           </View>
           <View>
-            <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
-              {name}
-            </Text>
-            <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
-              ~{daysPerWeek} days/week
-            </Text>
+            <Text style={{ fontWeight: '600', color: Colors.graphite[100] }}>{name}</Text>
+            <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>~{daysPerWeek} days/week</Text>
           </View>
         </View>
         <View
-          className={`px-2 py-1 rounded-full ${
-            confidence >= 0.8
-              ? 'bg-green-500/20'
-              : confidence >= 0.6
-              ? 'bg-yellow-500/20'
-              : 'bg-graphite-500/20'
-          }`}
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+            backgroundColor:
+              confidence >= 0.8
+                ? 'rgba(34, 197, 94, 0.2)'
+                : confidence >= 0.6
+                ? 'rgba(245, 158, 11, 0.2)'
+                : 'rgba(255, 255, 255, 0.1)',
+          }}
         >
           <Text
-            className={`text-xs font-medium ${
-              confidence >= 0.8
-                ? 'text-green-500'
-                : confidence >= 0.6
-                ? 'text-yellow-500'
-                : 'text-graphite-400'
-            }`}
-            style={confidence < 0.6 ? { color: '#6B7485' } : undefined}
+            style={{
+              fontSize: 12,
+              fontWeight: '500',
+              color:
+                confidence >= 0.8
+                  ? '#22c55e'
+                  : confidence >= 0.6
+                  ? '#fbbf24'
+                  : Colors.graphite[400],
+            }}
           >
             {Math.round(confidence * 100)}% confident
           </Text>
@@ -281,30 +299,27 @@ export function TrainingSplitSummary({
       </View>
 
       {/* Split days */}
-      <View className="flex-row flex-wrap gap-2 mb-3">
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         {splits.map((split, index) => (
           <View
             key={index}
-            className="px-3 py-1.5 rounded-lg bg-graphite-700"
-            style={{ backgroundColor: '#353D4B' }}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 8,
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            }}
           >
-            <Text className="font-medium text-graphite-200" style={{ color: '#D4D7DC' }}>
-              {split}
-            </Text>
+            <Text style={{ fontWeight: '500', color: Colors.graphite[200] }}>{split}</Text>
           </View>
         ))}
       </View>
 
       {/* Preferred days */}
       {preferredDays && preferredDays.length > 0 && (
-        <View className="flex-row items-center">
-          <Ionicons
-            name="time-outline"
-            size={14}
-            color={isDark ? '#808fb0' : '#607296'}
-            style={{ marginRight: 6 }}
-          />
-          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="time-outline" size={14} color={Colors.graphite[400]} style={{ marginRight: 6 }} />
+          <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
             Usually on {preferredDays.join(', ')}
           </Text>
         </View>
@@ -323,45 +338,67 @@ interface StructureOfferProps {
 }
 
 export function StructureOffer({ pattern, onAccept, onDismiss }: StructureOfferProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   return (
     <View
-      className={`p-4 rounded-xl ${isDark ? 'bg-signal-500/10' : 'bg-signal-500/5'} border ${
-        isDark ? 'border-signal-500/30' : 'border-signal-500/20'
-      }`}
+      style={{
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+      }}
     >
-      <View className="flex-row items-start mb-3">
-        <View className="w-10 h-10 rounded-full bg-signal-500/20 items-center justify-center mr-3">
-          <Ionicons name="sparkles" size={20} color="#2F80ED" />
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+          }}
+        >
+          <Ionicons name="sparkles" size={20} color={Colors.signal[500]} />
         </View>
-        <View className="flex-1">
-          <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: '600', color: Colors.graphite[100] }}>
             We noticed a pattern!
           </Text>
-          <Text className="text-sm mt-1 text-graphite-400" style={{ color: '#6B7485' }}>
+          <Text style={{ fontSize: 14, marginTop: 4, color: Colors.graphite[400] }}>
             You've been training consistently with a {pattern.name} split. Would you like to turn
             this into a structured training block?
           </Text>
         </View>
       </View>
 
-      <View className="flex-row gap-3">
+      <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable
           onPress={onDismiss}
-          className="flex-1 py-3 rounded-xl items-center bg-graphite-800"
-          style={{ backgroundColor: '#1A1F2E' }}
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            borderRadius: 12,
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+          }}
         >
-          <Text className="font-medium text-graphite-300" style={{ color: '#C4C8D0' }}>
-            Keep it Flexible
-          </Text>
+          <Text style={{ fontWeight: '500', color: Colors.graphite[300] }}>Keep it Flexible</Text>
         </Pressable>
         <Pressable
           onPress={onAccept}
-          className="flex-1 py-3 rounded-xl items-center bg-signal-500"
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            borderRadius: 12,
+            alignItems: 'center',
+            backgroundColor: Colors.signal[500],
+          }}
         >
-          <Text className="font-medium text-white">Create Block</Text>
+          <Text style={{ fontWeight: '500', color: '#ffffff' }}>Create Block</Text>
         </Pressable>
       </View>
     </View>

@@ -8,7 +8,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import type { ConfidenceLevel } from '@/types/database';
 
 interface ConfidenceBadgeProps {
@@ -19,31 +19,23 @@ interface ConfidenceBadgeProps {
 }
 
 const CONFIG: Record<ConfidenceLevel, {
-  bgLight: string;
-  bgDark: string;
-  textLight: string;
-  textDark: string;
+  bg: string;
+  text: string;
   label: string;
 }> = {
   low: {
-    bgLight: 'bg-graphite-100',
-    bgDark: 'bg-graphite-700',
-    textLight: 'text-graphite-600',
-    textDark: 'text-graphite-300',
+    bg: 'rgba(255, 255, 255, 0.1)',
+    text: Colors.graphite[300],
     label: 'Low Confidence',
   },
   medium: {
-    bgLight: 'bg-yellow-100',
-    bgDark: 'bg-yellow-900/30',
-    textLight: 'text-yellow-700',
-    textDark: 'text-yellow-400',
+    bg: 'rgba(245, 158, 11, 0.2)',
+    text: '#fbbf24',
     label: 'Suggested',
   },
   high: {
-    bgLight: 'bg-green-100',
-    bgDark: 'bg-green-900/30',
-    textLight: 'text-green-700',
-    textDark: 'text-green-400',
+    bg: 'rgba(34, 197, 94, 0.2)',
+    text: '#22c55e',
     label: 'Recommended',
   },
 };
@@ -53,27 +45,21 @@ export function ConfidenceBadge({
   exposureCount,
   size = 'sm'
 }: ConfidenceBadgeProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const config = CONFIG[level];
 
-  const sizeClasses = size === 'sm'
-    ? 'px-2 py-0.5'
-    : 'px-3 py-1';
+  const padding = size === 'sm'
+    ? { paddingHorizontal: 8, paddingVertical: 2 }
+    : { paddingHorizontal: 12, paddingVertical: 4 };
 
-  const textSize = size === 'sm' ? 'text-xs' : 'text-sm';
+  const fontSize = size === 'sm' ? 12 : 14;
 
   return (
-    <View
-      className={`rounded-full ${sizeClasses} ${isDark ? config.bgDark : config.bgLight}`}
-    >
-      <Text
-        className={`${textSize} font-medium ${isDark ? config.textDark : config.textLight}`}
-      >
+    <View style={{ borderRadius: 12, backgroundColor: config.bg, ...padding }}>
+      <Text style={{ fontSize, fontWeight: '500', color: config.text }}>
         {config.label}
         {exposureCount !== undefined && level === 'low' && (
-          <Text className="opacity-70">
-            {exposureCount !== 1 
+          <Text style={{ opacity: 0.7 }}>
+            {exposureCount !== 1
               ? ` (${exposureCount} sessions)`
               : ` (${exposureCount} session)`
             }
@@ -88,16 +74,13 @@ export function ConfidenceBadge({
  * Inline confidence indicator for compact displays
  */
 export function ConfidenceIndicator({ level }: { level: ConfidenceLevel }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const colors: Record<ConfidenceLevel, string> = {
-    low: isDark ? 'bg-graphite-500' : 'bg-graphite-400',
-    medium: 'bg-yellow-500',
-    high: 'bg-green-500',
+    low: Colors.graphite[500],
+    medium: '#fbbf24',
+    high: '#22c55e',
   };
 
   return (
-    <View className={`w-2 h-2 rounded-full ${colors[level]}`} />
+    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors[level] }} />
   );
 }

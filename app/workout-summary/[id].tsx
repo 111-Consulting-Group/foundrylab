@@ -14,10 +14,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { ExerciseBreakdown } from '@/components/ExerciseBreakdown';
 import { SaveTemplateModal } from '@/components/TemplatePicker';
 import { NewAchievementToast, AchievementRow } from '@/components/AchievementBadge';
+import { Colors } from '@/constants/Colors';
 import { useWorkout, useUncompleteWorkout } from '@/hooks/useWorkouts';
 import { useCheckAchievements, useRecentAchievements } from '@/hooks/useAchievements';
 import { useWorkoutSuggestions } from '@/hooks/useMovementMemory';
@@ -34,8 +34,6 @@ import { MovementMemoryCard } from '@/components/MovementMemoryCard';
 
 export default function WorkoutSummaryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const summaryRef = useRef<View>(null);
   const webDomRef = useRef<HTMLElement | null>(null);
 
@@ -394,195 +392,216 @@ export default function WorkoutSummaryScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-carbon-950" style={{ backgroundColor: '#0E1116' }}>
-        <ActivityIndicator size="large" color="#2F80ED" />
-      </SafeAreaView>
+      <View style={{ flex: 1, backgroundColor: Colors.void[900], alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={Colors.signal[500]} />
+      </View>
     );
   }
 
   if (!workout) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-carbon-950" style={{ backgroundColor: '#0E1116' }}>
-        <Text className="text-graphite-400" style={{ color: '#6B7485' }}>Workout not found</Text>
-      </SafeAreaView>
+      <View style={{ flex: 1, backgroundColor: Colors.void[900], alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: Colors.graphite[400] }}>Workout not found</Text>
+      </View>
     );
   }
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView className="flex-1 bg-carbon-950" style={{ backgroundColor: '#0E1116' }} edges={['left', 'right', 'bottom']}>
-        {/* Header */}
-        <View className="px-4 py-3 border-b flex-row items-center justify-between border-graphite-700 bg-graphite-900" style={{ borderColor: '#353D4B', backgroundColor: '#1C222B' }}>
-          <Pressable onPress={() => router.back()} className="p-2 -ml-2">
-            <Ionicons name="close" size={24} color="#E6E8EB" />
-          </Pressable>
-          <Text className="text-lg font-semibold text-graphite-50" style={{ color: '#E6E8EB' }}>
-            Session Receipt
-          </Text>
-          <View className="flex-row gap-2">
-            {/* Share buttons */}
-            <Pressable onPress={handleShare} className="p-2">
-              <Ionicons name="share-outline" size={24} color={isDark ? '#2F80ED' : '#2F80ED'} />
-            </Pressable>
-          </View>
-        </View>
+      <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+        {/* Ambient Background Glows */}
+        <View style={{ position: 'absolute', top: -60, right: -100, width: 260, height: 260, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 130 }} />
+        <View style={{ position: 'absolute', bottom: 100, left: -80, width: 220, height: 220, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 110 }} />
 
-        <ScrollView className="flex-1">
-          {/* Shareable Card Content */}
-          <View 
-            ref={(node) => {
-              summaryRef.current = node;
-              if (Platform.OS === 'web' && node) {
-                // Store the actual DOM node for web
-                const domNode = (node as any)?._nativeNode || (node as any);
-                if (domNode?.nodeType === 1) {
-                  webDomRef.current = domNode;
-                }
-              }
+        <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+          {/* Header */}
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'rgba(18, 18, 18, 0.9)',
             }}
-            className="bg-carbon-950" 
-            style={{ backgroundColor: '#0E1116' }}
           >
-            
-            {/* Header with Date */}
-            <View className="px-4 pt-6 pb-4">
-              <Text className="text-2xl font-bold text-graphite-50 mb-1" style={{ color: '#E6E8EB' }}>
-                {workout.focus || 'Workout'}
-              </Text>
-              <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
-                {workoutDate}
-              </Text>
+            <Pressable onPress={() => router.back()} style={{ padding: 8, marginLeft: -8 }}>
+              <Ionicons name="close" size={24} color={Colors.graphite[50]} />
+            </Pressable>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: Colors.graphite[50] }}>
+              Session Receipt
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable onPress={handleShare} style={{ padding: 8 }}>
+                <Ionicons name="share-outline" size={24} color={Colors.signal[400]} />
+              </Pressable>
             </View>
+          </View>
 
-            {/* Session Verdict - Shows "Building" status */}
-            <View className="px-4">
-              <SessionVerdict workout={workout} />
-            </View>
+          <ScrollView style={{ flex: 1 }}>
+            {/* Shareable Card Content */}
+            <View
+              ref={(node) => {
+                summaryRef.current = node;
+                if (Platform.OS === 'web' && node) {
+                  const domNode = (node as any)?._nativeNode || (node as any);
+                  if (domNode?.nodeType === 1) {
+                    webDomRef.current = domNode;
+                  }
+                }
+              }}
+              style={{ backgroundColor: Colors.void[900] }}
+            >
 
-            {/* Exercise Summary - Simplified for screenshot */}
-            <View className="px-4 pb-4">
-              <Text className="text-sm font-bold uppercase tracking-wide mb-3 text-graphite-400" style={{ color: '#6B7485' }}>
-                Performance Breakdown
-              </Text>
-              
-              <View className="rounded-xl border border-graphite-700 bg-graphite-800 overflow-hidden" style={{ borderColor: '#353D4B', backgroundColor: '#1A1F2E' }}>
-                {Array.from(exercisesBySection.entries()).map(([section, exercises], sectionIdx) => (
-                  <View key={section}>
-                    {exercises.map((ex, exIdx) => {
-                      // Deduplicate sets
-                      const uniqueSets = ex.sets.filter((set, index, self) => {
-                        if (set.id) {
-                          return index === self.findIndex(s => s.id === set.id);
-                        }
-                        return index === self.findIndex(s => 
-                          s.set_order === set.set_order && 
-                          s.exercise_id === set.exercise_id
-                        );
-                      });
-                      
-                      // Get work sets only
-                      const workSets = uniqueSets.filter(s => !s.is_warmup && (s.actual_weight !== null || s.actual_reps !== null));
-                      
-                      if (workSets.length === 0) return null;
-                      
-                      // Get the best/top set
-                      const topSet = workSets.reduce((best, current) => {
-                        const currentWeight = current.actual_weight || 0;
-                        const bestWeight = best.actual_weight || 0;
-                        if (currentWeight > bestWeight) return current;
-                        if (currentWeight === bestWeight && (current.actual_reps || 0) > (best.actual_reps || 0)) return current;
-                        return best;
-                      }, workSets[0]);
-                      
-                      // Format: "4x10 @ 40 lbs"
-                      const setCount = workSets.length;
-                      const weight = topSet.actual_weight === 0 ? 'BW' : `${topSet.actual_weight} lbs`;
-                      const reps = topSet.actual_reps || 0;
-                      const summary = `${setCount}x${reps} @ ${weight}`;
-                      
-                      const isNotFirst = sectionIdx > 0 || exIdx > 0;
-                      
-                      return (
-                        <View 
-                          key={ex.exercise.id}
-                          className={`px-4 py-3 ${isNotFirst ? 'border-t border-graphite-700' : ''}`}
-                          style={isNotFirst ? { borderColor: '#353D4B' } : {}}
-                        >
-                          <View className="flex-row justify-between items-center">
-                            <Text className="text-base font-semibold text-graphite-100 flex-1" style={{ color: '#E6E8EB' }}>
-                              {ex.exercise.name}
-                            </Text>
-                            <Text className="text-base font-lab-mono font-bold text-signal-500" style={{ color: '#2F80ED' }}>
-                              {summary}
-                            </Text>
+              {/* Header with Date */}
+              <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 16 }}>
+                <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.graphite[50], marginBottom: 4 }}>
+                  {workout.focus || 'Workout'}
+                </Text>
+                <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
+                  {workoutDate}
+                </Text>
+              </View>
+
+              {/* Session Verdict - Shows "Building" status */}
+              <View style={{ paddingHorizontal: 16 }}>
+                <SessionVerdict workout={workout} />
+              </View>
+
+              {/* Exercise Summary - Simplified for screenshot */}
+              <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, color: Colors.graphite[400] }}>
+                  Performance Breakdown
+                </Text>
+
+                <View
+                  style={{
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {Array.from(exercisesBySection.entries()).map(([section, exercises], sectionIdx) => (
+                    <View key={section}>
+                      {exercises.map((ex, exIdx) => {
+                        const uniqueSets = ex.sets.filter((set, index, self) => {
+                          if (set.id) {
+                            return index === self.findIndex(s => s.id === set.id);
+                          }
+                          return index === self.findIndex(s =>
+                            s.set_order === set.set_order &&
+                            s.exercise_id === set.exercise_id
+                          );
+                        });
+
+                        const workSets = uniqueSets.filter(s => !s.is_warmup && (s.actual_weight !== null || s.actual_reps !== null));
+
+                        if (workSets.length === 0) return null;
+
+                        const topSet = workSets.reduce((best, current) => {
+                          const currentWeight = current.actual_weight || 0;
+                          const bestWeight = best.actual_weight || 0;
+                          if (currentWeight > bestWeight) return current;
+                          if (currentWeight === bestWeight && (current.actual_reps || 0) > (best.actual_reps || 0)) return current;
+                          return best;
+                        }, workSets[0]);
+
+                        const setCount = workSets.length;
+                        const weight = topSet.actual_weight === 0 ? 'BW' : `${topSet.actual_weight} lbs`;
+                        const reps = topSet.actual_reps || 0;
+                        const summary = `${setCount}x${reps} @ ${weight}`;
+
+                        const isNotFirst = sectionIdx > 0 || exIdx > 0;
+
+                        return (
+                          <View
+                            key={ex.exercise.id}
+                            style={{
+                              paddingHorizontal: 16,
+                              paddingVertical: 12,
+                              ...(isNotFirst && { borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }),
+                            }}
+                          >
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.graphite[50], flex: 1 }}>
+                                {ex.exercise.name}
+                              </Text>
+                              <Text style={{ fontSize: 16, fontFamily: 'monospace', fontWeight: '700', color: Colors.signal[400] }}>
+                                {summary}
+                              </Text>
+                            </View>
+                            {topSet.actual_rpe && (
+                              <Text style={{ fontSize: 12, color: Colors.graphite[400], marginTop: 4 }}>
+                                Top Set RPE: {topSet.actual_rpe}
+                              </Text>
+                            )}
                           </View>
-                          {topSet.actual_rpe && (
-                            <Text className="text-xs text-graphite-400 mt-1" style={{ color: '#6B7485' }}>
-                              Top Set RPE: {topSet.actual_rpe}
-                            </Text>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                ))}
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
               </View>
-            </View>
 
-            {/* Foundry Labs Branding Footer - Only visible in screenshot */}
-            <View className="px-4 pb-6 pt-4 border-t border-graphite-800" style={{ borderColor: '#1A1F2E' }}>
-              <View className="flex-row items-center justify-center gap-2">
-                <View className="w-2 h-2 rounded-full bg-signal-500" style={{ backgroundColor: '#2F80ED' }} />
-                <Text className="text-xs font-semibold text-signal-500 uppercase tracking-wider" style={{ color: '#2F80ED' }}>
-                  Foundry Labs
-                </Text>
-                <Text className="text-xs text-graphite-500" style={{ color: '#808FB0' }}>
-                  Training Intelligence
-                </Text>
+              {/* Foundry Labs Branding Footer */}
+              <View style={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.05)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.signal[500] }} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.signal[400], textTransform: 'uppercase', letterSpacing: 1 }}>
+                    Foundry Labs
+                  </Text>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>
+                    Training Intelligence
+                  </Text>
+                </View>
               </View>
+
             </View>
+          </ScrollView>
 
+          {/* Action Buttons */}
+          <View style={{ paddingHorizontal: 16, paddingVertical: 16, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <LabButton
+                label="Save Template"
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => setShowSaveTemplate(true)}
+              />
+              <LabButton
+                label="Done"
+                variant="primary"
+                style={{ flex: 1 }}
+                onPress={() => router.push('/(tabs)')}
+              />
+            </View>
           </View>
-        </ScrollView>
 
-        {/* Action Buttons */}
-        <View className="px-4 py-4 border-t border-graphite-800" style={{ borderColor: '#1A1F2E' }}>
-          <View className="flex-row gap-3">
-            <LabButton 
-              label="Save Template" 
-              variant="outline" 
-              className="flex-1"
-              onPress={() => setShowSaveTemplate(true)}
-            />
-            <LabButton 
-              label="Done" 
-              variant="primary" 
-              className="flex-1"
-              onPress={() => router.push('/(tabs)')}
-            />
-          </View>
-        </View>
-
-        {/* Save Template Modal */}
-        <SaveTemplateModal
-          visible={showSaveTemplate}
-          onClose={() => setShowSaveTemplate(false)}
-          onSave={handleSaveAsTemplate}
-          defaultName=""
-          defaultFocus={workout?.focus || ''}
-          isSaving={createTemplateMutation.isPending}
-        />
-
-        {/* Achievement Toast */}
-        {newAchievement && (
-          <NewAchievementToast
-            achievement={newAchievement}
-            visible={!!newAchievement}
-            onDismiss={() => setNewAchievement(null)}
+          {/* Save Template Modal */}
+          <SaveTemplateModal
+            visible={showSaveTemplate}
+            onClose={() => setShowSaveTemplate(false)}
+            onSave={handleSaveAsTemplate}
+            defaultName=""
+            defaultFocus={workout?.focus || ''}
+            isSaving={createTemplateMutation.isPending}
           />
-        )}
-      </SafeAreaView>
+
+          {/* Achievement Toast */}
+          {newAchievement && (
+            <NewAchievementToast
+              achievement={newAchievement}
+              visible={!!newAchievement}
+              onDismiss={() => setNewAchievement(null)}
+            />
+          )}
+        </SafeAreaView>
+      </View>
     </>
   );
 }

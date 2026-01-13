@@ -3,52 +3,50 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { View, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 
 export default function ExerciseHistoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
 
   return (
-    <SafeAreaView
-      className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
-    >
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-graphite-700">
-        <Pressable onPress={() => router.back()} className="p-2 -ml-2">
-          <Ionicons
-            name="chevron-back"
-            size={24}
-            color={isDark ? '#E6E8EB' : '#0E1116'}
-          />
-        </Pressable>
-        <Text
-          className={`text-lg font-semibold ${isDark ? 'text-graphite-50' : 'text-carbon-950'}`}
-        >
-          Exercise History
-        </Text>
-        <View className="w-10" />
-      </View>
+    <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+      {/* Ambient Background Glows */}
+      <View style={{ position: 'absolute', top: -60, right: -100, width: 260, height: 260, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 130 }} />
+      <View style={{ position: 'absolute', bottom: 100, left: -80, width: 220, height: 220, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 110 }} />
 
-      {/* Placeholder Content */}
-      <View className="flex-1 items-center justify-center px-6">
-        <Ionicons
-          name="bar-chart-outline"
-          size={64}
-          color={isDark ? '#6B7485' : '#878E9C'}
-        />
-        <Text
-          className={`text-xl font-semibold mt-4 ${isDark ? 'text-graphite-50' : 'text-carbon-950'}`}
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+          }}
         >
-          Coming Soon
-        </Text>
-        <Text
-          className={`text-center mt-2 ${isDark ? 'text-graphite-400' : 'text-graphite-600'}`}
-        >
-          View your performance history, PRs, and trends for this exercise.
-        </Text>
-      </View>
-    </SafeAreaView>
+          <Pressable onPress={() => router.back()} style={{ padding: 8, marginLeft: -8 }}>
+            <Ionicons name="chevron-back" size={24} color={Colors.graphite[50]} />
+          </Pressable>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: Colors.graphite[50] }}>
+            Exercise History
+          </Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        {/* Placeholder Content */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+          <Ionicons name="bar-chart-outline" size={64} color={Colors.graphite[500]} />
+          <Text style={{ fontSize: 20, fontWeight: '600', marginTop: 16, color: Colors.graphite[50] }}>
+            Coming Soon
+          </Text>
+          <Text style={{ textAlign: 'center', marginTop: 8, color: Colors.graphite[400] }}>
+            View your performance history, PRs, and trends for this exercise.
+          </Text>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }

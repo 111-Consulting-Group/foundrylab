@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { WeeklyInsights } from '@/components/WeeklyInsights';
 import { PatternInsightsList } from '@/components/PatternInsights';
+import { Colors } from '@/constants/Colors';
 import { useWorkoutHistory } from '@/hooks/useWorkouts';
 import { useMainLiftPRs } from '@/hooks/usePersonalRecords';
 import { usePatternInsights } from '@/hooks/usePatternDetection';
@@ -13,8 +13,6 @@ import { usePatternInsights } from '@/hooks/usePatternDetection';
 type MetricType = 'strength' | 'conditioning';
 
 export default function AnalyticsScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('strength');
 
   // Fetch workout history for weekly insights
@@ -30,233 +28,262 @@ export default function AnalyticsScreen() {
   const liftsWithPRs = mainLiftPRs.filter(lift => lift.e1rm !== null);
 
   return (
-    <SafeAreaView 
-      className="flex-1 bg-carbon-950" 
-      style={{ backgroundColor: '#0E1116' }}
-      edges={['left', 'right']}
-    >
-      <ScrollView className="flex-1">
-        {/* Metric Toggle */}
-        <View className="px-4 pt-4">
-          <View
-            className="flex-row p-1 rounded-xl bg-graphite-800"
-            style={{ backgroundColor: '#1A1F2E' }}
-          >
-            <Pressable
-              onPress={() => setSelectedMetric('strength')}
-              className={`flex-1 py-3 rounded-lg items-center ${
-                selectedMetric === 'strength'
-                  ? 'bg-signal-500'
-                  : 'bg-transparent'
-              }`}
+    <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+      {/* Ambient Background Glows */}
+      <View style={{ position: 'absolute', top: -60, right: -100, width: 260, height: 260, backgroundColor: 'rgba(37, 99, 235, 0.07)', borderRadius: 130 }} />
+      <View style={{ position: 'absolute', bottom: 80, left: -80, width: 220, height: 220, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 110 }} />
+
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
+          {/* Metric Toggle */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                padding: 4,
+                borderRadius: 16,
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              }}
             >
-              <Text
-                className={`font-semibold ${
-                  selectedMetric === 'strength'
-                    ? 'text-white'
-                    : 'text-graphite-300'
-                }`}
-                style={selectedMetric !== 'strength' ? { color: '#C4C8D0' } : undefined}
+              <Pressable
+                onPress={() => setSelectedMetric('strength')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  backgroundColor: selectedMetric === 'strength' ? Colors.signal[600] : 'transparent',
+                }}
               >
-                Strength
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setSelectedMetric('conditioning')}
-              className={`flex-1 py-3 rounded-lg items-center ${
-                selectedMetric === 'conditioning'
-                  ? 'bg-signal-500'
-                  : 'bg-transparent'
-              }`}
-            >
-              <Text
-                className={`font-semibold ${
-                  selectedMetric === 'conditioning'
-                    ? 'text-white'
-                    : 'text-graphite-300'
-                }`}
-                style={selectedMetric !== 'conditioning' ? { color: '#C4C8D0' } : undefined}
+                <Text
+                  style={{
+                    fontWeight: '600',
+                    color: selectedMetric === 'strength' ? '#fff' : Colors.graphite[300],
+                  }}
+                >
+                  Strength
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setSelectedMetric('conditioning')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  backgroundColor: selectedMetric === 'conditioning' ? Colors.signal[600] : 'transparent',
+                }}
               >
-                Conditioning
-              </Text>
-            </Pressable>
+                <Text
+                  style={{
+                    fontWeight: '600',
+                    color: selectedMetric === 'conditioning' ? '#fff' : Colors.graphite[300],
+                  }}
+                >
+                  Conditioning
+                </Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
 
-        {selectedMetric === 'strength' ? (
-          <>
-            {/* Weekly Insights */}
-            <View className="px-4 mt-4">
-              <WeeklyInsights workouts={recentWorkouts} />
-            </View>
-
-            {/* Pattern Detection */}
-            {patterns.length > 0 && (
-              <View className="px-4 mt-6">
-                <PatternInsightsList 
-                  patterns={patterns} 
-                  title="Training Patterns"
-                  maxItems={3}
-                  compact
-                />
+          {selectedMetric === 'strength' ? (
+            <>
+              {/* Weekly Insights */}
+              <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+                <WeeklyInsights workouts={recentWorkouts} />
               </View>
-            )}
 
-            {/* Estimated 1RM Chart Placeholder */}
-            <View className="px-4 mt-6">
-              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
-                Estimated 1RM Progress
-              </Text>
-              <View
-                className="h-48 rounded-xl items-center justify-center bg-graphite-800 border border-graphite-700"
-                style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
-              >
-                <Ionicons
-                  name="trending-up"
-                  size={48}
-                  color={isDark ? '#353D4B' : '#A5ABB6'}
-                />
-                <Text className="mt-2 text-graphite-400" style={{ color: '#6B7485' }}>
-                  Line chart visualization
-                </Text>
-                <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
-                  Coming with chart library integration
-                </Text>
-              </View>
-            </View>
-
-            {/* Lift Progress Cards */}
-            <View className="px-4 mt-6">
-              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
-                Main Lifts (E1RM)
-              </Text>
-              {prsLoading ? (
-                <View
-                  className="p-6 rounded-xl items-center bg-graphite-800 border border-graphite-700"
-                  style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
-                >
-                  <Text className="text-graphite-400" style={{ color: '#6B7485' }}>
-                    Loading...
-                  </Text>
-                </View>
-              ) : liftsWithPRs.length === 0 ? (
-                <View
-                  className="p-6 rounded-xl items-center bg-graphite-800 border border-graphite-700"
-                  style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
-                >
-                  <Ionicons
-                    name="barbell-outline"
-                    size={48}
-                    color="#353D4B"
+              {/* Pattern Detection */}
+              {patterns.length > 0 && (
+                <View style={{ paddingHorizontal: 16, marginTop: 24 }}>
+                  <PatternInsightsList
+                    patterns={patterns}
+                    title="Training Patterns"
+                    maxItems={3}
+                    compact
                   />
-                  <Text className="mt-3 font-semibold text-graphite-300" style={{ color: '#C4C8D0' }}>
-                    No PRs Recorded Yet
-                  </Text>
-                  <Text className="mt-1 text-sm text-center text-graphite-500" style={{ color: '#808FB0' }}>
-                    Complete workouts to start tracking your estimated 1RM progress
-                  </Text>
-                </View>
-              ) : (
-                <View className="gap-3">
-                  {liftsWithPRs.map((lift) => (
-                    <View
-                      key={lift.exerciseId}
-                      className="p-4 rounded-xl bg-graphite-800 border border-graphite-700"
-                      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
-                    >
-                      <View className="flex-row items-center justify-between mb-2">
-                        <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
-                          {lift.exerciseName}
-                        </Text>
-                        <View className="flex-row items-center px-2 py-1 rounded-full bg-signal-500/20">
-                          <Ionicons name="trophy" size={12} color="#2F80ED" />
-                          <Text className="text-xs font-semibold ml-1 text-signal-500">
-                            PR
-                          </Text>
-                        </View>
-                      </View>
-                      <View className="flex-row items-end justify-between">
-                        <View>
-                          <Text className="text-3xl font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
-                            {lift.e1rm}
-                          </Text>
-                          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
-                            lbs
-                          </Text>
-                        </View>
-                        {lift.achievedAt && (
-                          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
-                            {new Date(lift.achievedAt).toLocaleDateString()}
-                          </Text>
-                        )}
-                      </View>
-
-                      {/* Progress Bar */}
-                      <View className="h-1 rounded-full mt-3 bg-graphite-700" style={{ backgroundColor: '#353D4B' }}>
-                        <View
-                          className="h-full rounded-full bg-signal-500"
-                          style={{ width: `${Math.min(((lift.e1rm || 0) / 500) * 100, 100)}%` }}
-                        />
-                      </View>
-                    </View>
-                  ))}
                 </View>
               )}
-            </View>
-          </>
-        ) : (
-          <>
-            {/* Aerobic Efficiency Chart Placeholder */}
-            <View className="px-4 mt-6">
-              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
-                Aerobic Efficiency
-              </Text>
-              <View
-                className="h-48 rounded-xl items-center justify-center bg-graphite-800 border border-graphite-700"
-                style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
-              >
-                <Ionicons
-                  name="pulse"
-                  size={48}
-                  color={isDark ? '#353D4B' : '#A5ABB6'}
-                />
-                <Text className="mt-2 text-graphite-400" style={{ color: '#6B7485' }}>
-                  Watts vs Heart Rate scatter plot
-                </Text>
-                <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
-                  Coming with chart library integration
-                </Text>
-              </View>
-            </View>
 
-            {/* Conditioning Metrics - Empty State */}
-            <View className="px-4 mt-6">
-              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
-                Conditioning Metrics
-              </Text>
-              <View
-                className="p-6 rounded-xl items-center bg-graphite-800 border border-graphite-700"
-                style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
-              >
-                <Ionicons
-                  name="watch-outline"
-                  size={48}
-                  color="#353D4B"
-                />
-                <Text className="mt-3 font-semibold text-graphite-300" style={{ color: '#C4C8D0' }}>
-                  No Conditioning Data Yet
+              {/* Estimated 1RM Chart Placeholder */}
+              <View style={{ paddingHorizontal: 16, marginTop: 24 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
+                  Estimated 1RM Progress
                 </Text>
-                <Text className="mt-1 text-sm text-center text-graphite-500" style={{ color: '#808FB0' }}>
-                  Wearable integration coming soon to track watts, heart rate, and zone compliance
-                </Text>
+                <View
+                  style={{
+                    height: 192,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                >
+                  <Ionicons name="trending-up" size={48} color={Colors.graphite[600]} />
+                  <Text style={{ marginTop: 8, color: Colors.graphite[400] }}>
+                    Line chart visualization
+                  </Text>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
+                    Coming with chart library integration
+                  </Text>
+                </View>
               </View>
-            </View>
-          </>
-        )}
 
-        {/* Bottom spacing */}
-        <View className="h-8" />
-      </ScrollView>
-    </SafeAreaView>
+              {/* Lift Progress Cards */}
+              <View style={{ paddingHorizontal: 16, marginTop: 24 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
+                  Main Lifts (E1RM)
+                </Text>
+                {prsLoading ? (
+                  <View
+                    style={{
+                      padding: 24,
+                      borderRadius: 16,
+                      alignItems: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    }}
+                  >
+                    <Text style={{ color: Colors.graphite[400] }}>Loading...</Text>
+                  </View>
+                ) : liftsWithPRs.length === 0 ? (
+                  <View
+                    style={{
+                      padding: 24,
+                      borderRadius: 16,
+                      alignItems: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    }}
+                  >
+                    <Ionicons name="barbell-outline" size={48} color={Colors.graphite[600]} />
+                    <Text style={{ marginTop: 12, fontWeight: '600', color: Colors.graphite[300] }}>
+                      No PRs Recorded Yet
+                    </Text>
+                    <Text style={{ marginTop: 4, fontSize: 12, textAlign: 'center', color: Colors.graphite[500] }}>
+                      Complete workouts to start tracking your estimated 1RM progress
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{ gap: 12 }}>
+                    {liftsWithPRs.map((lift) => (
+                      <View
+                        key={lift.exerciseId}
+                        style={{
+                          padding: 16,
+                          borderRadius: 16,
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <Text style={{ fontWeight: '600', color: Colors.graphite[50] }}>
+                            {lift.exerciseName}
+                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(59, 130, 246, 0.2)' }}>
+                            <Ionicons name="trophy" size={12} color={Colors.signal[400]} />
+                            <Text style={{ fontSize: 10, fontWeight: '600', marginLeft: 4, color: Colors.signal[400] }}>
+                              PR
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                          <View>
+                            <Text style={{ fontSize: 30, fontWeight: '700', color: Colors.graphite[50] }}>
+                              {lift.e1rm}
+                            </Text>
+                            <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>lbs</Text>
+                          </View>
+                          {lift.achievedAt && (
+                            <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
+                              {new Date(lift.achievedAt).toLocaleDateString()}
+                            </Text>
+                          )}
+                        </View>
+
+                        {/* Progress Bar */}
+                        <View style={{ height: 4, borderRadius: 2, marginTop: 12, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
+                          <View
+                            style={{
+                              height: '100%',
+                              borderRadius: 2,
+                              backgroundColor: Colors.signal[500],
+                              width: `${Math.min(((lift.e1rm || 0) / 500) * 100, 100)}%`,
+                            }}
+                          />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Aerobic Efficiency Chart Placeholder */}
+              <View style={{ paddingHorizontal: 16, marginTop: 24 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
+                  Aerobic Efficiency
+                </Text>
+                <View
+                  style={{
+                    height: 192,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                >
+                  <Ionicons name="pulse" size={48} color={Colors.graphite[600]} />
+                  <Text style={{ marginTop: 8, color: Colors.graphite[400] }}>
+                    Watts vs Heart Rate scatter plot
+                  </Text>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
+                    Coming with chart library integration
+                  </Text>
+                </View>
+              </View>
+
+              {/* Conditioning Metrics - Empty State */}
+              <View style={{ paddingHorizontal: 16, marginTop: 24 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
+                  Conditioning Metrics
+                </Text>
+                <View
+                  style={{
+                    padding: 24,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                >
+                  <Ionicons name="watch-outline" size={48} color={Colors.graphite[600]} />
+                  <Text style={{ marginTop: 12, fontWeight: '600', color: Colors.graphite[300] }}>
+                    No Conditioning Data Yet
+                  </Text>
+                  <Text style={{ marginTop: 4, fontSize: 12, textAlign: 'center', color: Colors.graphite[500] }}>
+                    Wearable integration coming soon to track watts, heart rate, and zone compliance
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* Bottom spacing */}
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }

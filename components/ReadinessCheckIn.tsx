@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, Pressable, TextInput, Animated } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import {
   useSubmitReadiness,
   analyzeReadiness,
@@ -60,9 +60,6 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
   onComplete,
   onSkip,
 }: ReadinessCheckInProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const [step, setStep] = useState<'sleep' | 'soreness' | 'stress' | 'result'>('sleep');
   const [sleep, setSleep] = useState<MetricValue>(3);
   const [soreness, setSoreness] = useState<MetricValue>(3);
@@ -132,7 +129,7 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
     const currentValue = step === 'sleep' ? sleep : step === 'soreness' ? soreness : stress;
 
     return (
-      <View className="flex-row justify-between mt-6 px-2">
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24, paddingHorizontal: 8 }}>
         {([1, 2, 3, 4, 5] as MetricValue[]).map((value) => {
           const isSelected = currentValue === value;
           const metric = formatReadinessMetric(step, value);
@@ -141,19 +138,24 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
             <Pressable
               key={value}
               onPress={() => handleMetricSelect(value)}
-              className={`items-center p-3 rounded-xl flex-1 mx-1 ${
-                isSelected
-                  ? 'bg-signal-500'
-                  : 'bg-graphite-700'
-              }`}
-              style={!isSelected ? { backgroundColor: '#353D4B' } : undefined}
+              style={{
+                alignItems: 'center',
+                padding: 12,
+                borderRadius: 12,
+                flex: 1,
+                marginHorizontal: 4,
+                backgroundColor: isSelected ? Colors.signal[500] : 'rgba(255, 255, 255, 0.05)',
+                borderWidth: 1,
+                borderColor: isSelected ? Colors.signal[500] : 'rgba(255, 255, 255, 0.1)',
+              }}
             >
-              <Text className="text-2xl mb-1">{metric.emoji}</Text>
+              <Text style={{ fontSize: 24, marginBottom: 4 }}>{metric.emoji}</Text>
               <Text
-                className={`text-xs font-medium ${
-                  isSelected ? 'text-white' : 'text-graphite-300'
-                }`}
-                style={!isSelected ? { color: '#C4C8D0' } : undefined}
+                style={{
+                  fontSize: 12,
+                  fontWeight: '500',
+                  color: isSelected ? '#ffffff' : Colors.graphite[300],
+                }}
               >
                 {value}
               </Text>
@@ -171,43 +173,46 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
     return (
       <View>
         {/* Score Circle */}
-        <View className="items-center mb-6">
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
           <View
-            className={`w-28 h-28 rounded-full items-center justify-center ${readinessColors.bg}`}
+            style={{
+              width: 112,
+              height: 112,
+              borderRadius: 56,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: readinessColors.bgColor || Colors.signal[500],
+            }}
           >
-            <Text className="text-4xl font-bold text-white">{analysis.score}</Text>
-            <Text className="text-sm text-white/80">{readinessColors.label}</Text>
+            <Text style={{ fontSize: 36, fontWeight: '700', color: '#ffffff' }}>{analysis.score}</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.8)' }}>{readinessColors.label}</Text>
           </View>
         </View>
 
         {/* AI Message */}
         <View
-          className="p-4 rounded-xl mb-4 bg-graphite-800"
-          style={{ backgroundColor: '#1A1F2E' }}
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            marginBottom: 16,
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+          }}
         >
-          <View className="flex-row items-center mb-2">
-            <Ionicons
-              name="sparkles"
-              size={18}
-              color="#2F80ED"
-            />
-            <Text
-              className="ml-2 font-semibold text-graphite-100"
-              style={{ color: '#E6E8EB' }}
-            >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Ionicons name="sparkles" size={18} color={Colors.signal[500]} />
+            <Text style={{ marginLeft: 8, fontWeight: '600', color: Colors.graphite[100] }}>
               Coach Recommendation
             </Text>
           </View>
-          <Text
-            className="text-base leading-6 text-graphite-300"
-            style={{ color: '#C4C8D0' }}
-          >
+          <Text style={{ fontSize: 16, lineHeight: 24, color: Colors.graphite[300] }}>
             {analysis.message}
           </Text>
         </View>
 
         {/* Quick metrics summary */}
-        <View className="flex-row justify-around mb-4">
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16 }}>
           {(['sleep', 'soreness', 'stress'] as MetricType[]).map((type) => {
             const value = type === 'sleep' ? sleep : type === 'soreness' ? soreness : stress;
             const metric = formatReadinessMetric(type, value);
@@ -216,17 +221,13 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
             ];
 
             return (
-              <View key={type} className="items-center">
-                <Text className="text-xl mb-1">{metric.emoji}</Text>
+              <View key={type} style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 20, marginBottom: 4 }}>{metric.emoji}</Text>
                 <Text
-                  className={`text-xs ${
-                    impact === 'positive'
-                      ? 'text-progress-500'
-                      : impact === 'negative'
-                      ? 'text-oxide-500'
-                      : 'text-graphite-400'
-                  }`}
-                  style={impact === 'neutral' ? { color: '#6B7485' } : undefined}
+                  style={{
+                    fontSize: 12,
+                    color: impact === 'positive' ? '#22c55e' : impact === 'negative' ? '#ef4444' : Colors.graphite[400],
+                  }}
                 >
                   {metric.label}
                 </Text>
@@ -237,36 +238,44 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
 
         {/* Optional notes */}
         {showNotes ? (
-          <View className="mb-4">
+          <View style={{ marginBottom: 16 }}>
             <TextInput
               value={notes}
               onChangeText={setNotes}
               placeholder="Anything else? (optional)"
-              placeholderTextColor="#607296"
-              className="p-3 rounded-xl bg-graphite-800 text-graphite-100 border border-graphite-700"
-              style={{ backgroundColor: '#1A1F2E', color: '#E6E8EB', borderColor: '#353D4B' }}
+              placeholderTextColor={Colors.graphite[500]}
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                color: Colors.graphite[100],
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              }}
               multiline
               maxLength={200}
             />
           </View>
         ) : (
-          <Pressable
-            onPress={() => setShowNotes(true)}
-            className="mb-4"
-          >
-            <Text className="text-center text-sm text-graphite-400" style={{ color: '#6B7485' }}>
+          <Pressable onPress={() => setShowNotes(true)} style={{ marginBottom: 16 }}>
+            <Text style={{ textAlign: 'center', fontSize: 14, color: Colors.graphite[400] }}>
               + Add notes (optional)
             </Text>
           </Pressable>
         )}
 
         {/* Action buttons */}
-        <View className="gap-3">
+        <View style={{ gap: 12 }}>
           <Pressable
             onPress={() => handleConfirm(analysis.suggestion)}
-            className={`py-4 px-6 rounded-xl ${readinessColors.bg}`}
+            style={{
+              paddingVertical: 16,
+              paddingHorizontal: 24,
+              borderRadius: 12,
+              backgroundColor: readinessColors.bgColor || Colors.signal[500],
+            }}
           >
-            <Text className="text-center text-white font-semibold text-lg">
+            <Text style={{ textAlign: 'center', color: '#ffffff', fontWeight: '600', fontSize: 18 }}>
               {analysis.suggestion === 'full'
                 ? "Let's Go Full Send"
                 : analysis.suggestion === 'moderate'
@@ -280,13 +289,16 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
           {analysis.suggestion !== 'full' && (
             <Pressable
               onPress={() => handleConfirm('full')}
-              className="py-3 px-6 rounded-xl border border-graphite-600"
-              style={{ borderColor: '#4A5568' }}
+              style={{
+                paddingVertical: 12,
+                paddingHorizontal: 24,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              }}
             >
-              <Text
-                className="text-center font-medium text-graphite-300"
-                style={{ color: '#C4C8D0' }}
-              >
+              <Text style={{ textAlign: 'center', fontWeight: '500', color: Colors.graphite[300] }}>
                 Override: Train Full Anyway
               </Text>
             </Pressable>
@@ -298,56 +310,56 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
 
   return (
     <View
-      className="p-6 rounded-2xl bg-graphite-900"
-      style={{ backgroundColor: '#1C222B' }}
+      style={{
+        padding: 24,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
     >
       {/* Header */}
-      <View className="flex-row items-center justify-between mb-6">
-        <View className="flex-row items-center">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {step !== 'sleep' && (
-            <Pressable onPress={handleBack} className="mr-3 p-1">
-              <Ionicons
-                name="arrow-back"
-                size={24}
-                color="#d3d8e4"
-              />
+            <Pressable onPress={handleBack} style={{ marginRight: 12, padding: 4 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.graphite[200]} />
             </Pressable>
           )}
           <View>
-            <Text
-              className="text-xl font-bold text-graphite-100"
-              style={{ color: '#E6E8EB' }}
-            >
+            <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[100] }}>
               {step === 'result' ? 'Your Readiness' : 'Quick Check-In'}
             </Text>
             {step !== 'result' && (
-              <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
+              <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
                 Step {step === 'sleep' ? 1 : step === 'soreness' ? 2 : 3} of 3
               </Text>
             )}
           </View>
         </View>
-        <Pressable onPress={onSkip} className="p-2">
-          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
-            Skip
-          </Text>
+        <Pressable onPress={onSkip} style={{ padding: 8 }}>
+          <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>Skip</Text>
         </Pressable>
       </View>
 
       {/* Progress dots */}
       {step !== 'result' && (
-        <View className="flex-row justify-center mb-6">
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 24 }}>
           {(['sleep', 'soreness', 'stress'] as const).map((s, i) => (
             <View
               key={s}
-              className={`w-2 h-2 rounded-full mx-1 ${
-                step === s
-                  ? 'bg-signal-500'
-                  : i < ['sleep', 'soreness', 'stress'].indexOf(step)
-                  ? 'bg-progress-500'
-                  : 'bg-graphite-700'
-              }`}
-              style={step !== s && i >= ['sleep', 'soreness', 'stress'].indexOf(step) ? { backgroundColor: '#353D4B' } : undefined}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                marginHorizontal: 4,
+                backgroundColor:
+                  step === s
+                    ? Colors.signal[500]
+                    : i < ['sleep', 'soreness', 'stress'].indexOf(step)
+                    ? '#22c55e'
+                    : 'rgba(255, 255, 255, 0.1)',
+              }}
             />
           ))}
         </View>
@@ -357,33 +369,31 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
       {step !== 'result' ? (
         <>
           {/* Question */}
-          <View className="items-center mb-4">
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
             <View
-              className="w-16 h-16 rounded-full items-center justify-center mb-4 bg-graphite-800"
-              style={{ backgroundColor: '#1A1F2E' }}
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              }}
             >
-              <Ionicons
-                name={currentConfig!.icon}
-                size={32}
-                color="#d3d8e4"
-              />
+              <Ionicons name={currentConfig!.icon} size={32} color={Colors.graphite[200]} />
             </View>
-            <Text
-              className="text-2xl font-semibold text-center text-graphite-100"
-              style={{ color: '#E6E8EB' }}
-            >
+            <Text style={{ fontSize: 24, fontWeight: '600', textAlign: 'center', color: Colors.graphite[100] }}>
               {currentConfig!.question}
             </Text>
           </View>
 
           {/* Scale labels */}
-          <View className="flex-row justify-between px-4 mb-2">
-            <Text className="text-xs text-graphite-500" style={{ color: '#808FB0' }}>
-              {currentConfig!.lowLabel}
-            </Text>
-            <Text className="text-xs text-graphite-500" style={{ color: '#808FB0' }}>
-              {currentConfig!.highLabel}
-            </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 8 }}>
+            <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>{currentConfig!.lowLabel}</Text>
+            <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>{currentConfig!.highLabel}</Text>
           </View>
 
           {/* Metric buttons */}
@@ -406,19 +416,31 @@ export const ReadinessIndicator = React.memo(function ReadinessIndicator({
   score: number;
   onPress?: () => void;
 }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const colors = getReadinessColor(score);
-
   const Container = onPress ? Pressable : View;
 
   return (
     <Container
       onPress={onPress}
-      className={`flex-row items-center px-3 py-1.5 rounded-full ${colors.bg}/20`}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        backgroundColor: `${colors.bgColor || Colors.signal[500]}33`,
+      }}
     >
-      <View className={`w-2 h-2 rounded-full ${colors.bg} mr-2`} />
-      <Text className={`text-sm font-medium ${colors.text}`}>
+      <View
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          marginRight: 8,
+          backgroundColor: colors.bgColor || Colors.signal[500],
+        }}
+      />
+      <Text style={{ fontSize: 14, fontWeight: '500', color: colors.textColor || Colors.graphite[200] }}>
         {colors.label} ({score})
       </Text>
     </Container>

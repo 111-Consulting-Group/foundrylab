@@ -1,22 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { GoalCard } from '@/components/GoalCard';
+import { Colors } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
 import { useFollow } from '@/hooks/useSocial';
 import { calculateGoalProgress, type FitnessGoal } from '@/hooks/useGoals';
-import { useState } from 'react';
-import { Alert } from 'react-native';
 
 export default function ProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const currentUserId = useAppStore((state) => state.userId);
   const followMutation = useFollow();
 
@@ -94,141 +90,165 @@ export default function ProfileScreen() {
 
   if (profileLoading) {
     return (
-      <SafeAreaView
-        className={`flex-1 items-center justify-center ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
-      >
-        <ActivityIndicator size="large" color="#2F80ED" />
-      </SafeAreaView>
+      <View style={{ flex: 1, backgroundColor: Colors.void[900], alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={Colors.signal[500]} />
+      </View>
     );
   }
 
   if (!profile) {
     return (
-      <SafeAreaView
-        className={`flex-1 items-center justify-center ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
-      >
-        <Text className={isDark ? 'text-graphite-400' : 'text-graphite-500'}>User not found</Text>
-      </SafeAreaView>
+      <View style={{ flex: 1, backgroundColor: Colors.void[900], alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: Colors.graphite[400] }}>User not found</Text>
+      </View>
     );
   }
 
   const isOwnProfile = currentUserId === id;
 
   return (
-    <SafeAreaView className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`} edges={['left', 'right']}>
-      {/* Header */}
-      <View
-        className={`px-4 py-3 border-b ${
-          isDark ? 'border-graphite-700 bg-graphite-900' : 'border-graphite-200 bg-white'
-        }`}
-      >
-        <View className="flex-row items-center justify-between">
-          <Pressable onPress={() => router.back()} className="p-2 -ml-2">
-            <Ionicons name="arrow-back" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
-          </Pressable>
-          <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-            Profile
-          </Text>
-          <View className="w-10" />
-        </View>
-      </View>
+    <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+      {/* Ambient Background Glows */}
+      <View style={{ position: 'absolute', top: -80, right: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 140 }} />
+      <View style={{ position: 'absolute', bottom: 100, left: -80, width: 240, height: 240, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 120 }} />
 
-      <ScrollView className="flex-1 px-4">
-        {/* Profile Header */}
-        <View className="items-center py-6 mb-6">
-          <View className="w-20 h-20 rounded-full bg-signal-500 items-center justify-center mb-4">
-            <Text className="text-white font-bold text-2xl">
-              {profile.display_name?.charAt(0).toUpperCase() || profile.email?.charAt(0).toUpperCase() || 'U'}
-            </Text>
-          </View>
-          <Text className={`text-2xl font-bold mb-1 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-            {profile.display_name || profile.email || 'User'}
-          </Text>
-          {!isOwnProfile && (
-            <Pressable
-              className={`mt-4 px-6 py-2 rounded-full ${
-                followStatus ? 'bg-graphite-700' : 'bg-signal-500'
-              }`}
-              onPress={handleFollow}
-            >
-              <Text className="text-white font-semibold">
-                {followStatus ? 'Following' : 'Follow'}
-              </Text>
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+        {/* Header */}
+        <View
+          style={{
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+            backgroundColor: 'rgba(18, 18, 18, 0.9)',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Pressable onPress={() => router.back()} style={{ padding: 8, marginLeft: -8 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.graphite[50]} />
             </Pressable>
-          )}
+            <Text style={{ fontWeight: '600', color: Colors.graphite[50] }}>Profile</Text>
+            <View style={{ width: 40 }} />
+          </View>
         </View>
 
-        {/* Goals Section */}
-        {userGoals.length > 0 && (
-          <View className="mb-6">
-            <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-              Training Goals
+        <ScrollView style={{ flex: 1, paddingHorizontal: 16 }}>
+          {/* Profile Header */}
+          <View style={{ alignItems: 'center', paddingVertical: 24, marginBottom: 24 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.signal[500], alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 24 }}>
+                {profile.display_name?.charAt(0).toUpperCase() || profile.email?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 24, fontWeight: '700', marginBottom: 4, color: Colors.graphite[50] }}>
+              {profile.display_name || profile.email || 'User'}
             </Text>
-            <View className="gap-3">
-              {userGoals.map((goal) => (
-                <GoalCard key={goal.id} goal={goal} compact />
-              ))}
-            </View>
+            {!isOwnProfile && (
+              <Pressable
+                style={{
+                  marginTop: 16,
+                  paddingHorizontal: 24,
+                  paddingVertical: 8,
+                  borderRadius: 24,
+                  backgroundColor: followStatus ? 'rgba(255, 255, 255, 0.1)' : Colors.signal[500],
+                }}
+                onPress={handleFollow}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600' }}>
+                  {followStatus ? 'Following' : 'Follow'}
+                </Text>
+              </Pressable>
+            )}
           </View>
-        )}
 
-        {/* Progress Metrics */}
-        <View className="mb-6">
-          <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-            Progress Metrics
-          </Text>
-          <View className="flex-row flex-wrap gap-3">
-            <View
-              className={`flex-1 min-w-[48%] p-4 rounded-xl ${
-                isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
-              } border`}
-            >
-              <Text className={`text-2xl font-bold mb-1 text-signal-500`}>
-                {stats.consistencyStreak}
+          {/* Goals Section */}
+          {userGoals.length > 0 && (
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
+                Training Goals
               </Text>
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                Day Streak
-              </Text>
+              <View style={{ gap: 12 }}>
+                {userGoals.map((goal) => (
+                  <GoalCard key={goal.id} goal={goal} compact />
+                ))}
+              </View>
             </View>
-            <View
-              className={`flex-1 min-w-[48%] p-4 rounded-xl ${
-                isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
-              } border`}
-            >
-              <Text className={`text-2xl font-bold mb-1 text-oxide-500`}>
-                {stats.completedBlocks}
-              </Text>
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                Blocks Completed
-              </Text>
-            </View>
-            <View
-              className={`flex-1 min-w-[48%] p-4 rounded-xl ${
-                isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
-              } border`}
-            >
-              <Text className={`text-2xl font-bold mb-1 text-oxide-500`}>
-                {stats.testedPRs}
-              </Text>
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                PRs This Year
-              </Text>
-            </View>
-            <View
-              className={`flex-1 min-w-[48%] p-4 rounded-xl ${
-                isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
-              } border`}
-            >
-              <Text className={`text-2xl font-bold mb-1 text-progress-500`}>
-                {stats.adherenceRate}%
-              </Text>
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                Adherence Rate
-              </Text>
+          )}
+
+          {/* Progress Metrics */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
+              Progress Metrics
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+              <View
+                style={{
+                  flex: 1,
+                  minWidth: '45%',
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <Text style={{ fontSize: 24, fontWeight: '700', marginBottom: 4, color: Colors.signal[400] }}>
+                  {stats.consistencyStreak}
+                </Text>
+                <Text style={{ fontSize: 10, color: Colors.graphite[400] }}>Day Streak</Text>
+              </View>
+              <View
+                style={{
+                  flex: 1,
+                  minWidth: '45%',
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <Text style={{ fontSize: 24, fontWeight: '700', marginBottom: 4, color: '#F2994A' }}>
+                  {stats.completedBlocks}
+                </Text>
+                <Text style={{ fontSize: 10, color: Colors.graphite[400] }}>Blocks Completed</Text>
+              </View>
+              <View
+                style={{
+                  flex: 1,
+                  minWidth: '45%',
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <Text style={{ fontSize: 24, fontWeight: '700', marginBottom: 4, color: '#F2994A' }}>
+                  {stats.testedPRs}
+                </Text>
+                <Text style={{ fontSize: 10, color: Colors.graphite[400] }}>PRs This Year</Text>
+              </View>
+              <View
+                style={{
+                  flex: 1,
+                  minWidth: '45%',
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <Text style={{ fontSize: 24, fontWeight: '700', marginBottom: 4, color: Colors.emerald[400] }}>
+                  {stats.adherenceRate}%
+                </Text>
+                <Text style={{ fontSize: 10, color: Colors.graphite[400] }}>Adherence Rate</Text>
+              </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }

@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { View, Text, Pressable } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { type FitnessGoal, calculateGoalProgress } from '@/hooks/useGoals';
 
 interface GoalCardProps {
@@ -18,8 +18,6 @@ interface GoalCardProps {
 }
 
 export const GoalCard = React.memo(function GoalCard({ goal, compact = false, onPress }: GoalCardProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
 
   // Memoize expensive progress calculation
   const progress = useMemo(() => calculateGoalProgress(goal), [goal]);
@@ -53,33 +51,33 @@ export const GoalCard = React.memo(function GoalCard({ goal, compact = false, on
     return (
       <Container
         onPress={onPress}
-        className={`flex-row items-center justify-between py-2 px-3 rounded-lg ${
-          isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-        }`}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          borderRadius: 8,
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        }}
       >
-        <View className="flex-row items-center flex-1 mr-2">
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
           <Ionicons
             name={isAchieved ? 'checkmark-circle' : 'flag'}
             size={16}
-            color={isAchieved ? '#27AE60' : '#2F80ED'}
+            color={isAchieved ? '#27AE60' : Colors.signal[500]}
             style={{ marginRight: 8 }}
           />
-          <Text
-            className={`text-sm flex-1 ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}
-            numberOfLines={1}
-          >
+          <Text style={{ fontSize: 14, flex: 1, color: Colors.graphite[200] }} numberOfLines={1}>
             {exerciseName}
           </Text>
         </View>
-        <View className="flex-row items-center">
-          <Text className={`text-sm font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[100] }}>
             {currentDisplay}/{targetDisplay} {goal.target_unit}
           </Text>
-          <View
-            className="ml-2 px-1.5 py-0.5 rounded"
-            style={{ backgroundColor: `${progressColor}20` }}
-          >
-            <Text className="text-xs font-semibold" style={{ color: progressColor }}>
+          <View style={{ marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: `${progressColor}20` }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: progressColor }}>
               {Math.round(progress)}%
             </Text>
           </View>
@@ -91,68 +89,64 @@ export const GoalCard = React.memo(function GoalCard({ goal, compact = false, on
   return (
     <Container
       onPress={onPress}
-      className={`p-4 rounded-xl ${
-        isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
-      } border`}
+      style={{
+        padding: 16,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      }}
     >
       {/* Header */}
-      <View className="flex-row items-center justify-between mb-2">
-        <View className="flex-row items-center flex-1">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Ionicons
             name={isAchieved ? 'trophy' : isPaused ? 'pause-circle' : 'flag'}
             size={20}
-            color={isAchieved ? '#FFD700' : isPaused ? '#808fb0' : '#2F80ED'}
+            color={isAchieved ? '#FFD700' : isPaused ? Colors.graphite[400] : Colors.signal[500]}
             style={{ marginRight: 8 }}
           />
-          <Text
-            className={`font-semibold flex-1 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
-            numberOfLines={1}
-          >
+          <Text style={{ fontWeight: '600', flex: 1, color: Colors.graphite[100] }} numberOfLines={1}>
             {exerciseName}
           </Text>
         </View>
         {isAchieved && (
-          <View className="px-2 py-1 rounded-full bg-progress-500/20">
-            <Text className="text-xs font-semibold text-progress-500">Achieved!</Text>
+          <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(34, 197, 94, 0.2)' }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.emerald[400] }}>Achieved!</Text>
           </View>
         )}
       </View>
 
       {/* Goal description */}
       {goal.description && (
-        <Text className={`text-sm mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+        <Text style={{ fontSize: 14, marginBottom: 8, color: Colors.graphite[400] }}>
           {goal.description}
         </Text>
       )}
 
       {/* Progress display */}
-      <View className="flex-row items-end justify-between mb-2">
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8 }}>
         <View>
-          <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-            Current
-          </Text>
-          <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+          <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>Current</Text>
+          <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.graphite[100] }}>
             {currentDisplay}
-            <Text className={`text-sm font-normal ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-              {' '}{goal.target_unit}
-            </Text>
+            <Text style={{ fontSize: 14, fontWeight: '400', color: Colors.graphite[400] }}> {goal.target_unit}</Text>
           </Text>
         </View>
-        <View className="items-end">
-          <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-            Target
-          </Text>
-          <Text className={`text-lg font-semibold ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>Target</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: Colors.graphite[300] }}>
             {targetDisplay} {goal.target_unit}
           </Text>
         </View>
       </View>
 
       {/* Progress bar */}
-      <View className={`h-2 rounded-full ${isDark ? 'bg-graphite-700' : 'bg-graphite-200'}`}>
+      <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
         <View
-          className="h-full rounded-full"
           style={{
+            height: '100%',
+            borderRadius: 4,
             width: `${Math.min(progress, 100)}%`,
             backgroundColor: progressColor,
           }}
@@ -160,21 +154,16 @@ export const GoalCard = React.memo(function GoalCard({ goal, compact = false, on
       </View>
 
       {/* Footer info */}
-      <View className="flex-row items-center justify-between mt-2">
-        <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+        <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>
           {Math.round(progress)}% complete
         </Text>
         {daysRemaining !== null && (
           <Text
-            className={`text-xs ${
-              daysRemaining < 0
-                ? 'text-regression-500'
-                : daysRemaining < 14
-                ? 'text-warning-500'
-                : isDark
-                ? 'text-graphite-500'
-                : 'text-graphite-400'
-            }`}
+            style={{
+              fontSize: 12,
+              color: daysRemaining < 0 ? '#ef4444' : daysRemaining < 14 ? '#f59e0b' : Colors.graphite[500],
+            }}
           >
             {daysRemaining < 0
               ? `${Math.abs(daysRemaining)} days overdue`

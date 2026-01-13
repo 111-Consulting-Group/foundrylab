@@ -4,8 +4,8 @@ import { useState, useMemo, memo } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { StreakBadge, PRCountBadge, BlockContextBadge, AdherenceBadge } from '@/components/FeedBadges';
+import { Colors } from '@/constants/Colors';
 import { useFeed, useLikePost, useSearchUsers } from '@/hooks/useSocial';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
 import { summarizeWorkoutExercises, formatExerciseForFeed, getModalityIcon, type ExerciseSummary } from '@/lib/feedUtils';
@@ -16,9 +16,6 @@ import { LabCard, LabButton } from '@/components/ui/LabPrimitives';
 import { DeltaTag } from '@/components/ui/DeltaTag';
 
 export default function FeedScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   // Reduce initial load in dev, can increase later
   const { data: feed = [], isLoading, refetch } = useFeed(10);
   const likePostMutation = useLikePost();
@@ -103,59 +100,56 @@ export default function FeedScreen() {
   }, [feed]);
 
   return (
-    <SafeAreaView 
-      className="flex-1 bg-carbon-950" 
-      style={{ backgroundColor: '#0E1116' }}
-      edges={['left', 'right']}
-    >
-      <ScrollView
-        className="flex-1 px-4"
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={() => refetch()}
-            tintColor={isDark ? '#2F80ED' : '#2F80ED'}
-          />
-        }
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
-        <View className="pt-4 pb-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-2xl font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
-              Feed
-            </Text>
-            <LabButton 
-              label="Discover" 
-              variant="primary" 
-              size="sm"
-              icon={<Ionicons name="person-add-outline" size={16} color="white" />}
-              onPress={() => setShowDiscover(true)}
-            />
-          </View>
+    <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+      {/* Ambient Background Glows */}
+      <View style={{ position: 'absolute', top: -80, left: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.07)', borderRadius: 140 }} />
+      <View style={{ position: 'absolute', bottom: 100, right: -80, width: 240, height: 240, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 120 }} />
 
-          {isLoading && feed.length === 0 ? (
-            <View className="items-center justify-center py-12">
-              <ActivityIndicator size="large" color="#2F80ED" />
-            </View>
-          ) : feed.length === 0 ? (
-            <View className="items-center justify-center py-12">
-              <Ionicons
-                name="people-outline"
-                size={48}
-                color={isDark ? '#808fb0' : '#607296'}
-              />
-              <Text className="mt-4 text-center text-graphite-400" style={{ color: '#6B7485' }}>
-                Your feed is empty.{'\n'}Follow users to see their workouts here!
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+        <ScrollView
+          style={{ flex: 1, paddingHorizontal: 16 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={() => refetch()}
+              tintColor={Colors.signal[500]}
+            />
+          }
+          contentContainerStyle={{ paddingBottom: 100 }}
+        >
+          <View style={{ paddingTop: 16, paddingBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.graphite[50] }}>
+                Feed
               </Text>
-              <View className="mt-6">
-                <LabButton 
-                  label="Discover Users" 
-                  onPress={() => setShowDiscover(true)}
-                />
-              </View>
+              <LabButton
+                label="Discover"
+                variant="primary"
+                size="sm"
+                icon={<Ionicons name="person-add-outline" size={16} color="white" />}
+                onPress={() => setShowDiscover(true)}
+              />
             </View>
-          ) : (
-            <View className="gap-4">
+
+            {isLoading && feed.length === 0 ? (
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+                <ActivityIndicator size="large" color={Colors.signal[500]} />
+              </View>
+            ) : feed.length === 0 ? (
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+                <Ionicons name="people-outline" size={48} color={Colors.graphite[500]} />
+                <Text style={{ marginTop: 16, textAlign: 'center', color: Colors.graphite[400] }}>
+                  Your feed is empty.{'\n'}Follow users to see their workouts here!
+                </Text>
+                <View style={{ marginTop: 24 }}>
+                  <LabButton
+                    label="Discover Users"
+                    onPress={() => setShowDiscover(true)}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={{ gap: 16 }}>
               {processedPosts.map((processed) => {
                 if (!processed) return null;
                 const { post, workout, prCount, topExercises, exerciseEntriesLength } = processed;
@@ -166,27 +160,27 @@ export default function FeedScreen() {
                     onPress={() => router.push(`/workout-summary/${workout.id}`)}
                   >
                     <LabCard noPadding>
-                      <View className="p-4">
+                      <View style={{ padding: 16 }}>
                         {/* Header: User & Context */}
-                        <View className="flex-row items-center justify-between mb-3">
-                          <View className="flex-row items-center flex-1 mr-2">
-                            <View className="w-8 h-8 rounded-full bg-signal-500 items-center justify-center mr-2">
-                              <Text className="text-white font-bold text-xs">
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.signal[500], alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>
                                 {post.user?.display_name?.charAt(0).toUpperCase() || post.user?.email?.charAt(0).toUpperCase() || 'U'}
                               </Text>
                             </View>
                             <View>
-                              <Text className="font-bold text-sm text-graphite-100" style={{ color: '#E6E8EB' }}>
+                              <Text style={{ fontWeight: '700', fontSize: 14, color: Colors.graphite[50] }}>
                                 {post.user?.display_name || post.user?.email || 'User'}
                               </Text>
-                              <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
+                              <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
                                 {formatDate(post.created_at)} · {workout.focus}
                               </Text>
                             </View>
                           </View>
-                          
+
                           {/* Badges */}
-                          <View className="flex-row gap-1">
+                          <View style={{ flexDirection: 'row', gap: 4 }}>
                             {post.user_streak && post.user_streak.currentStreak >= 2 && (
                               <StreakBadge streak={post.user_streak.currentStreak} />
                             )}
@@ -195,23 +189,22 @@ export default function FeedScreen() {
                         </View>
 
                         {/* Body: Key Lifts Highlights */}
-                        <View className="gap-2 mb-3">
+                        <View style={{ gap: 8, marginBottom: 12 }}>
                           <>
                             {topExercises.map((item) => {
                               if (!item) return null;
                               const { exerciseId, exercise, exerciseSets, summary } = item;
                               return (
-                                <FeedHighlight 
-                                  key={exerciseId} 
+                                <FeedHighlight
+                                  key={exerciseId}
                                   exercise={exercise}
                                   exerciseSets={exerciseSets}
                                   summary={summary}
-                                  isDark={isDark} 
                                 />
                               );
                             })}
                             {exerciseEntriesLength > 3 && (
-                              <Text className="text-xs mt-1 text-graphite-400" style={{ color: '#6B7485' }}>
+                              <Text style={{ fontSize: 12, marginTop: 4, color: Colors.graphite[400] }}>
                                 + {exerciseEntriesLength - 3} more exercises
                               </Text>
                             )}
@@ -220,15 +213,15 @@ export default function FeedScreen() {
 
                         {/* Caption */}
                         {post.caption && (
-                          <Text className="text-sm mb-3 italic text-graphite-300" style={{ color: '#C4C8D0' }}>
+                          <Text style={{ fontSize: 14, marginBottom: 12, fontStyle: 'italic', color: Colors.graphite[300] }}>
                             "{post.caption}"
                           </Text>
                         )}
 
                         {/* Footer: Actions */}
-                        <View className={`flex-row items-center justify-between pt-3 border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
                           <Pressable
-                            className="flex-row items-center"
+                            style={{ flexDirection: 'row', alignItems: 'center' }}
                             onPress={(e) => {
                               e.stopPropagation();
                               handleLike(post.id, post.is_liked || false);
@@ -237,16 +230,16 @@ export default function FeedScreen() {
                             <Ionicons
                               name={post.is_liked ? 'heart' : 'heart-outline'}
                               size={20}
-                              color={post.is_liked ? '#ef4444' : (isDark ? '#808fb0' : '#607296')}
+                              color={post.is_liked ? '#ef4444' : Colors.graphite[500]}
                             />
-                            <Text className={`ml-1 text-xs font-bold ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            <Text style={{ marginLeft: 4, fontSize: 12, fontWeight: '700', color: Colors.graphite[400] }}>
                               {post.like_count || 0}
                             </Text>
                           </Pressable>
 
                           {/* Adherence Score if available */}
                           {post.user_streak && post.user_streak.weeklyAdherence >= 50 && (
-                            <View className="flex-row items-center">
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                               <AdherenceBadge percent={post.user_streak.weeklyAdherence} />
                             </View>
                           )}
@@ -256,121 +249,134 @@ export default function FeedScreen() {
                   </Pressable>
                 );
               })}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* User Discovery Modal */}
-      <Modal
-        visible={showDiscover}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowDiscover(false)}
-      >
-        <SafeAreaView className="flex-1 bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
-          <Pressable
-            className="flex-1"
-            onPress={() => setShowDiscover(false)}
-          >
-            <Pressable
-              className="flex-1 mt-auto rounded-t-3xl bg-graphite-900 p-6"
-              style={{ backgroundColor: '#1A1F2E' }}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <View className="w-10 h-1 bg-graphite-400 rounded-full self-center mb-4" />
-              <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-xl font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
-                  Discover Users
-                </Text>
-                <Pressable onPress={() => setShowDiscover(false)}>
-                  <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
-                </Pressable>
               </View>
+            )}
+          </View>
+        </ScrollView>
 
-              <View
-                className="flex-row items-center px-4 py-3 rounded-xl mb-4 bg-graphite-800 border border-graphite-700"
-                style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
+        {/* User Discovery Modal */}
+        <Modal
+          visible={showDiscover}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDiscover(false)}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
+            <Pressable style={{ flex: 1 }} onPress={() => setShowDiscover(false)}>
+              <Pressable
+                style={{
+                  flex: 1,
+                  marginTop: 'auto',
+                  borderTopLeftRadius: 24,
+                  borderTopRightRadius: 24,
+                  backgroundColor: Colors.void[800],
+                  padding: 24,
+                  borderWidth: 1,
+                  borderBottomWidth: 0,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+                onPress={(e) => e.stopPropagation()}
               >
-                <Ionicons
-                  name="search"
-                  size={20}
-                  color={isDark ? '#808fb0' : '#607296'}
-                  style={{ marginRight: 10 }}
-                />
-                <TextInput
-                  className="flex-1 text-base text-graphite-100"
-                  style={{ color: '#E6E8EB' }}
-                  placeholder="Search by name or email..."
-                  placeholderTextColor={isDark ? '#808fb0' : '#607296'}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoFocus
-                />
-                {searchQuery.length > 0 && (
-                  <Pressable onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={20} color={isDark ? '#808fb0' : '#607296'} />
+                <View style={{ width: 40, height: 4, backgroundColor: Colors.graphite[600], borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50] }}>
+                    Discover Users
+                  </Text>
+                  <Pressable onPress={() => setShowDiscover(false)}>
+                    <Ionicons name="close" size={24} color={Colors.graphite[50]} />
                   </Pressable>
-                )}
-              </View>
+                </View>
 
-              {/* ... (Keep existing search results logic or simplify) ... */}
-              {/* Simplified for this file update as I focused on Feed Cards */}
-              <ScrollView className="flex-1">
-                  <View className="gap-2">
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    marginBottom: 16,
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                >
+                  <Ionicons name="search" size={20} color={Colors.graphite[500]} style={{ marginRight: 10 }} />
+                  <TextInput
+                    style={{ flex: 1, fontSize: 16, color: Colors.graphite[50] }}
+                    placeholder="Search by name or email..."
+                    placeholderTextColor={Colors.graphite[500]}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoFocus
+                  />
+                  {searchQuery.length > 0 && (
+                    <Pressable onPress={() => setSearchQuery('')}>
+                      <Ionicons name="close-circle" size={20} color={Colors.graphite[500]} />
+                    </Pressable>
+                  )}
+                </View>
+
+                <ScrollView style={{ flex: 1 }}>
+                  <View style={{ gap: 8 }}>
                     {searchResults.map((user) => (
                       <Pressable
                         key={user.id}
-                        className={`p-4 rounded-xl flex-row items-center justify-between ${
-                          'bg-graphite-800 border-graphite-700'
-                        } border`}
+                        style={{
+                          padding: 16,
+                          borderRadius: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                        }}
                         onPress={() => {
                           setShowDiscover(false);
                           router.push(`/profile/${user.id}`);
                         }}
                       >
-                        <View className="flex-row items-center flex-1">
-                          <View className="w-8 h-8 rounded-full bg-signal-500 items-center justify-center mr-3">
-                            <Text className="text-white font-bold text-xs">
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.signal[500], alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>
                               {user.display_name?.charAt(0).toUpperCase() || 'U'}
                             </Text>
                           </View>
-                          <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
+                          <Text style={{ fontWeight: '600', color: Colors.graphite[50] }}>
                             {user.display_name || user.email}
                           </Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color={isDark ? '#808fb0' : '#607296'} />
+                        <Ionicons name="chevron-forward" size={20} color={Colors.graphite[500]} />
                       </Pressable>
                     ))}
                   </View>
-              </ScrollView>
+                </ScrollView>
+              </Pressable>
             </Pressable>
-          </Pressable>
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+          </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </View>
   );
 }
 
-const FeedHighlight = memo(function FeedHighlight({ 
-  exercise, 
-  exerciseSets, 
-  summary, 
-  isDark 
-}: { 
+const FeedHighlight = memo(function FeedHighlight({
+  exercise,
+  exerciseSets,
+  summary,
+}: {
   exercise: any;
   exerciseSets: any[];
   summary: ExerciseSummary | undefined;
-  isDark: boolean;
 }) {
   const iconName = useMemo(() => getModalityIcon(exercise?.modality || 'Strength'), [exercise?.modality]);
-  
+
   // Use generateExerciseSummary for proper formatting - memoize this expensive call
   const formattedSummary = useMemo(
     () => generateExerciseSummary(exercise, exerciseSets),
     [exercise, exerciseSets]
   );
-  
+
   // Determine progression value for tag
   const showProgression = summary?.isPR || (summary?.progression && ['weight_increase', 'rep_increase', 'e1rm_increase'].includes(summary.progression.type));
 
@@ -378,7 +384,7 @@ const FeedHighlight = memo(function FeedHighlight({
   const delta = useMemo(() => {
     let deltaValue = 0;
     let deltaUnit = '';
-    
+
     if (summary?.previousBest && summary?.bestSet.weight) {
       if (summary.primaryMetric === 'Weight' && summary.previousBest.weight) {
         deltaValue = summary.bestSet.weight - summary.previousBest.weight;
@@ -389,21 +395,21 @@ const FeedHighlight = memo(function FeedHighlight({
   }, [summary]);
 
   return (
-    <View className="flex-row items-center justify-between">
-      <View className="flex-row items-center flex-1 mr-2">
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
         <Ionicons
           name={iconName as any}
           size={14}
-          color={isDark ? '#808fb0' : '#607296'}
+          color={Colors.graphite[500]}
           style={{ marginRight: 6 }}
         />
-        <Text className="text-sm text-graphite-200" style={{ color: '#D4D7DC' }} numberOfLines={1}>
+        <Text style={{ fontSize: 14, color: Colors.graphite[200] }} numberOfLines={1}>
           {exercise?.name || summary?.exerciseName || 'Exercise'}
         </Text>
       </View>
-      
-      <View className="flex-row items-center gap-2">
-        <Text className="text-sm font-lab-mono text-graphite-300" style={{ color: '#C4C8D0' }}>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 14, fontFamily: 'monospace', color: Colors.graphite[300] }}>
           {formattedSummary}
         </Text>
         {showProgression && delta.deltaValue > 0 && (
