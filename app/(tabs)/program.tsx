@@ -3,7 +3,7 @@ import { Link, router } from 'expo-router';
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import {
   useActiveTrainingBlock,
   useTrainingBlock,
@@ -12,8 +12,6 @@ import {
 import type { Workout } from '@/types/database';
 
 export default function ProgramScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
 
   // Fetch active training block
   const { data: activeBlock, isLoading: blockLoading } = useActiveTrainingBlock();
@@ -57,74 +55,57 @@ export default function ProgramScreen() {
   // No active block state
   if (!isLoading && !activeBlock) {
     return (
-      <SafeAreaView
-        className="flex-1 bg-carbon-950"
-        style={{ backgroundColor: '#0E1116' }}
-        edges={['left', 'right']}
-      >
-        <View className="flex-1 items-center justify-center px-6">
-          <View
-            className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-graphite-800"
-            style={{ backgroundColor: '#1A1F2E' }}
-          >
-            <Ionicons
-              name="calendar-outline"
-              size={40}
-              color={isDark ? '#2F80ED' : '#2F80ED'}
-            />
+      <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+        {/* Ambient Background Glows */}
+        <View style={{ position: 'absolute', top: -100, left: -80, width: 300, height: 300, backgroundColor: 'rgba(37, 99, 235, 0.08)', borderRadius: 150 }} />
+        <View style={{ position: 'absolute', bottom: 0, right: -100, width: 350, height: 350, backgroundColor: 'rgba(37, 99, 235, 0.05)', borderRadius: 175 }} />
+
+        <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 16, backgroundColor: 'rgba(59, 130, 246, 0.15)', borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.3)' }}>
+              <Ionicons name="calendar-outline" size={40} color={Colors.signal[400]} />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: '700', textAlign: 'center', marginBottom: 8, color: Colors.graphite[50] }}>
+              No Active Program
+            </Text>
+            <Text style={{ textAlign: 'center', marginBottom: 24, color: Colors.graphite[400] }}>
+              Generate a training block with AI or create one manually to get started
+            </Text>
+            <Link href="/block-builder" asChild>
+              <Pressable style={{ paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, backgroundColor: Colors.signal[600], marginBottom: 12, shadowColor: Colors.signal[500], shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="sparkles" size={20} color="#ffffff" />
+                  <Text style={{ color: 'white', fontWeight: '600', marginLeft: 8 }}>Build with AI</Text>
+                </View>
+              </Pressable>
+            </Link>
+            <Link href="/annual-plan" asChild>
+              <Pressable style={{ paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="calendar" size={20} color={Colors.graphite[300]} />
+                  <Text style={{ fontWeight: '500', marginLeft: 8, color: Colors.graphite[200] }}>Plan Your Year</Text>
+                </View>
+              </Pressable>
+            </Link>
           </View>
-          <Text
-            className="text-xl font-bold text-center mb-2 text-graphite-100"
-            style={{ color: '#E6E8EB' }}
-          >
-            No Active Program
-          </Text>
-          <Text
-            className="text-center mb-6 text-graphite-400"
-            style={{ color: '#6B7485' }}
-          >
-            Generate a training block with AI or create one manually to get started
-          </Text>
-          <Link href="/block-builder" asChild>
-            <Pressable className="px-6 py-3 rounded-xl bg-signal-500 mb-3">
-              <View className="flex-row items-center">
-                <Ionicons name="sparkles" size={20} color="#ffffff" />
-                <Text className="text-white font-semibold ml-2">
-                  Build with AI
-                </Text>
-              </View>
-            </Pressable>
-          </Link>
-          <Link href="/annual-plan" asChild>
-            <Pressable 
-              className="px-6 py-3 rounded-xl bg-graphite-800"
-              style={{ backgroundColor: '#1A1F2E' }}
-            >
-              <View className="flex-row items-center">
-                <Ionicons name="calendar" size={20} color={isDark ? '#808fb0' : '#607296'} />
-                <Text className="font-medium ml-2 text-graphite-300" style={{ color: '#C4C8D0' }}>
-                  Plan Your Year
-                </Text>
-              </View>
-            </Pressable>
-          </Link>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-carbon-950"
-      style={{ backgroundColor: '#0E1116' }}
-      edges={['left', 'right']}
-    >
-      {isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#2F80ED" />
-        </View>
-      ) : (
-        <ScrollView className="flex-1">
+    <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+      {/* Ambient Background Glows */}
+      <View style={{ position: 'absolute', top: -80, right: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 140 }} />
+      <View style={{ position: 'absolute', bottom: 50, left: -80, width: 250, height: 250, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 125 }} />
+
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+        {isLoading ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.signal[500]} />
+          </View>
+        ) : (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
           {/* Current Block Header */}
           <View className="px-4 pt-4 pb-2">
             <View className="flex-row items-center justify-between mb-2">
@@ -149,7 +130,7 @@ export default function ProgramScreen() {
                     <Ionicons
                       name="calendar"
                       size={24}
-                      color={isDark ? '#808fb0' : '#607296'}
+                      color={Colors.graphite[400]}
                     />
                   </Pressable>
                 </Link>
@@ -158,7 +139,7 @@ export default function ProgramScreen() {
                     <Ionicons
                       name="add-circle"
                       size={28}
-                      color={isDark ? '#2F80ED' : '#2F80ED'}
+                      color={Colors.signal[500]}
                     />
                   </Pressable>
                 </Link>
@@ -168,9 +149,12 @@ export default function ProgramScreen() {
             {/* Progress Bar */}
             {progress && (
               <View
-                className={`h-2 rounded-full ${
-                  isDark ? 'bg-graphite-800' : 'bg-graphite-200'
-                } mt-2`}
+                style={{
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: Colors.graphite[800],
+                  marginTop: 8,
+                }}
               >
                 <View
                   className="h-full rounded-full bg-signal-500"
@@ -199,13 +183,15 @@ export default function ProgramScreen() {
                 <View key={week} className="mb-4">
                   <View className="px-4 py-3 flex-row items-center">
                     <View
-                      className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${
-                        isCurrentWeek
-                          ? 'bg-signal-500'
-                          : isDark
-                          ? 'bg-graphite-700'
-                          : 'bg-graphite-200'
-                      }`}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 12,
+                        backgroundColor: isCurrentWeek ? Colors.signal[500] : Colors.graphite[700],
+                      }}
                     >
                       <Text
                         className={`font-bold text-sm ${
@@ -251,15 +237,19 @@ export default function ProgramScreen() {
                             onPress={() => router.push(`/workout/${workout.id}`)}
                           >
                             <View
-                              className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
-                                isCompleted
-                                  ? 'bg-progress-500'
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 20,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginRight: 12,
+                                backgroundColor: isCompleted
+                                  ? Colors.emerald[500]
                                   : isNext
-                                  ? 'bg-signal-500'
-                                  : isDark
-                                  ? 'bg-graphite-700'
-                                  : 'bg-graphite-200'
-                              }`}
+                                  ? Colors.signal[500]
+                                  : Colors.graphite[700],
+                              }}
                             >
                               {isCompleted ? (
                                 <Ionicons name="checkmark" size={20} color="#ffffff" />
@@ -304,7 +294,7 @@ export default function ProgramScreen() {
                             <Ionicons
                               name="chevron-forward"
                               size={20}
-                              color={isDark ? '#808fb0' : '#607296'}
+                              color={Colors.graphite[400]}
                             />
                           </Pressable>
                         );
@@ -324,9 +314,10 @@ export default function ProgramScreen() {
           )}
 
           {/* Bottom spacing */}
-          <View className="h-8" />
-        </ScrollView>
-      )}
-    </SafeAreaView>
+          <View style={{ height: 32 }} />
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }

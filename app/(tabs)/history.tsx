@@ -5,15 +5,13 @@ import { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { useWorkoutHistory, useIncompleteWorkouts, useUncompleteWorkout } from '@/hooks/useWorkouts';
 import { useRecentPRs } from '@/hooks/usePersonalRecords';
 import { calculateSetVolume } from '@/lib/utils';
 import type { WorkoutWithSets } from '@/types/database';
 
 export default function HistoryScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const [searchQuery, setSearchQuery] = useState('');
   const uncompleteMutation = useUncompleteWorkout();
 
@@ -129,87 +127,79 @@ export default function HistoryScreen() {
   const isLoading = historyLoading || incompleteLoading;
 
   return (
-    <SafeAreaView 
-      className="flex-1 bg-carbon-950" 
-      style={{ backgroundColor: '#0E1116' }}
-      edges={['left', 'right']}
-    >
-      {/* Search Bar */}
-      <View className="px-4 py-3">
-        <View
-          className="flex-row items-center px-4 py-3 rounded-xl bg-graphite-800 border border-graphite-700"
-          style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
-        >
-          <Ionicons
-            name="search"
-            size={20}
-            color={isDark ? '#808fb0' : '#607296'}
-            style={{ marginRight: 10 }}
-          />
-          <TextInput
-            className="flex-1 text-base text-graphite-100"
-            style={{ color: '#E6E8EB' }}
-            placeholder="Search workouts or exercises..."
-            placeholderTextColor={isDark ? '#808fb0' : '#607296'}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={isDark ? '#808fb0' : '#607296'} />
-            </Pressable>
-          )}
-        </View>
-      </View>
+    <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+      {/* Ambient Background Glows */}
+      <View style={{ position: 'absolute', top: -80, left: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 140 }} />
+      <View style={{ position: 'absolute', bottom: 100, right: -80, width: 250, height: 250, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 125 }} />
 
-      {/* Stats Summary */}
-      <View className="px-4 mb-4">
-        <View className="flex-row gap-3">
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+        {/* Search Bar */}
+        <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
           <View
-            className="flex-1 p-4 rounded-xl bg-graphite-800 border border-graphite-700"
-            style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+            }}
           >
-            <Text className="text-2xl font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
-              {isLoading ? '...' : stats.totalWorkouts}
-            </Text>
-            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
-              Total Workouts
-            </Text>
-          </View>
-          <View
-            className="flex-1 p-4 rounded-xl bg-graphite-800 border border-graphite-700"
-            style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
-          >
-            <Text className={`text-2xl font-bold text-signal-500`}>
-              {isLoading ? '...' : stats.totalVolume >= 1000 
-                ? `${(stats.totalVolume / 1000).toFixed(1)}k` 
-                : Math.round(stats.totalVolume).toString()}
-            </Text>
-            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
-              Total Volume (lbs)
-            </Text>
-          </View>
-          <View
-            className="flex-1 p-4 rounded-xl bg-graphite-800 border border-graphite-700"
-            style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
-          >
-            <Text className={`text-2xl font-bold text-oxide-500`}>
-              {isLoading ? '...' : stats.prsThisMonth}
-            </Text>
-            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
-              PRs This Month
-            </Text>
+            <Ionicons name="search" size={20} color={Colors.graphite[500]} style={{ marginRight: 10 }} />
+            <TextInput
+              style={{ flex: 1, fontSize: 16, color: Colors.graphite[50] }}
+              placeholder="Search workouts or exercises..."
+              placeholderTextColor={Colors.graphite[500]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={Colors.graphite[500]} />
+              </Pressable>
+            )}
           </View>
         </View>
-      </View>
 
-      {/* Workout List */}
-      <ScrollView className="flex-1 px-4">
-        {isLoading ? (
-          <View className="flex-1 items-center justify-center py-12">
-            <ActivityIndicator size="large" color="#2F80ED" />
+        {/* Stats Summary */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+              <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.graphite[50] }}>
+                {isLoading ? '...' : stats.totalWorkouts}
+              </Text>
+              <Text style={{ fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, color: Colors.graphite[500] }}>
+                Workouts
+              </Text>
+            </View>
+            <View style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+              <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.signal[400] }}>
+                {isLoading ? '...' : stats.totalVolume >= 1000 ? `${(stats.totalVolume / 1000).toFixed(1)}k` : Math.round(stats.totalVolume).toString()}
+              </Text>
+              <Text style={{ fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, color: Colors.graphite[500] }}>
+                Volume
+              </Text>
+            </View>
+            <View style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+              <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.emerald[400] }}>
+                {isLoading ? '...' : stats.prsThisMonth}
+              </Text>
+              <Text style={{ fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, color: Colors.graphite[500] }}>
+                PRs
+              </Text>
+            </View>
           </View>
-        ) : (
+        </View>
+
+        {/* Workout List */}
+        <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} contentContainerStyle={{ paddingBottom: 100 }}>
+          {isLoading ? (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+              <ActivityIndicator size="large" color={Colors.signal[500]} />
+            </View>
+          ) : (
           <>
             {/* Incomplete Workouts Section */}
             {filteredIncomplete.length > 0 && (
@@ -267,7 +257,7 @@ export default function HistoryScreen() {
                           <Ionicons
                             name="fitness-outline"
                             size={14}
-                            color={isDark ? '#808fb0' : '#607296'}
+                            color={Colors.graphite[400]}
                           />
                           <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                             {workout.exerciseCount} exercises
@@ -278,7 +268,7 @@ export default function HistoryScreen() {
                             <Ionicons
                               name="trending-up"
                               size={14}
-                              color={isDark ? '#808fb0' : '#607296'}
+                              color={Colors.graphite[400]}
                             />
                             <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                               {workout.totalVolume >= 1000 
@@ -305,7 +295,7 @@ export default function HistoryScreen() {
                   <Ionicons
                     name="barbell-outline"
                     size={48}
-                    color={isDark ? '#808fb0' : '#607296'}
+                    color={Colors.graphite[400]}
                   />
                   <Text className="mt-4 text-center text-graphite-400" style={{ color: '#6B7485' }}>
                     No completed workouts yet.{'\n'}Start your first workout to see it here!
@@ -360,7 +350,7 @@ export default function HistoryScreen() {
                             <Ionicons
                               name="time-outline"
                               size={14}
-                              color={isDark ? '#808fb0' : '#607296'}
+                              color={Colors.graphite[400]}
                             />
                             <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                               {workout.duration_minutes} min
@@ -371,7 +361,7 @@ export default function HistoryScreen() {
                           <Ionicons
                             name="fitness-outline"
                             size={14}
-                            color={isDark ? '#808fb0' : '#607296'}
+                            color={Colors.graphite[400]}
                           />
                           <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                             {workout.exerciseCount} exercises
@@ -382,7 +372,7 @@ export default function HistoryScreen() {
                             <Ionicons
                               name="trending-up"
                               size={14}
-                              color={isDark ? '#808fb0' : '#607296'}
+                              color={Colors.graphite[400]}
                             />
                             <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                               {workout.totalVolume >= 1000 
@@ -395,11 +385,17 @@ export default function HistoryScreen() {
                       </Pressable>
                       
                       {/* Action Buttons */}
-                      <View className={`flex-row gap-2 mt-3 pt-3 border-t ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.graphite[700] }}>
                         <Pressable
-                          className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
-                            isDark ? 'bg-graphite-700' : 'bg-graphite-100'
-                          }`}
+                          style={{
+                            flex: 1,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            backgroundColor: Colors.graphite[700],
+                          }}
                           onPress={() => {
                             Alert.alert(
                               'Uncomplete Workout',
@@ -432,9 +428,15 @@ export default function HistoryScreen() {
                           <Text className="text-signal-500 font-medium ml-1 text-sm">Uncomplete</Text>
                         </Pressable>
                         <Pressable
-                          className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
-                            isDark ? 'bg-graphite-700' : 'bg-graphite-100'
-                          }`}
+                          style={{
+                            flex: 1,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            backgroundColor: Colors.graphite[700],
+                          }}
                           onPress={() => router.push(`/workout/${workout.id}`)}
                         >
                           <Ionicons name="create-outline" size={16} color="#2F80ED" />
@@ -448,10 +450,11 @@ export default function HistoryScreen() {
             </View>
 
             {/* Bottom spacing */}
-            <View className="h-8" />
+            <View style={{ height: 32 }} />
           </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
