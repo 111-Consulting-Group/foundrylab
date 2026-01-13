@@ -58,23 +58,24 @@ export function LabStat({ label, value, unit, size = 'md', trend, className = ''
     lg: { label: 'text-sm', value: 'text-2xl' },
   };
 
+  // Force dark mode - always use light text
   const trendColor = trend === 'up' 
     ? 'text-progress-500' 
     : trend === 'down' 
       ? 'text-regression-500' 
-      : isDark ? 'text-graphite-100' : 'text-graphite-900';
+      : 'text-graphite-100';
 
   return (
     <View className={className}>
-      <Text className={`${sizeStyles[size].label} font-sans mb-0.5 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+      <Text className={`${sizeStyles[size].label} font-sans mb-0.5 text-graphite-400`} style={{ color: '#6B7485' }}>
         {label}
       </Text>
       <View className="flex-row items-baseline">
-        <Text className={`${sizeStyles[size].value} font-lab-mono font-bold ${trendColor}`}>
+        <Text className={`${sizeStyles[size].value} font-lab-mono font-bold ${trendColor}`} style={trend === 'neutral' ? { color: '#E6E8EB' } : undefined}>
           {value}
         </Text>
         {unit && (
-          <Text className={`ml-1 text-xs font-lab-mono ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+          <Text className="ml-1 text-xs font-lab-mono text-graphite-400" style={{ color: '#6B7485' }}>
             {unit}
           </Text>
         )}
@@ -122,6 +123,14 @@ export function LabButton({
     ghost: isDark ? 'text-graphite-300' : 'text-graphite-600',
   };
 
+  // Force dark mode text colors with explicit styles
+  const textColorStyles = {
+    primary: { color: '#FFFFFF' },
+    secondary: isDark ? { color: '#E6E8EB' } : { color: '#0F172A' },
+    outline: isDark ? { color: '#D4D7DC' } : { color: '#374151' },
+    ghost: isDark ? { color: '#C4C8D0' } : { color: '#4B5563' },
+  };
+
   const sizes = {
     sm: 'px-3 py-1.5',
     md: 'px-4 py-3',
@@ -141,7 +150,10 @@ export function LabButton({
       {...props}
     >
       {icon && <View className="mr-2">{icon}</View>}
-      <Text className={`${textColors[variant]} ${textSizes[size]} font-semibold font-sans uppercase tracking-wide`}>
+      <Text 
+        className={`${textColors[variant]} ${textSizes[size]} font-semibold font-sans uppercase tracking-wide`}
+        style={textColorStyles[variant]}
+      >
         {label}
       </Text>
     </Pressable>

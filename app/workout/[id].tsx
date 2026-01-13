@@ -497,6 +497,54 @@ export default function ActiveWorkoutScreen() {
     [currentWorkoutId, deleteSetMutation]
   );
 
+  // Delete an entire exercise (all its sets)
+  const handleDeleteExercise = useCallback(
+    async (exerciseId: string) => {
+      if (!currentWorkoutId) return;
+
+      // Find the exercise and its sets
+      const exercise = trackedExercises.find(ex => ex.exercise.id === exerciseId);
+      if (!exercise) return;
+
+      // Confirm deletion
+      Alert.alert(
+        'Remove Exercise',
+        `Remove "${exercise.exercise.name}" from this workout?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Delete all sets for this exercise
+                const setsToDelete = exercise.sets.filter(s => s.id && !s.id.startsWith('temp-'));
+                if (setsToDelete.length > 0) {
+                  await Promise.all(
+                    setsToDelete.map(set =>
+                      deleteSetMutation.mutateAsync({
+                        id: set.id!,
+                        workoutId: currentWorkoutId,
+                      })
+                    )
+                  );
+                }
+
+                // Remove from local state
+                setTrackedExercises((prev) =>
+                  prev.filter(ex => ex.exercise.id !== exerciseId)
+                );
+              } catch (error) {
+                Alert.alert('Error', 'Failed to remove exercise. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    },
+    [currentWorkoutId, trackedExercises, deleteSetMutation]
+  );
+
   // Complete workout
   const handleFinishWorkout = useCallback(async () => {
     if (!currentWorkoutId) {
@@ -777,6 +825,8 @@ export default function ActiveWorkoutScreen() {
                   targetRPE={tracked.targetRPE}
                   targetLoad={tracked.targetLoad}
                   onPress={() => setSelectedExerciseIndex(exerciseIndex)}
+                  onDelete={() => handleDeleteExercise(tracked.exercise.id)}
+                  showDelete={true}
                 />
               );
             })}

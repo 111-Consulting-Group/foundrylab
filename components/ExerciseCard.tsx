@@ -2,8 +2,8 @@
 // Shows exercise name, prescription/summary, and completion status
 
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, Modal, Alert } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import {
@@ -23,6 +23,9 @@ interface ExerciseCardProps {
   targetRPE?: number;
   targetLoad?: number;
   onPress: () => void;
+  onDelete?: () => void;
+  showDelete?: boolean;
+  onLongPress?: () => void;
 }
 
 export function ExerciseCard({
@@ -33,9 +36,13 @@ export function ExerciseCard({
   targetRPE,
   targetLoad,
   onPress,
+  onDelete,
+  showDelete = false,
+  onLongPress,
 }: ExerciseCardProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const [showMenu, setShowMenu] = useState(false);
   
   const isCardio = exercise.modality === 'Cardio';
   const status = getCompletionStatus(sets, isCardio, targetSets);
@@ -82,18 +89,28 @@ export function ExerciseCard({
     ? 'rgba(47, 128, 237, 0.3)'
     : '#353D4B';
 
+  const handleLongPress = () => {
+    if (onLongPress) {
+      onLongPress();
+    } else {
+      setShowMenu(true);
+    }
+  };
+
   return (
-    <Pressable
-      onPress={onPress}
-      className={`flex-row items-center p-4 rounded-xl mb-2 ${
-        statusConfig.bgClass
-      } border ${statusConfig.borderClass}`}
-      style={({ pressed }) => ({
-        opacity: pressed ? 0.7 : 1,
-        backgroundColor: bgColor,
-        borderColor,
-      })}
-    >
+    <>
+      <Pressable
+        onPress={onPress}
+        onLongPress={handleLongPress}
+        className={`flex-row items-center p-4 rounded-xl mb-2 ${
+          statusConfig.bgClass
+        } border ${statusConfig.borderClass}`}
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.7 : 1,
+          backgroundColor: bgColor,
+          borderColor,
+        })}
+      >
       {/* Status indicator */}
       <View className="mr-3">
         {status === 'completed' ? (
@@ -135,13 +152,81 @@ export function ExerciseCard({
         </Text>
       </View>
       
-      {/* Chevron */}
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color="#607296"
-      />
+      {/* Actions */}
+      <View className="flex-row items-center gap-2">
+        {showDelete && onDelete && (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="p-1.5 rounded-full"
+            style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+          >
+            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+          </Pressable>
+        )}
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color="#607296"
+        />
+      </View>
     </Pressable>
+
+    {/* Long-press menu */}
+    {showMenu && (
+      <Modal
+        visible={showMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onPress={() => setShowMenu(false)}
+        >
+          <View
+            className="bg-graphite-900 rounded-xl p-4 min-w-[200px]"
+            style={{ backgroundColor: '#1A1F2E' }}
+          >
+            <Text
+              className="text-sm font-semibold mb-3 text-graphite-100"
+              style={{ color: '#E6E8EB' }}
+            >
+              {exercise.name}
+            </Text>
+            <Pressable
+              onPress={() => {
+                setShowMenu(false);
+                onPress();
+              }}
+              className="py-3 border-b border-graphite-700"
+              style={{ borderColor: '#353D4B' }}
+            >
+              <Text className="text-graphite-200" style={{ color: '#D4D7DC' }}>
+                Edit Exercise
+              </Text>
+            </Pressable>
+            {onDelete && (
+              <Pressable
+                onPress={() => {
+                  setShowMenu(false);
+                  onDelete();
+                }}
+                className="py-3"
+              >
+                <Text className="text-regression-500" style={{ color: '#EF4444' }}>
+                  Remove Exercise
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+    )}
+    </>
   );
 }
 

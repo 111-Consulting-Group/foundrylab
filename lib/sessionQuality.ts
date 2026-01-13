@@ -17,10 +17,8 @@ export type SessionQuality =
  * Evaluate session quality based on workout data
  */
 export function evaluateSession(workout: WorkoutWithSets): SessionQuality {
-  // If unstructured, it's junk
-  if (workout.context === 'unstructured') {
-    return 'junk';
-  }
+  // Check if workout is part of a structured block
+  const isStructured = !!workout.block_id || !!workout.week_number || !!workout.day_number;
 
   // If deloading, it's recovery
   if (workout.context === 'deloading') {
@@ -33,6 +31,17 @@ export function evaluateSession(workout: WorkoutWithSets): SessionQuality {
 
   // If no sets, can't evaluate
   if (totalSets === 0) {
+    return isStructured ? 'maintaining' : 'junk'; // If structured but no sets, treat as baseline
+  }
+
+  // If structured but no context yet, we're establishing baseline
+  // This happens early in a block before we have enough data
+  if (isStructured && !workout.context) {
+    return 'maintaining'; // Use 'maintaining' as a neutral state for baseline establishment
+  }
+
+  // If unstructured, it's junk
+  if (workout.context === 'unstructured' && !isStructured) {
     return 'junk';
   }
 
@@ -57,7 +66,7 @@ export function evaluateSession(workout: WorkoutWithSets): SessionQuality {
     return 'suboptimal';
   }
 
-  // Default to maintaining
+  // Default to maintaining (for structured blocks establishing baseline)
   return 'maintaining';
 }
 

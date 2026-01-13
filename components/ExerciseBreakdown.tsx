@@ -44,10 +44,15 @@ export function ExerciseBreakdown({
     segment_type: (s as any).segment_type || 'work',
   }));
 
-  // Get prescription - use first set's target data if not provided
+  // Get prescription - use ALL sets (including unlogged) to get accurate target count
+  // For target, we want the planned sets, not just what was logged
+  const allWorkSets = setsWithExercise.filter(s => !s.is_warmup && s.segment_type !== 'warmup');
   const firstSet = sets[0];
+  
+  // For cardio, we need to count target sets based on planned work sets
+  // The target should show what was planned, not what was logged
   const prescription = formatPrescription(
-    setsWithExercise, 
+    allWorkSets, // Use all work sets (planned) for target calculation
     exercise, 
     targetReps ?? firstSet?.target_reps ?? undefined, 
     targetRPE ?? firstSet?.target_rpe ?? undefined, 
@@ -78,25 +83,34 @@ export function ExerciseBreakdown({
     }
   }
 
-  // Get logged sets (with actual data)
+  // Get logged sets (with actual data) and deduplicate
   const loggedSets = sets.filter(s => {
     if (isCardio) {
       return s.distance_meters || s.duration_seconds || s.avg_pace;
     }
     return s.actual_weight !== null || s.actual_reps !== null;
+  }).filter((set, index, self) => {
+    // Deduplicate by ID or set_order
+    if (set.id) {
+      return index === self.findIndex(s => s.id === set.id);
+    }
+    return index === self.findIndex(s => 
+      s.set_order === set.set_order && 
+      s.exercise_id === set.exercise_id
+    );
   });
 
   return (
     <LabCard noPadding className="mb-3 overflow-hidden">
       {/* Header */}
-      <View className={`px-4 py-3 border-b ${isDark ? 'border-graphite-700' : 'border-graphite-200'} bg-opacity-50`}>
+      <View className="px-4 py-3 border-b border-graphite-700 bg-opacity-50" style={{ borderColor: '#353D4B' }}>
         <View className="flex-row justify-between items-start">
           <View className="flex-1 mr-2">
-            <Text className={`text-base font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+            <Text className="text-base font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
               {exercise.name}
             </Text>
             {prescription && (
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
                 Target: {prescription}
               </Text>
             )}
@@ -106,8 +120,8 @@ export function ExerciseBreakdown({
           {!isCardio && loggedSets.length > 0 && (
             <View className="items-end">
               <View className="flex-row items-center gap-2">
-                <Text className={`font-lab-mono font-bold ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
-                  {bestSet.actual_weight} <Text className="text-xs font-normal text-graphite-500">lbs</Text> × {bestSet.actual_reps}
+                <Text className="font-lab-mono font-bold text-graphite-200" style={{ color: '#D4D7DC' }}>
+                  {bestSet.actual_weight} <Text className="text-xs font-normal text-graphite-500" style={{ color: '#808FB0' }}>lbs</Text> × {bestSet.actual_reps}
                 </Text>
                 {(weightDelta !== 0 || repsDelta !== 0) && (
                   <View className="flex-row gap-1">
@@ -116,7 +130,7 @@ export function ExerciseBreakdown({
                   </View>
                 )}
               </View>
-              <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+              <Text className="text-xs text-graphite-500" style={{ color: '#808FB0' }}>
                 Top Set
               </Text>
             </View>
@@ -128,18 +142,33 @@ export function ExerciseBreakdown({
       <View className="px-4 py-2">
         {loggedSets.length > 0 ? (
           <View className="gap-1">
-            {loggedSets
+            {isCardio ? (() => {
+              const warmupSets = loggedSets.filter(s => s.segment_type === 'warmup' || s.is_warmup);
+              const workSets = loggedSets.filter(s => (s.segment_type === 'work' || !s.segment_type) && !s.is_warmup);
+              
+              const parts: string[] = [];
+              
+              // Show warmup if exists
+              if (warmupSets.length > 0) {
+                const warmup = warmupSets[0];
+                const warmupSummary = generateExerciseSummary(exercise, [warmup as SetWithExercise]);
+                parts.push(warmupSummary);
+              }
+              
+              // Show work intervals - this shows what was actually logged
+              if (workSets.length > 0) {
+                const workSummary = generateExerciseSummary(exercise, workSets.map(s => s as SetWithExercise));
+                parts.push(workSummary);
+              }
+              
+              return parts.map((summary, idx) => (
+                <Text key={idx} className="text-sm text-graphite-300" style={{ color: '#C4C8D0' }}>
+                  {summary}
+                </Text>
+              ));
+            })() : loggedSets
               .sort((a, b) => (a.set_order || 0) - (b.set_order || 0))
               .map((set, index) => {
-                if (isCardio) {
-                   // Cardio display
-                   return (
-                    <Text key={set.id || index} className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
-                      {generateExerciseSummary(exercise, [set as SetWithExercise])}
-                    </Text>
-                   );
-                }
-
                 const weight = set.actual_weight === 0 ? 'BW' : (set.actual_weight?.toString() || '-');
                 const reps = set.actual_reps?.toString() || '-';
                 const rpe = set.actual_rpe ? ` @ ${set.actual_rpe}` : '';
@@ -147,20 +176,20 @@ export function ExerciseBreakdown({
                 return (
                   <View key={set.id || index} className="flex-row items-center justify-between py-1">
                     <View className="flex-row items-center w-16">
-                      <Text className={`text-xs font-lab-mono ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                      <Text className="text-xs font-lab-mono text-graphite-500" style={{ color: '#808FB0' }}>
                         Set {index + 1}
                       </Text>
                     </View>
                     <View className="flex-1 flex-row items-center">
-                      <Text className={`font-lab-mono ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
-                        {weight} <Text className="text-xs text-graphite-500">lbs</Text>
+                      <Text className="font-lab-mono text-graphite-300" style={{ color: '#C4C8D0' }}>
+                        {weight} <Text className="text-xs text-graphite-500" style={{ color: '#808FB0' }}>lbs</Text>
                       </Text>
-                      <Text className={`mx-2 ${isDark ? 'text-graphite-600' : 'text-graphite-400'}`}>×</Text>
-                      <Text className={`font-lab-mono ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
-                        {reps} <Text className="text-xs text-graphite-500">reps</Text>
+                      <Text className="mx-2 text-graphite-600" style={{ color: '#4A5568' }}>×</Text>
+                      <Text className="font-lab-mono text-graphite-300" style={{ color: '#C4C8D0' }}>
+                        {reps} <Text className="text-xs text-graphite-500" style={{ color: '#808FB0' }}>reps</Text>
                       </Text>
                       {set.actual_rpe && (
-                        <Text className={`ml-3 text-xs font-lab-mono ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                        <Text className="ml-3 text-xs font-lab-mono text-graphite-500" style={{ color: '#808FB0' }}>
                           RPE {set.actual_rpe}
                         </Text>
                       )}
@@ -170,7 +199,7 @@ export function ExerciseBreakdown({
               })}
           </View>
         ) : (
-          <Text className={`text-sm italic py-2 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+          <Text className="text-sm italic py-2 text-graphite-500" style={{ color: '#808FB0' }}>
             Not completed
           </Text>
         )}

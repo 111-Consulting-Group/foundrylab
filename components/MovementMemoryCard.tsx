@@ -307,8 +307,8 @@ export function EmptyMemoryCard() {
       style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
     >
       <View className="flex-row items-center">
-        <Ionicons name="add-circle-outline" size={16} color={isDark ? '#808fb0' : '#607296'} />
-        <Text className="text-sm ml-2 text-graphite-400" style={{ color: '#6B7485' }}>
+        <Ionicons name="add-circle-outline" size={16} color="#808FB0" />
+        <Text className="text-sm ml-2 text-graphite-300" style={{ color: '#C4C8D0' }}>
           First time logging this exercise
         </Text>
       </View>

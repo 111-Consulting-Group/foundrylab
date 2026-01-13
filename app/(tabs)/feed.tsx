@@ -9,6 +9,7 @@ import { StreakBadge, PRCountBadge, BlockContextBadge, AdherenceBadge } from '@/
 import { useFeed, useLikePost, useSearchUsers } from '@/hooks/useSocial';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
 import { summarizeWorkoutExercises, formatExerciseForFeed, getModalityIcon, type ExerciseSummary } from '@/lib/feedUtils';
+import { generateExerciseSummary } from '@/lib/workoutSummary';
 import { formatDistanceToNow } from 'date-fns';
 import type { WorkoutWithSets } from '@/types/database';
 import { LabCard, LabButton } from '@/components/ui/LabPrimitives';
@@ -140,14 +141,80 @@ export default function FeedScreen() {
 
                         {/* Body: Key Lifts Highlights */}
                         <View className="gap-2 mb-3">
-                          {highlights.map((summary) => (
-                            <FeedHighlight key={summary.exerciseId} summary={summary} isDark={isDark} />
-                          ))}
-                          {exerciseSummaries.length > 3 && (
-                            <Text className="text-xs mt-1 text-graphite-400" style={{ color: '#6B7485' }}>
-                              + {exerciseSummaries.length - 3} more exercises
-                            </Text>
-                          )}
+                          {(() => {
+                            // Group sets by exercise to use generateExerciseSummary
+                            const exerciseMap = new Map<string, any[]>();
+                            (workout.workout_sets || []).forEach((set: any) => {
+                              // Filter out warmup sets
+                              if (!set.exercise_id || set.is_warmup || set.segment_type === 'warmup') return;
+                              
+                              // For cardio, only include sets with actual data
+                              const isCardio = set.exercise?.modality === 'Cardio';
+                              if (isCardio && !set.distance_meters && !set.duration_seconds && !set.avg_pace) {
+                                return;
+                              }
+                              
+                              // For strength, only include sets with actual data
+                              if (!isCardio && set.actual_weight === null && set.actual_reps === null) {
+                                return;
+                              }
+                              
+                              const key = set.exercise_id;
+                              if (!exerciseMap.has(key)) {
+                                exerciseMap.set(key, []);
+                              }
+                              // Deduplicate sets by ID or set_order
+                              const existing = exerciseMap.get(key)!;
+                              const isDuplicate = existing.some(s => 
+                                (set.id && s.id && set.id === s.id) ||
+                                (!set.id && !s.id && set.set_order === s.set_order && set.exercise_id === s.exercise_id)
+                              );
+                              if (!isDuplicate) {
+                                existing.push(set);
+                              }
+                            });
+                            
+                            // Get the top exercises (matching the highlights logic)
+                            const exerciseEntries = Array.from(exerciseMap.entries());
+                            const topExercises = exerciseEntries
+                              .map(([exerciseId, exerciseSets]) => {
+                                const exercise = exerciseSets[0]?.exercise;
+                                if (!exercise) return null;
+                                const summary = summarizeWorkoutExercises(exerciseSets).find(s => s.exerciseId === exerciseId);
+                                return { exerciseId, exercise, exerciseSets, summary };
+                              })
+                              .filter(Boolean)
+                              .sort((a, b) => {
+                                // Sort: PRs first, then by volume
+                                if (a?.summary?.isPR && !b?.summary?.isPR) return -1;
+                                if (!a?.summary?.isPR && b?.summary?.isPR) return 1;
+                                return (b?.summary?.totalVolume || 0) - (a?.summary?.totalVolume || 0);
+                              })
+                              .slice(0, 3);
+                            
+                            return (
+                              <>
+                                {topExercises.map((item) => {
+                                  if (!item) return null;
+                                  const { exerciseId, exercise, exerciseSets, summary } = item;
+                                  return (
+                                    <FeedHighlight 
+                                      key={exerciseId} 
+                                      exercise={exercise}
+                                      exerciseSets={exerciseSets}
+                                      summary={summary}
+                                      isDark={isDark} 
+                                    />
+                                  );
+                                })}
+                                {exerciseEntries.length > 3 && (
+                                  <Text className="text-xs mt-1 text-graphite-400" style={{ color: '#6B7485' }}>
+                                    + {exerciseEntries.length - 3} more exercises
+                                  </Text>
+                                )}
+                              </>
+                            );
+                          })()}
                         </View>
 
                         {/* Caption */}
@@ -284,21 +351,30 @@ export default function FeedScreen() {
   );
 }
 
-function FeedHighlight({ summary, isDark }: { summary: ExerciseSummary, isDark: boolean }) {
-  const iconName = getModalityIcon(summary.modality);
+function FeedHighlight({ 
+  exercise, 
+  exerciseSets, 
+  summary, 
+  isDark 
+}: { 
+  exercise: any;
+  exerciseSets: any[];
+  summary: ExerciseSummary | undefined;
+  isDark: boolean;
+}) {
+  const iconName = getModalityIcon(exercise?.modality || 'Strength');
+  
+  // Use generateExerciseSummary for proper formatting
+  const formattedSummary = generateExerciseSummary(exercise, exerciseSets);
   
   // Determine progression value for tag
-  // Currently summarizeWorkoutExercises logic detects type but not exact delta value easily accessibly in standardized way without digging into `progression` object if it had delta. 
-  // Let's assume for now we highlight if PR or type is increase.
-  
-  const showProgression = summary.isPR || (summary.progression && ['weight_increase', 'rep_increase', 'e1rm_increase'].includes(summary.progression.type));
+  const showProgression = summary?.isPR || (summary?.progression && ['weight_increase', 'rep_increase', 'e1rm_increase'].includes(summary.progression.type));
 
-  // We don't have exact delta number in `ExerciseSummary` interface (it has `previousBest`).
-  // We can calculate delta on the fly.
+  // Calculate delta on the fly
   let deltaValue = 0;
   let deltaUnit = '';
   
-  if (summary.previousBest && summary.bestSet.weight) {
+  if (summary?.previousBest && summary?.bestSet.weight) {
     if (summary.primaryMetric === 'Weight' && summary.previousBest.weight) {
       deltaValue = summary.bestSet.weight - summary.previousBest.weight;
       deltaUnit = 'lbs';
@@ -315,13 +391,13 @@ function FeedHighlight({ summary, isDark }: { summary: ExerciseSummary, isDark: 
           style={{ marginRight: 6 }}
         />
         <Text className="text-sm text-graphite-200" style={{ color: '#D4D7DC' }} numberOfLines={1}>
-          {summary.exerciseName}
+          {exercise?.name || summary?.exerciseName || 'Exercise'}
         </Text>
       </View>
       
       <View className="flex-row items-center gap-2">
         <Text className="text-sm font-lab-mono text-graphite-300" style={{ color: '#C4C8D0' }}>
-          {formatExerciseForFeed(summary)}
+          {formattedSummary}
         </Text>
         {showProgression && deltaValue > 0 && (
           <DeltaTag value={deltaValue} unit={deltaUnit} />

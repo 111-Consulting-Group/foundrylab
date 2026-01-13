@@ -43,8 +43,10 @@ export function formatDistance(meters: number): string {
  */
 export function formatPace(pace: string | null | undefined): string {
   if (!pace) return '';
-  // If already has suffix, return as-is
-  if (pace.includes('/')) return pace;
+  // If already has suffix or is a descriptive pace (like "5K pace"), return as-is
+  if (pace.includes('/') || pace.toLowerCase().includes('pace') || pace.toLowerCase().includes('k')) {
+    return pace;
+  }
   // Otherwise assume /mi
   return `${pace}/mi`;
 }
@@ -94,8 +96,12 @@ export function generateCardioSummary(sets: SetWithExercise[]): string {
   if (loggedSets.length === 0) return 'No sets logged';
   
   // Group logged sets by segment type
+  // If segment_type is not set, assume it's a work set (for backwards compatibility)
   const warmupSets = loggedSets.filter(s => s.segment_type === 'warmup' || s.is_warmup);
-  const workSets = loggedSets.filter(s => s.segment_type === 'work' && !s.is_warmup);
+  const workSets = loggedSets.filter(s => {
+    // Include sets that are explicitly work sets, or sets without segment_type (assume work)
+    return (s.segment_type === 'work' || !s.segment_type) && !s.is_warmup;
+  });
   const recoverySets = loggedSets.filter(s => s.segment_type === 'recovery');
   const cooldownSets = loggedSets.filter(s => s.segment_type === 'cooldown');
   
@@ -123,8 +129,19 @@ export function generateCardioSummary(sets: SetWithExercise[]): string {
     
     if (allSameDistance && distances[0]) {
       const dist = formatDistance(distances[0]);
-      const avgPace = calculateAveragePace(workSets);
-      const paceStr = avgPace ? ` @ ${avgPace}` : '';
+      // Check if all sets have the same pace string (like "5K pace")
+      const paces = workSets.map(s => s.avg_pace).filter(Boolean);
+      const allSamePace = paces.length > 0 && paces.every(p => p === paces[0]);
+      
+      let paceStr = '';
+      if (allSamePace && paces[0]) {
+        // Use the pace string directly (e.g., "5K pace")
+        paceStr = ` @ ${formatPace(paces[0])}`;
+      } else {
+        // Calculate average pace from time-based pace
+        const avgPace = calculateAveragePace(workSets);
+        paceStr = avgPace ? ` @ ${avgPace}` : '';
+      }
       parts.push(`${workSets.length}x${dist}${paceStr}`);
     } else if (workSets.length === 1 && workSets[0].distance_meters) {
       const set = workSets[0];
@@ -182,15 +199,23 @@ export function generateStrengthSummary(sets: SetWithExercise[]): string {
   }
   
   // Deduplicate sets by ID, or by set_order if no ID (for temp sets)
+  // Also ensure sets have actual data (not just null values)
   const uniqueSets = workingSets.filter((set, index, self) => {
+    // First check if this set has actual data
+    const hasData = set.actual_weight !== null && set.actual_reps !== null;
+    if (!hasData) return false;
+    
+    // Then deduplicate
     if (set.id) {
       // Deduplicate by ID
-      return index === self.findIndex((s) => s.id === set.id);
+      return index === self.findIndex((s) => s.id === set.id && s.actual_weight !== null && s.actual_reps !== null);
     } else {
       // For temp sets without ID, deduplicate by set_order
       return index === self.findIndex((s) => 
         s.set_order === set.set_order && 
-        s.exercise_id === set.exercise_id
+        s.exercise_id === set.exercise_id &&
+        s.actual_weight !== null && 
+        s.actual_reps !== null
       );
     }
   });
@@ -292,21 +317,99 @@ export function formatPrescription(
   const isCardio = exercise?.modality === 'Cardio';
   
   if (isCardio) {
+    // CRITICAL: Filter out warmup sets completely - they have different distances and shouldn't affect target
+    // Warmup sets typically have longer distances (like 1mi) vs work intervals (like 400m)
+    const workSets = sets.filter(s => {
+      // Explicitly exclude warmup by both flags
+      if (s.is_warmup === true) return false;
+      if (s.segment_type === 'warmup') return false;
+      // Also exclude sets with very long distances that are likely warmup (1mi = 1609m)
+      // Work intervals are typically shorter (200m, 400m, 800m)
+      if (s.distance_meters && s.distance_meters > 1000) {
+        // If it's a long distance and marked as warmup or has warmup in notes, exclude
+        const notes = (s.notes || '').toLowerCase();
+        if (notes.includes('warm') || notes.includes('warmup')) {
+          return false;
+        }
+        // Otherwise, if it's clearly a warmup distance pattern, exclude
+        // But be conservative - only exclude if we're sure
+      }
+      // Include work sets or sets without segment_type (assume work if not explicitly warmup)
+      return s.segment_type === 'work' || !s.segment_type;
+    });
+    
+    if (workSets.length === 0) {
+      // If no work sets, we can't determine target
+      return '';
+    }
+    
     // Check for distance-based prescription
-    const distances = sets.map(s => s.distance_meters).filter(Boolean);
-    if (distances.length > 0 && distances[0]) {
-      const dist = formatDistance(distances[0]);
-      return `${sets.length} x ${dist}`;
+    // Use distance from work sets only (warmup has different distance like 1mi vs 400m)
+    const workDistances = workSets.map(s => s.distance_meters).filter(Boolean);
+    
+    if (workDistances.length > 0) {
+      // Find the most common distance among work sets (this is the target interval distance)
+      // Work intervals should all have the same distance (e.g., all 400m)
+      const uniqueDistances = [...new Set(workDistances)];
+      let targetDistance = workDistances[0];
+      
+      if (uniqueDistances.length === 1) {
+        // All work sets have same distance - that's the target
+        targetDistance = uniqueDistances[0];
+      } else {
+        // Multiple distances - find most common (likely the target interval distance)
+        // Also prefer shorter distances (work intervals) over longer ones (warmup)
+        const counts = new Map<number, number>();
+        workDistances.forEach(d => counts.set(d, (counts.get(d) || 0) + 1));
+        let maxCount = 0;
+        let candidateDistance = workDistances[0];
+        for (const [dist, count] of counts) {
+          if (count > maxCount) {
+            maxCount = count;
+            candidateDistance = dist;
+          } else if (count === maxCount && dist < candidateDistance) {
+            // If tie, prefer shorter distance (work intervals are shorter than warmup)
+            candidateDistance = dist;
+          }
+        }
+        targetDistance = candidateDistance;
+      }
+      
+      const dist = formatDistance(targetDistance);
+      
+      // Get target pace from notes - look for "5K pace" or similar in work sets
+      const paceNotes = workSets.map(s => s.notes).filter(Boolean);
+      const paceFromNotes = paceNotes.find(n => {
+        const note = (n || '').toLowerCase();
+        return note.includes('5k pace') || note.includes('~5k pace') || note.includes('@ 5k pace');
+      });
+      
+      // Extract pace string from notes
+      let targetPace: string | null = null;
+      if (paceFromNotes) {
+        const paceMatch = paceFromNotes.match(/(~?5k\s*pace)/i);
+        if (paceMatch) {
+          targetPace = paceMatch[1];
+        }
+      }
+      
+      const paceStr = targetPace ? ` @ ${formatPace(targetPace)}` : '';
+      
+      // Target set count is the number of planned work sets (not warmup)
+      // This represents what was planned in the workout (e.g., 6x400m)
+      const targetSetCount = workSets.length;
+      
+      return `${targetSetCount} x ${dist}${paceStr}`;
     }
     
     // Duration-based
-    const durations = sets.map(s => s.duration_seconds).filter(Boolean);
+    const durations = workSets.map(s => s.duration_seconds).filter(Boolean);
     if (durations.length > 0 && durations[0]) {
       const mins = Math.round(durations[0] / 60);
-      return `${mins}min`;
+      return `${workSets.length} x ${mins}min`;
     }
     
-    return `${sets.length} interval${sets.length > 1 ? 's' : ''}`;
+    return `${workSets.length} interval${workSets.length > 1 ? 's' : ''}`;
   }
   
   // Strength prescription - use passed values first, then fall back to sets

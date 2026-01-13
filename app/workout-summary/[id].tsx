@@ -95,27 +95,87 @@ export default function WorkoutSummaryScreen() {
     id || undefined
   );
 
-  // Calculate workout stats
-  const stats = workout?.workout_sets?.reduce(
-    (acc, set: WorkoutSet) => {
-      // Only count sets that were actually performed (not warmup, have actual data)
-      if (set.is_warmup) return acc;
-      
-      const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
-      if (volume > 0 && set.actual_weight && set.actual_reps) {
-        acc.totalSets++;
-        acc.totalReps += set.actual_reps;
-        acc.totalVolume += volume;
-        
-        // Track max weight only from sets with actual volume
-        if (set.actual_weight > acc.maxWeight) {
-          acc.maxWeight = set.actual_weight;
-        }
+  // Calculate workout stats - deduplicate sets first
+  const stats = useMemo(() => {
+    if (!workout?.workout_sets) return { 
+      totalSets: 0, 
+      totalReps: 0, 
+      totalVolume: 0, 
+      maxWeight: 0,
+      prCount: 0,
+      exerciseCount: 0,
+      avgRPE: 0,
+    };
+    
+    // Deduplicate sets
+    const uniqueSets = workout.workout_sets.filter((set, index, self) => {
+      if (set.id) {
+        return index === self.findIndex(s => s.id === set.id);
       }
-      return acc;
-    },
-    { totalSets: 0, totalReps: 0, totalVolume: 0, maxWeight: 0 }
-  ) || { totalSets: 0, totalReps: 0, totalVolume: 0, maxWeight: 0 };
+      return index === self.findIndex(s => 
+        s.set_order === set.set_order && 
+        s.exercise_id === set.exercise_id
+      );
+    });
+    
+    // Get unique exercises
+    const exerciseIds = new Set<string>();
+    let totalRPE = 0;
+    let rpeCount = 0;
+    
+    return uniqueSets.reduce(
+      (acc, set: WorkoutSet) => {
+        // Only count sets that were actually performed (not warmup, have actual data)
+        if (set.is_warmup) return acc;
+        
+        // Track exercises
+        if (set.exercise_id) {
+          exerciseIds.add(set.exercise_id);
+        }
+        
+        // Track PRs
+        if (set.is_pr) {
+          acc.prCount++;
+        }
+        
+        // Track RPE for average
+        if (set.actual_rpe) {
+          totalRPE += set.actual_rpe;
+          rpeCount++;
+        }
+        
+        const volume = calculateSetVolume(set.actual_weight, set.actual_reps);
+        if (volume > 0 && set.actual_weight && set.actual_reps) {
+          acc.totalSets++;
+          acc.totalReps += set.actual_reps;
+          acc.totalVolume += volume;
+          
+          // Track max weight only from sets with actual volume
+          if (set.actual_weight > acc.maxWeight) {
+            acc.maxWeight = set.actual_weight;
+          }
+        }
+        return acc;
+      },
+      { 
+        totalSets: 0, 
+        totalReps: 0, 
+        totalVolume: 0, 
+        maxWeight: 0,
+        prCount: 0,
+        exerciseCount: exerciseIds.size,
+        avgRPE: rpeCount > 0 ? Math.round((totalRPE / rpeCount) * 10) / 10 : 0,
+      }
+    );
+  }, [workout?.workout_sets]) || { 
+    totalSets: 0, 
+    totalReps: 0, 
+    totalVolume: 0, 
+    maxWeight: 0,
+    prCount: 0,
+    exerciseCount: 0,
+    avgRPE: 0,
+  };
 
   // Parse focus into sections (same logic as workout screen)
   const parseFocusToSections = (focus: string): string[] => {
@@ -132,8 +192,19 @@ export default function WorkoutSummaryScreen() {
     const exerciseMap = new Map<string, { exercise: Exercise; sets: WorkoutSet[]; targetReps?: number | null; targetRPE?: number | null; targetLoad?: number | null; section?: string }>();
     const sectionMap = new Map<string, string[]>();
 
+    // Deduplicate sets first, then group by exercise
+    const uniqueSets = workout.workout_sets.filter((set, index, self) => {
+      if (set.id) {
+        return index === self.findIndex(s => s.id === set.id);
+      }
+      return index === self.findIndex(s => 
+        s.set_order === set.set_order && 
+        s.exercise_id === set.exercise_id
+      );
+    });
+    
     // Group sets by exercise
-    workout.workout_sets.forEach((set: any) => {
+    uniqueSets.forEach((set: any) => {
       const exercise = set.exercise;
       if (!exercise) return;
 
@@ -283,7 +354,7 @@ export default function WorkoutSummaryScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className={`flex-1 items-center justify-center ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}>
+      <SafeAreaView className="flex-1 items-center justify-center bg-carbon-950" style={{ backgroundColor: '#0E1116' }}>
         <ActivityIndicator size="large" color="#2F80ED" />
       </SafeAreaView>
     );
@@ -291,8 +362,8 @@ export default function WorkoutSummaryScreen() {
 
   if (!workout) {
     return (
-      <SafeAreaView className={`flex-1 items-center justify-center ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}>
-        <Text className={isDark ? 'text-graphite-400' : 'text-graphite-500'}>Workout not found</Text>
+      <SafeAreaView className="flex-1 items-center justify-center bg-carbon-950" style={{ backgroundColor: '#0E1116' }}>
+        <Text className="text-graphite-400" style={{ color: '#6B7485' }}>Workout not found</Text>
       </SafeAreaView>
     );
   }
@@ -300,13 +371,13 @@ export default function WorkoutSummaryScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView className="flex-1 bg-carbon-950" style={{ backgroundColor: '#0E1116' }} edges={['left', 'right', 'bottom']}>
         {/* Header */}
-        <View className={`px-4 py-3 border-b flex-row items-center justify-between ${isDark ? 'border-graphite-700 bg-graphite-900' : 'border-graphite-200 bg-white'}`}>
+        <View className="px-4 py-3 border-b flex-row items-center justify-between border-graphite-700 bg-graphite-900" style={{ borderColor: '#353D4B', backgroundColor: '#1C222B' }}>
           <Pressable onPress={() => router.back()} className="p-2 -ml-2">
-            <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
+            <Ionicons name="close" size={24} color="#E6E8EB" />
           </Pressable>
-          <Text className={`text-lg font-semibold ${isDark ? 'text-graphite-50' : 'text-carbon-950'}`}>
+          <Text className="text-lg font-semibold text-graphite-50" style={{ color: '#E6E8EB' }}>
             Session Receipt
           </Text>
           <View className="flex-row gap-2">
@@ -328,35 +399,56 @@ export default function WorkoutSummaryScreen() {
             <View className="flex-row gap-3 mb-6">
               <LabCard className="flex-1 items-center" noPadding>
                 <View className="p-3 items-center">
-                  <LabStat label="SETS" value={stats.totalSets} size="lg" />
+                  <LabStat label="EXERCISES" value={stats.exerciseCount} size="lg" />
                 </View>
               </LabCard>
               <LabCard className="flex-1 items-center" noPadding>
                 <View className="p-3 items-center">
-                  <LabStat label="VOLUME" value={Math.round(stats.totalVolume)} size="lg" />
+                  <LabStat 
+                    label="PRs" 
+                    value={stats.prCount} 
+                    size="lg" 
+                    trend={stats.prCount > 0 ? 'up' : 'neutral'}
+                  />
                 </View>
               </LabCard>
               <LabCard className="flex-1 items-center" noPadding>
                 <View className="p-3 items-center">
-                  <LabStat label="DURATION" value={`${workout.duration_minutes || 0}m`} size="lg" />
+                  <LabStat 
+                    label="AVG RPE" 
+                    value={stats.avgRPE > 0 ? stats.avgRPE : '-'} 
+                    size="lg" 
+                  />
                 </View>
               </LabCard>
             </View>
 
             {/* Exercise Breakdown Table */}
             <View>
-              <Text className={`text-sm font-bold uppercase tracking-wide mb-3 ${isDark ? 'text-graphite-400' : 'text-graphite-600'}`}>
+              <Text className="text-sm font-bold uppercase tracking-wide mb-3 text-graphite-400" style={{ color: '#6B7485' }}>
                 Performance Breakdown
               </Text>
               
               {Array.from(exercisesBySection.entries()).map(([section, exercises]) => (
                 <View key={section} className="mb-4">
                   {exercisesBySection.size > 1 && (
-                    <Text className={`text-xs font-semibold mb-2 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                    <Text className="text-xs font-semibold mb-2 text-graphite-500" style={{ color: '#808FB0' }}>
                       {section}
                     </Text>
                   )}
                   {exercises.map((ex) => {
+                    // Deduplicate sets to prevent doubling
+                    const uniqueSets = ex.sets.filter((set, index, self) => {
+                      if (set.id) {
+                        return index === self.findIndex(s => s.id === set.id);
+                      }
+                      return index === self.findIndex(s => 
+                        s.set_order === set.set_order && 
+                        s.exercise_id === set.exercise_id
+                      );
+                    });
+                    
+                    return (
                     // Find suggestion for this exercise to get previous best (if available in memory)
                     // Note: nextTimeSuggestions contains data *after* this workout processed (or before? see analysis above).
                     // Actually useWorkoutSuggestions returns suggestions for NEXT time. 
@@ -364,11 +456,10 @@ export default function WorkoutSummaryScreen() {
                     // We need PREVIOUS best.
                     // Ideally we should have fetched it. For now, we omit Delta or calculate it if we had previous history loaded.
                     // We'll pass null for previousBest for now, or assume ExerciseBreakdown handles it.
-                    return (
                       <ExerciseBreakdown
                         key={ex.exercise.id}
                         exercise={ex.exercise}
-                        sets={ex.sets}
+                        sets={uniqueSets}
                         targetReps={ex.targetReps}
                         targetRPE={ex.targetRPE}
                         targetLoad={ex.targetLoad}
@@ -383,7 +474,7 @@ export default function WorkoutSummaryScreen() {
             {/* Next Time Preview */}
             {nextTimeSuggestions && nextTimeSuggestions.length > 0 && (
               <View className="mt-6">
-                <Text className={`text-sm font-bold uppercase tracking-wide mb-3 ${isDark ? 'text-graphite-400' : 'text-graphite-600'}`}>
+                <Text className="text-sm font-bold uppercase tracking-wide mb-3 text-graphite-400" style={{ color: '#6B7485' }}>
                   Next Time Targets
                 </Text>
                 <View className="gap-3">
@@ -410,8 +501,8 @@ export default function WorkoutSummaryScreen() {
 
             {/* Achievements */}
             {recentAchievements && recentAchievements.length > 0 && (
-              <View className="mt-6 pt-4 border-t border-graphite-700">
-                <Text className={`text-xs font-medium mb-3 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              <View className="mt-6 pt-4 border-t border-graphite-700" style={{ borderColor: '#353D4B' }}>
+                <Text className="text-xs font-medium mb-3 text-graphite-400" style={{ color: '#6B7485' }}>
                   Recent Achievements
                 </Text>
                 <AchievementRow
@@ -428,7 +519,7 @@ export default function WorkoutSummaryScreen() {
         </ScrollView>
 
         {/* Action Buttons */}
-        <View className={`px-4 py-4 border-t ${isDark ? 'border-graphite-800' : 'border-graphite-200'}`}>
+        <View className="px-4 py-4 border-t border-graphite-800" style={{ borderColor: '#1A1F2E' }}>
           <View className="flex-row gap-3">
             <LabButton 
               label="Save Template" 

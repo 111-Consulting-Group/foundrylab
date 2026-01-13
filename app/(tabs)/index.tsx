@@ -24,6 +24,7 @@ import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
 import { useMainLiftPRs } from '@/hooks/usePersonalRecords';
 import { useNextTimeSuggestion } from '@/hooks/useMovementMemory';
 import { summarizeWorkoutExercises, formatExerciseForFeed } from '@/lib/feedUtils';
+import { generateExerciseSummary } from '@/lib/workoutSummary';
 
 export default function DashboardScreen() {
   const colorScheme = useColorScheme();
@@ -166,21 +167,60 @@ export default function DashboardScreen() {
 
                 {/* Highlights */}
                 <View className="gap-2">
-                  {summarizeWorkoutExercises(lastSession.workout_sets || [])
-                    .slice(0, 3)
-                    .map((summary) => (
-                      <View key={summary.exerciseId} className="flex-row justify-between items-center">
-                        <Text className="text-sm flex-1 text-graphite-300" style={{ color: '#C4C8D0' }} numberOfLines={1}>
-                          {summary.exerciseName}
-                        </Text>
-                        <View className="flex-row items-center gap-2">
-                          <Text className="text-sm font-lab-mono text-graphite-200" style={{ color: '#D4D7DC' }}>
-                            {formatExerciseForFeed(summary)}
-                          </Text>
-                          {/* We don't have delta in the summary util easily yet, but could add later */}
-                        </View>
-                      </View>
-                    ))}
+                  {(() => {
+                    // Group sets by exercise to use generateExerciseSummary
+                    const exerciseMap = new Map<string, any[]>();
+                    (lastSession.workout_sets || []).forEach((set: any) => {
+                      // Filter out warmup sets
+                      if (!set.exercise_id || set.is_warmup || set.segment_type === 'warmup') return;
+                      
+                      // For cardio, only include sets with actual data
+                      const isCardio = set.exercise?.modality === 'Cardio';
+                      if (isCardio && !set.distance_meters && !set.duration_seconds && !set.avg_pace) {
+                        return;
+                      }
+                      
+                      // For strength, only include sets with actual data
+                      if (!isCardio && set.actual_weight === null && set.actual_reps === null) {
+                        return;
+                      }
+                      
+                      const key = set.exercise_id;
+                      if (!exerciseMap.has(key)) {
+                        exerciseMap.set(key, []);
+                      }
+                      // Deduplicate sets by ID or set_order
+                      const existing = exerciseMap.get(key)!;
+                      const isDuplicate = existing.some(s => 
+                        (set.id && s.id && set.id === s.id) ||
+                        (!set.id && !s.id && set.set_order === s.set_order && set.exercise_id === s.exercise_id)
+                      );
+                      if (!isDuplicate) {
+                        existing.push(set);
+                      }
+                    });
+                    
+                    return Array.from(exerciseMap.entries())
+                      .slice(0, 3)
+                      .map(([exerciseId, exerciseSets]) => {
+                        const exercise = exerciseSets[0]?.exercise;
+                        if (!exercise) return null;
+                        const summary = generateExerciseSummary(exercise, exerciseSets);
+                        return (
+                          <View key={exerciseId} className="flex-row justify-between items-center">
+                            <Text className="text-sm flex-1 text-graphite-300" style={{ color: '#C4C8D0' }} numberOfLines={1}>
+                              {exercise.name}
+                            </Text>
+                            <View className="flex-row items-center gap-2">
+                              <Text className="text-sm font-lab-mono text-graphite-200" style={{ color: '#D4D7DC' }}>
+                                {summary}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })
+                      .filter(Boolean);
+                  })()}
                 </View>
               </Pressable>
             </LabCard>

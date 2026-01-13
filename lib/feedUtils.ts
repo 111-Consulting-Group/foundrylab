@@ -44,17 +44,30 @@ export function summarizeWorkoutExercises(
   if (!sets || sets.length === 0) return [];
 
   // Filter out warmup sets for display
-  const workingSets = sets.filter(s => !s.is_warmup);
+  const workingSets = sets.filter(s => !s.is_warmup && s.segment_type !== 'warmup');
 
-  // Group by exercise
+  // Group by exercise - deduplicate sets by ID or set_order
   const exerciseMap = new Map<string, SetWithExercise[]>();
 
   for (const set of workingSets) {
     if (!set.exercise_id) continue;
 
     const existing = exerciseMap.get(set.exercise_id) || [];
-    existing.push(set);
-    exerciseMap.set(set.exercise_id, existing);
+    
+    // Check if this set is already in the array (deduplicate)
+    const isDuplicate = existing.some(existingSet => {
+      if (set.id && existingSet.id) {
+        return set.id === existingSet.id;
+      }
+      // If no ID, check by set_order and exercise_id
+      return set.set_order === existingSet.set_order && 
+             set.exercise_id === existingSet.exercise_id;
+    });
+    
+    if (!isDuplicate) {
+      existing.push(set);
+      exerciseMap.set(set.exercise_id, existing);
+    }
   }
 
   // Convert to summaries
@@ -157,6 +170,9 @@ export function formatExerciseForFeed(summary: ExerciseSummary): string {
     if (bestSet.duration) {
       return `${Math.round(bestSet.duration)} min`;
     }
+    // For cardio intervals, we need to use the actual sets data
+    // This will be handled by generateExerciseSummary instead
+    return `${totalSets} interval${totalSets > 1 ? 's' : ''}`;
   }
 
   // Strength format: weight × reps (× sets if multiple)
