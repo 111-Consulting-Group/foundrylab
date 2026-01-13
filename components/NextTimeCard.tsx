@@ -26,14 +26,13 @@ export function NextTimeCard({ suggestion, onDismiss }: NextTimeCardProps) {
 
   return (
     <View
-      className={`rounded-xl border overflow-hidden ${
-        isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
-      }`}
+      className="rounded-xl border overflow-hidden bg-graphite-800 border-graphite-700"
+      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
     >
       {/* Header */}
       <View className={`px-4 py-3 border-b ${isDark ? 'border-graphite-700' : 'border-graphite-100'}`}>
         <View className="flex-row items-center justify-between">
-          <Text className={`font-bold text-base ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+          <Text className="font-bold text-base text-graphite-100" style={{ color: '#E6E8EB' }}>
             {suggestion.exercise_name}
           </Text>
           <View className="flex-row items-center">
@@ -51,16 +50,17 @@ export function NextTimeCard({ suggestion, onDismiss }: NextTimeCardProps) {
       <View className="p-4">
         {/* Last Performance Row */}
         <View className="flex-row items-center mb-3">
-          <View className={`w-8 h-8 rounded-full items-center justify-center ${
-            isDark ? 'bg-graphite-700' : 'bg-graphite-100'
-          }`}>
+          <View 
+            className="w-8 h-8 rounded-full items-center justify-center bg-graphite-700"
+            style={{ backgroundColor: '#353D4B' }}
+          >
             <Ionicons name="time-outline" size={16} color={isDark ? '#808fb0' : '#607296'} />
           </View>
           <View className="ml-3 flex-1">
-            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
               Last time
             </Text>
-            <Text className={`font-semibold ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+            <Text className="font-semibold text-graphite-200" style={{ color: '#D4D7DC' }}>
               {formatPerformance(suggestion.last_performance)}
             </Text>
           </View>
@@ -73,22 +73,25 @@ export function NextTimeCard({ suggestion, onDismiss }: NextTimeCardProps) {
           </View>
           <View className="ml-3 flex-1">
             <View className="flex-row items-center">
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
                 Next time
               </Text>
               <View className="ml-2">
                 <ConfidenceBadge level={suggestion.confidence} exposureCount={suggestion.exposure_count} size="sm" />
               </View>
             </View>
-            <Text className={`font-bold text-lg ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+            <Text className="font-bold text-lg text-graphite-100" style={{ color: '#E6E8EB' }}>
               {suggestion.recommendation.weight} lbs x {suggestion.recommendation.reps}
             </Text>
           </View>
         </View>
 
         {/* Reasoning */}
-        <View className={`p-3 rounded-lg ${isDark ? 'bg-graphite-700/50' : 'bg-graphite-50'}`}>
-          <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+        <View 
+          className="p-3 rounded-lg bg-graphite-700/50"
+          style={{ backgroundColor: 'rgba(53, 61, 75, 0.5)' }}
+        >
+          <Text className="text-sm text-graphite-300" style={{ color: '#C4C8D0' }}>
             {suggestion.reasoning}
           </Text>
         </View>
@@ -132,10 +135,10 @@ export function NextTimeCard({ suggestion, onDismiss }: NextTimeCardProps) {
 function StatItem({ label, value, isDark }: { label: string; value: string; isDark: boolean }) {
   return (
     <View className="flex-1">
-      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+      <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
         {label}
       </Text>
-      <Text className={`font-semibold ${isDark ? 'text-graphite-200' : 'text-graphite-700'}`}>
+      <Text className="font-semibold text-graphite-200" style={{ color: '#D4D7DC' }}>
         {value}
       </Text>
     </View>
@@ -163,7 +166,7 @@ function AlertBadge({ alert, isDark }: { alert: NextTimeSuggestion['alerts'][0];
         <Text className={`text-xs font-medium ${isWarning ? 'text-oxide-500' : 'text-yellow-600'}`}>
           {alert.message}
         </Text>
-        <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+        <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
           {alert.suggested_action}
         </Text>
       </View>
@@ -215,8 +218,8 @@ function getTrendConfig(trend: PerformanceTrend, isDark: boolean) {
       return {
         icon: 'remove',
         iconColor: isDark ? '#808fb0' : '#607296',
-        bg: isDark ? 'bg-graphite-700' : 'bg-graphite-100',
-        text: isDark ? 'text-graphite-400' : 'text-graphite-600',
+        bg: 'bg-graphite-700',
+        text: 'text-graphite-400',
         label: 'Stable',
       };
   }
@@ -233,8 +236,9 @@ export function NextTimeListItem({ suggestion }: { suggestion: NextTimeSuggestio
   return (
     <View
       className={`flex-row items-center p-3 rounded-xl mb-2 ${
-        isDark ? 'bg-graphite-800' : 'bg-white'
-      } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+        'bg-graphite-800 border border-graphite-700'
+      }
+      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
     >
       {/* Trend Indicator */}
       <View className={`w-8 h-8 rounded-full items-center justify-center ${trendConfig.bg}`}>
@@ -243,10 +247,10 @@ export function NextTimeListItem({ suggestion }: { suggestion: NextTimeSuggestio
 
       {/* Exercise Info */}
       <View className="flex-1 ml-3">
-        <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+        <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
           {suggestion.exercise_name}
         </Text>
-        <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+        <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
           {formatPerformance(suggestion.last_performance)}
         </Text>
       </View>
@@ -261,7 +265,7 @@ export function NextTimeListItem({ suggestion }: { suggestion: NextTimeSuggestio
             suggestion.confidence === 'high' ? 'bg-green-500' :
             suggestion.confidence === 'medium' ? 'bg-yellow-500' : 'bg-gray-400'
           }`} />
-          <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+          <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
             {suggestion.confidence === 'high' ? 'Recommended' :
              suggestion.confidence === 'medium' ? 'Suggested' : 'Limited data'}
           </Text>

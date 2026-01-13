@@ -50,9 +50,8 @@ export function MovementMemoryCard({
 
   return (
     <View
-      className={`rounded-xl border ${
-        isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
-      }`}
+      className="rounded-xl border bg-graphite-800 border-graphite-700"
+      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
     >
       {/* Last Performance Section */}
       <View className="p-4 border-b border-graphite-200 dark:border-graphite-700">
@@ -63,7 +62,7 @@ export function MovementMemoryCard({
               Last time
             </Text>
             {memory.lastDateRelative && (
-              <Text className={`text-xs ml-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              <Text className="text-xs ml-2 text-graphite-400" style={{ color: '#6B7485' }}>
                 {memory.lastDateRelative}
               </Text>
             )}
@@ -76,36 +75,36 @@ export function MovementMemoryCard({
           </View>
         </View>
 
-        <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+        <Text className="text-lg font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
           {memory.displayText}
         </Text>
 
         {/* Stats Row */}
         <View className="flex-row mt-2 gap-4">
           <View>
-            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
               Sessions
             </Text>
-            <Text className={`text-sm font-semibold ${isDark ? 'text-graphite-200' : 'text-graphite-700'}`}>
+            <Text className="text-sm font-semibold text-graphite-200" style={{ color: '#D4D7DC' }}>
               {memory.exposureCount}
             </Text>
           </View>
           {memory.prE1RM && (
             <View>
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
                 E1RM PR
               </Text>
-              <Text className={`text-sm font-semibold ${isDark ? 'text-graphite-200' : 'text-graphite-700'}`}>
+              <Text className="text-sm font-semibold text-graphite-200" style={{ color: '#D4D7DC' }}>
                 {Math.round(memory.prE1RM)} lbs
               </Text>
             </View>
           )}
           {memory.typicalRepRange && (
             <View>
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
                 Rep Range
               </Text>
-              <Text className={`text-sm font-semibold ${isDark ? 'text-graphite-200' : 'text-graphite-700'}`}>
+              <Text className="text-sm font-semibold text-graphite-200" style={{ color: '#D4D7DC' }}>
                 {memory.typicalRepRange.min}-{memory.typicalRepRange.max}
               </Text>
             </View>
@@ -128,10 +127,10 @@ export function MovementMemoryCard({
 
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              <Text className="text-lg font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
                 {suggestion.recommendation.weight} lbs x {suggestion.recommendation.reps}
               </Text>
-              <Text className={`text-xs mt-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              <Text className="text-xs mt-1 text-graphite-400" style={{ color: '#6B7485' }}>
                 {suggestion.reasoning}
               </Text>
             </View>
@@ -175,7 +174,7 @@ export function MovementMemoryCard({
                     }`}>
                       {alert.message}
                     </Text>
-                    <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                    <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
                       {alert.suggested_action}
                     </Text>
                   </View>
@@ -216,20 +215,19 @@ function CompactMemoryCard({
 
   return (
     <View
-      className={`rounded-xl ${
-        isDark ? 'bg-graphite-800' : 'bg-white'
-      } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+      className="rounded-xl bg-graphite-800 border border-graphite-700"
+      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
     >
       {/* Last Performance Row */}
       <View className="p-3 flex-row items-center justify-between">
         <View className="flex-row items-center">
           <Ionicons name="time-outline" size={14} color={isDark ? '#808fb0' : '#607296'} />
-          <Text className={`text-sm ml-1.5 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+          <Text className="text-sm ml-1.5 text-graphite-300" style={{ color: '#C4C8D0' }}>
             Last: <Text className="font-semibold">{memory.displayText}</Text>
           </Text>
         </View>
         {memory.lastDateRelative && (
-          <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+          <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
             {memory.lastDateRelative}
           </Text>
         )}
@@ -250,10 +248,10 @@ function CompactMemoryCard({
               </Text>
               <ConfidenceIndicator level={suggestion.confidence} />
             </View>
-            <Text className={`text-base font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+            <Text className="text-base font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
               {suggestion.recommendation.weight} lbs × {suggestion.recommendation.reps} reps
             </Text>
-            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
               {suggestion.reasoning}
             </Text>
           </View>
@@ -286,7 +284,7 @@ function CompactMemoryCard({
         <View className={`px-3 pb-3`}>
           <View className="flex-row items-center">
             <ConfidenceIndicator level={memory.confidence} />
-            <Text className={`text-xs ml-1.5 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text className="text-xs ml-1.5 text-graphite-400" style={{ color: '#6B7485' }}>
               {memory.exposureCount} session{memory.exposureCount !== 1 ? 's' : ''} logged
             </Text>
           </View>
@@ -305,13 +303,12 @@ export function EmptyMemoryCard() {
 
   return (
     <View
-      className={`p-3 rounded-xl ${
-        isDark ? 'bg-graphite-800' : 'bg-graphite-50'
-      } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+      className="p-3 rounded-xl bg-graphite-800 border border-graphite-700"
+      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
     >
       <View className="flex-row items-center">
         <Ionicons name="add-circle-outline" size={16} color={isDark ? '#808fb0' : '#607296'} />
-        <Text className={`text-sm ml-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+        <Text className="text-sm ml-2 text-graphite-400" style={{ color: '#6B7485' }}>
           First time logging this exercise
         </Text>
       </View>

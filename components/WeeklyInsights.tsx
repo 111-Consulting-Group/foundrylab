@@ -82,13 +82,12 @@ export function WeeklyInsights({ workouts }: WeeklyInsightsProps) {
 
   return (
     <View
-      className={`p-4 rounded-xl mb-4 ${
-        isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
-      } border`}
+      className="p-4 rounded-xl mb-4 bg-graphite-800 border border-graphite-700"
+      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
     >
       <View className="flex-row items-center mb-3">
         <Ionicons name="analytics-outline" size={20} color="#2F80ED" />
-        <Text className={`text-lg font-bold ml-2 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+        <Text className="text-lg font-bold ml-2 text-graphite-100" style={{ color: '#E6E8EB' }}>
           This Week
         </Text>
       </View>
@@ -96,7 +95,7 @@ export function WeeklyInsights({ workouts }: WeeklyInsightsProps) {
       {/* Key insights */}
       <View className="gap-2">
         {insights.frequentExercises.length > 0 && (
-          <Text className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
+          <Text className="text-sm text-graphite-300" style={{ color: '#C4C8D0' }}>
             {insights.frequentExercises[0]?.count} exposures to {insights.frequentExercises[0]?.name}.{' '}
             {insights.totalVolume >= 1000
               ? `Volume: ${(insights.totalVolume / 1000).toFixed(1)}k lbs.`

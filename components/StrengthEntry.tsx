@@ -11,11 +11,12 @@ import { MovementMemoryCard, EmptyMemoryCard } from '@/components/MovementMemory
 import { useMovementMemory, useNextTimeSuggestion } from '@/hooks/useMovementMemory';
 import { type SetWithExercise } from '@/lib/workoutSummary';
 import type { Exercise, WorkoutSetInsert } from '@/types/database';
+import { LabButton, LabCard } from '@/components/ui/LabPrimitives';
 
 const RPE_DESCRIPTIONS: Record<number, string> = {
   6: '4+ reps left',
-  7: '2-3 reps left',
-  8: '1-2 reps left',
+  7: '3 reps left',
+  8: '2 reps left',
   9: '1 rep left',
   10: 'Max effort',
 };
@@ -66,9 +67,6 @@ export function StrengthEntry({
   // Find logged and pending sets
   const loggedSets = sets.filter(
     (s) => s.actual_weight !== null || s.actual_reps !== null
-  );
-  const pendingSets = sets.filter(
-    (s) => s.actual_weight === null && s.actual_reps === null
   );
   
   // If editing a set, use that set's index, otherwise use next pending set
@@ -184,13 +182,6 @@ export function StrengthEntry({
     }
   }, [exercise.id, currentSet, currentSetIndex, weight, reps, rpe, isBodyweight, onSaveSet]);
 
-  // Handle skip set
-  const handleSkipSet = useCallback(() => {
-    // Just move to next set without logging
-    // This is handled by not doing anything - the UI will show next pending
-    Alert.alert('Skip Set', 'Set skipped. Tap on it below to enter later.');
-  }, []);
-
   // Handle delete set
   const handleDeleteSet = useCallback(
     async (setId: string) => {
@@ -299,245 +290,180 @@ export function StrengthEntry({
 
       {/* Current Set Entry */}
       {!allComplete ? (
-        <View
-          className={`p-4 rounded-xl mb-4 ${
-            isDark ? 'bg-graphite-800' : 'bg-white'
-          } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+        <LabCard 
+          className="mb-4"
+          noPadding
         >
-          {/* Set indicator */}
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-full bg-signal-500/30 items-center justify-center mr-2">
-                <Text className="font-bold text-signal-500">
-                  {currentSetIndex + 1}
-                </Text>
-              </View>
-              <Text
-                className={`font-semibold ${
-                  isDark ? 'text-graphite-100' : 'text-graphite-900'
-                }`}
-              >
-                Set {currentSetIndex + 1} of {totalSets}
-              </Text>
-            </View>
-            {targetLoad && (
-              <Text
-                className={`text-sm ${
-                  isDark ? 'text-graphite-400' : 'text-graphite-500'
-                }`}
-              >
-                Target: {targetLoad} lbs
-              </Text>
-            )}
-          </View>
-
-          {/* Input Row */}
-          <View className="flex-row items-end gap-3 mb-4">
-            {/* Weight */}
-            <View className="flex-1">
-              <View className="flex-row items-center justify-between mb-1">
+          <View className="p-4">
+            {/* Set indicator */}
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center">
+                <View className="w-6 h-6 rounded bg-signal-500 items-center justify-center mr-2">
+                  <Text className="font-lab-mono text-xs font-bold text-white">
+                    {currentSetIndex + 1}
+                  </Text>
+                </View>
                 <Text
-                  className={`text-xs ${
-                    isDark ? 'text-graphite-400' : 'text-graphite-500'
+                  className={`font-semibold ${
+                    isDark ? 'text-graphite-100' : 'text-graphite-900'
                   }`}
                 >
-                  Weight
+                  Set {currentSetIndex + 1}
                 </Text>
-                <Pressable
-                  onPress={() => {
-                    setIsBodyweight(!isBodyweight);
-                    if (!isBodyweight) setWeight('0');
-                  }}
-                >
-                  <View
-                    className={`flex-row items-center px-2 py-0.5 rounded ${
-                      isBodyweight
-                        ? 'bg-signal-500/20'
-                        : isDark
-                        ? 'bg-graphite-700'
-                        : 'bg-graphite-100'
-                    }`}
+              </View>
+              {targetLoad && (
+                <View className="bg-graphite-700 px-2 py-0.5 rounded">
+                  <Text className="text-xs font-lab-mono text-graphite-300">
+                    Target: {targetLoad} lbs
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Input Row */}
+            <View className="flex-row items-end gap-3 mb-4">
+              {/* Weight */}
+              <View className="flex-1">
+                <View className="flex-row items-center justify-between mb-1">
+                  <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                    Lbs {movementMemory?.lastWeight ? `(Last: ${movementMemory.lastWeight})` : ''}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setIsBodyweight(!isBodyweight);
+                      if (!isBodyweight) setWeight('0');
+                    }}
                   >
-                    <Ionicons
-                      name={isBodyweight ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={14}
-                      color={isBodyweight ? '#2F80ED' : isDark ? '#808fb0' : '#607296'}
-                    />
-                    <Text
-                      className={`text-xs ml-1 ${
-                        isBodyweight
-                          ? 'text-signal-500 font-semibold'
-                          : isDark
-                          ? 'text-graphite-400'
-                          : 'text-graphite-500'
-                      }`}
-                    >
+                    <Text className={`text-xs ${isBodyweight ? 'text-signal-500 font-bold' : 'text-graphite-500'}`}>
                       BW
                     </Text>
-                  </View>
+                  </Pressable>
+                </View>
+                <TextInput
+                  className={`px-3 py-3 rounded-lg text-center text-xl font-lab-mono font-bold ${
+                    isDark ? 'bg-graphite-950 text-graphite-100' : 'bg-graphite-100 text-graphite-900'
+                  } border ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}
+                  value={isBodyweight ? 'BW' : weight}
+                  onChangeText={isBodyweight ? undefined : setWeight}
+                  keyboardType="decimal-pad"
+                  placeholder={suggestion?.recommendation.weight?.toString() || "0"}
+                  placeholderTextColor={isDark ? '#353D4B' : '#A5ABB6'} // Ghost text style
+                  editable={!isBodyweight}
+                />
+              </View>
+
+              <Text className={`text-xl pb-3 font-lab-mono ${isDark ? 'text-graphite-600' : 'text-graphite-400'}`}>
+                ×
+              </Text>
+
+              {/* Reps */}
+              <View className="flex-1">
+                <View className="flex-row justify-between mb-1">
+                  <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                    Reps {movementMemory?.lastReps ? `(Last: ${movementMemory.lastReps})` : ''}
+                  </Text>
+                </View>
+                <TextInput
+                  className={`px-3 py-3 rounded-lg text-center text-xl font-lab-mono font-bold ${
+                    isDark ? 'bg-graphite-950 text-graphite-100' : 'bg-graphite-100 text-graphite-900'
+                  } border ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}
+                  value={reps}
+                  onChangeText={setReps}
+                  keyboardType="number-pad"
+                  placeholder={suggestion?.recommendation.reps?.toString() || "0"}
+                  placeholderTextColor={isDark ? '#353D4B' : '#A5ABB6'} // Ghost text style
+                />
+              </View>
+
+              <Text className={`text-xl pb-3 font-lab-mono ${isDark ? 'text-graphite-600' : 'text-graphite-400'}`}>
+                @
+              </Text>
+
+              {/* RPE */}
+              <View className="flex-1">
+                <Text className={`text-xs mb-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                  RPE
+                </Text>
+                <Pressable
+                  onPress={() => setShowRPESlider(!showRPESlider)}
+                  className={`px-3 py-3 rounded-lg items-center ${
+                    isDark ? 'bg-graphite-950' : 'bg-graphite-100'
+                  } border ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}
+                >
+                  <Text
+                    className={`text-xl font-lab-mono font-bold ${
+                      rpe >= 9 ? 'text-oxide-500' : isDark ? 'text-graphite-100' : 'text-graphite-900'
+                    }`}
+                  >
+                    {rpe}
+                  </Text>
                 </Pressable>
               </View>
-              <TextInput
-                className={`px-3 py-3 rounded-lg text-center text-xl font-bold ${
-                  isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-                value={isBodyweight ? 'BW' : weight}
-                onChangeText={isBodyweight ? undefined : setWeight}
-                keyboardType="decimal-pad"
-                placeholder="0"
-                placeholderTextColor={isDark ? '#607296' : '#808fb0'}
-                editable={!isBodyweight}
-              />
             </View>
 
-            <Text
-              className={`text-2xl pb-3 ${
-                isDark ? 'text-graphite-500' : 'text-graphite-400'
-              }`}
-            >
-              x
-            </Text>
-
-            {/* Reps */}
-            <View className="flex-1">
-              <Text
-                className={`text-xs mb-1 ${
-                  isDark ? 'text-graphite-400' : 'text-graphite-500'
+            {/* RPE Slider */}
+            {showRPESlider && (
+              <View
+                className={`p-3 rounded-lg mb-4 ${
+                  isDark ? 'bg-graphite-950' : 'bg-graphite-100'
                 }`}
               >
-                Reps
-              </Text>
-              <TextInput
-                className={`px-3 py-3 rounded-lg text-center text-xl font-bold ${
-                  isDark ? 'bg-graphite-900 text-graphite-100' : 'bg-graphite-50 text-graphite-900'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-                value={reps}
-                onChangeText={setReps}
-                keyboardType="number-pad"
-                placeholder="0"
-                placeholderTextColor={isDark ? '#607296' : '#808fb0'}
-              />
-            </View>
-
-            <Text
-              className={`text-2xl pb-3 ${
-                isDark ? 'text-graphite-500' : 'text-graphite-400'
-              }`}
-            >
-              @
-            </Text>
-
-            {/* RPE */}
-            <View className="flex-1">
-              <Text
-                className={`text-xs mb-1 ${
-                  isDark ? 'text-graphite-400' : 'text-graphite-500'
-                }`}
-              >
-                RPE
-              </Text>
-              <Pressable
-                onPress={() => setShowRPESlider(!showRPESlider)}
-                className={`px-3 py-3 rounded-lg items-center ${
-                  isDark ? 'bg-graphite-900' : 'bg-graphite-50'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-              >
-                <Text
-                  className={`text-xl font-bold ${
-                    rpe >= 9 ? 'text-oxide-500' : isDark ? 'text-graphite-100' : 'text-graphite-900'
-                  }`}
-                >
-                  {rpe}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-
-          {/* RPE Slider */}
-          {showRPESlider && (
-            <View
-              className={`p-3 rounded-lg mb-4 ${
-                isDark ? 'bg-graphite-900' : 'bg-graphite-50'
-              }`}
-            >
-              <View className="flex-row justify-between mb-2">
-                <Text
-                  className={`text-sm ${
-                    isDark ? 'text-graphite-400' : 'text-graphite-500'
-                  }`}
-                >
-                  RPE {rpe}
-                </Text>
-                <Text
-                  className={`text-sm ${
-                    isDark ? 'text-graphite-400' : 'text-graphite-500'
-                  }`}
-                >
-                  {RPE_DESCRIPTIONS[Math.round(rpe)] || ''}
-                </Text>
+                <View className="flex-row justify-between mb-2">
+                  <Text className={`text-sm font-lab-mono ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                    RPE {rpe}
+                  </Text>
+                  <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                    {RPE_DESCRIPTIONS[Math.round(rpe)] || ''}
+                  </Text>
+                </View>
+                <Slider
+                  minimumValue={6}
+                  maximumValue={10}
+                  step={0.5}
+                  value={rpe}
+                  onValueChange={setRpe}
+                  minimumTrackTintColor="#2F80ED"
+                  maximumTrackTintColor={isDark ? '#353D4B' : '#A5ABB6'}
+                  thumbTintColor="#2F80ED"
+                />
               </View>
-              <Slider
-                minimumValue={6}
-                maximumValue={10}
-                step={0.5}
-                value={rpe}
-                onValueChange={setRpe}
-                minimumTrackTintColor="#2F80ED"
-                maximumTrackTintColor={isDark ? '#353D4B' : '#A5ABB6'}
-                thumbTintColor="#2F80ED"
+            )}
+
+            {/* Action Buttons */}
+            <View className="flex-row gap-3">
+              {editingSetId && (
+                <LabButton 
+                  label="Cancel" 
+                  variant="outline"
+                  onPress={() => setEditingSetId(null)}
+                />
+              )}
+              <LabButton 
+                label={isLogging ? 'Logging...' : editingSetId ? 'Update Set' : 'Log Set'}
+                variant="primary"
+                className="flex-1"
+                onPress={handleLogSet}
+                disabled={isLogging}
               />
             </View>
-          )}
-
-          {/* Action Buttons */}
-          <View className="flex-row gap-3">
-            {editingSetId && (
-              <Pressable
-                onPress={() => setEditingSetId(null)}
-                className="px-4 py-3 rounded-xl border border-graphite-300 items-center"
-              >
-                <Text className={`font-semibold ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
-                  Cancel
-                </Text>
-              </Pressable>
-            )}
-            <Pressable
-              onPress={handleLogSet}
-              disabled={isLogging}
-              className={`flex-1 py-3 rounded-xl bg-signal-500 items-center ${
-                isLogging ? 'opacity-50' : ''
-              }`}
-            >
-              <Text className="text-white font-semibold text-lg">
-                {isLogging ? 'Logging...' : editingSetId ? 'Update Set' : 'Log Set'}
-              </Text>
-            </Pressable>
           </View>
-        </View>
+        </LabCard>
       ) : (
         /* All Complete Message */
-        <View
-          className={`p-4 rounded-xl mb-4 ${
-            isDark ? 'bg-progress-500/10' : 'bg-progress-500/5'
-          } border ${isDark ? 'border-progress-500/30' : 'border-progress-500/20'}`}
-        >
+        <LabCard className="mb-4 bg-progress-500/10 border-progress-500/30">
           <View className="flex-row items-center justify-center">
             <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
             <Text className="ml-2 text-progress-500 font-semibold text-lg">
               All sets complete!
             </Text>
           </View>
-        </View>
+        </LabCard>
       )}
 
       {/* Set List */}
       <View>
-        <Text
-          className={`text-sm font-semibold mb-3 ${
-            isDark ? 'text-graphite-300' : 'text-graphite-600'
-          }`}
-        >
-          Sets
+        <Text className={`text-xs font-bold uppercase tracking-wide mb-3 ${isDark ? 'text-graphite-400' : 'text-graphite-600'}`}>
+          Completed Sets
         </Text>
 
         {sets.map((set, index) => {
@@ -545,149 +471,95 @@ export function StrengthEntry({
           const isCurrent = index === currentSetIndex;
 
           return (
-            <View
+            <Pressable
               key={set.id || index}
-              className={`flex-row items-center p-3 rounded-xl mb-2 ${
+              onPress={() => {
+                if (isLogged && set.id) {
+                  setEditingSetId(set.id);
+                }
+              }}
+              disabled={!isLogged || !set.id}
+              className={`flex-row items-center p-3 rounded-lg mb-2 border ${
                 isLogged
-                  ? isDark
-                    ? 'bg-progress-500/10'
-                    : 'bg-progress-500/5'
+                  ? isDark ? 'bg-graphite-800 border-graphite-700' : 'bg-white border-graphite-200'
                   : isCurrent
-                  ? isDark
-                    ? 'bg-signal-500/10'
-                    : 'bg-signal-500/5'
-                  : isDark
-                  ? 'bg-graphite-800'
-                  : 'bg-graphite-100'
-              } border ${
-                isLogged
-                  ? isDark
-                    ? 'border-progress-500/30'
-                    : 'border-progress-500/20'
-                  : isCurrent
-                  ? isDark
-                    ? 'border-signal-500/30'
-                    : 'border-signal-500/20'
-                  : isDark
-                  ? 'border-graphite-700'
-                  : 'border-graphite-200'
+                  ? isDark ? 'bg-signal-500/10 border-signal-500/30' : 'bg-signal-500/5 border-signal-500/20'
+                  : isDark ? 'bg-transparent border-dashed border-graphite-700' : 'bg-transparent border-dashed border-graphite-300'
               }`}
             >
               {/* Status icon */}
-              <View className="mr-3">
+              <View className="mr-3 w-6 items-center">
                 {isLogged ? (
-                  <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
+                  <Text className="font-lab-mono text-sm text-graphite-400">{index + 1}</Text>
                 ) : isCurrent ? (
-                  <View className="w-5 h-5 rounded-full border-2 border-signal-500 items-center justify-center">
-                    <View className="w-2 h-2 rounded-full bg-signal-500" />
-                  </View>
+                  <View className="w-2 h-2 rounded-full bg-signal-500" />
                 ) : (
-                  <View
-                    className={`w-5 h-5 rounded-full border-2 ${
-                      isDark ? 'border-graphite-600' : 'border-graphite-300'
-                    }`}
-                  />
+                  <Text className="font-lab-mono text-sm text-graphite-600">{index + 1}</Text>
                 )}
               </View>
 
-              {/* Set info - make logged sets clickable to edit */}
-              <Pressable
-                className="flex-1"
-                onPress={() => {
-                  if (isLogged && set.id) {
-                    setEditingSetId(set.id);
-                  }
-                }}
-                disabled={!isLogged || !set.id}
-              >
-                <Text
-                  className={`font-medium ${
-                    isLogged
-                      ? editingSetId === set.id
-                        ? 'text-signal-500'
-                        : 'text-progress-600'
-                      : isCurrent
-                      ? 'text-signal-500'
-                      : isDark
-                      ? 'text-graphite-400'
-                      : 'text-graphite-500'
-                  }`}
-                >
-                  Set {index + 1}
-                  {isLogged && set.actual_weight !== null && set.actual_reps !== null
-                    ? `: ${set.actual_weight} x ${set.actual_reps}${
-                        set.actual_rpe ? ` @ ${set.actual_rpe}` : ''
-                      }${editingSetId === set.id ? ' (editing)' : ''}`
-                    : isCurrent
-                    ? ' (current)'
-                    : ''}
-                </Text>
-              </Pressable>
+              {/* Set info */}
+              <View className="flex-1">
+                {isLogged && set.actual_weight !== null && set.actual_reps !== null ? (
+                  <View className="flex-row items-baseline gap-2">
+                    <Text className={`text-lg font-lab-mono font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                      {set.actual_weight} <Text className="text-sm font-normal text-graphite-500">lbs</Text>
+                    </Text>
+                    <Text className={`text-lg font-lab-mono font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                      {set.actual_reps} <Text className="text-sm font-normal text-graphite-500">reps</Text>
+                    </Text>
+                    {set.actual_rpe && (
+                      <Text className={`text-sm font-lab-mono ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                        @ {set.actual_rpe}
+                      </Text>
+                    )}
+                    {editingSetId === set.id && (
+                      <Text className="text-xs text-signal-500 font-bold ml-2">EDITING</Text>
+                    )}
+                  </View>
+                ) : (
+                  <Text className={`text-sm ${isCurrent ? 'text-signal-500 font-medium' : 'text-graphite-500'}`}>
+                    {isCurrent ? 'Current Set' : 'Pending'}
+                  </Text>
+                )}
+              </View>
 
-              {/* Action buttons for logged sets */}
+              {/* Actions */}
               {isLogged && set.id && (
-                <View className="flex-row items-center gap-2">
-                  {editingSetId === set.id && (
-                    <Pressable
-                      onPress={() => setEditingSetId(null)}
-                      className="p-1"
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Ionicons name="close-circle-outline" size={18} color={isDark ? '#808fb0' : '#607296'} />
-                    </Pressable>
-                  )}
+                <View className="flex-row gap-3">
                   <Pressable
                     onPress={() => handleDeleteSet(set.id)}
-                    className="p-1"
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    hitSlop={10}
                   >
-                    <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                    <Ionicons name="trash-outline" size={16} color={isDark ? '#424B5C' : '#A5ABB6'} />
                   </Pressable>
                 </View>
               )}
-            </View>
+            </Pressable>
           );
         })}
 
         {/* Duplicate and Add Set Buttons */}
-        <View className="flex-row gap-2 mt-2">
+        <View className="flex-row gap-3 mt-4">
           {loggedSets.length > 0 && (
-            <Pressable
+            <LabButton 
+              label="Duplicate Last" 
+              variant="secondary" 
+              size="sm"
+              className="flex-1"
+              icon={<Ionicons name="copy-outline" size={14} color={isDark ? '#C4C8D0' : '#424B5C'} />}
               onPress={handleDuplicate}
               disabled={isLogging}
-              className={`flex-1 flex-row items-center justify-center py-3 rounded-xl border ${
-                isDark ? 'border-signal-500/50 bg-signal-500/10' : 'border-signal-500/50 bg-signal-500/10'
-              } ${isLogging ? 'opacity-50' : ''}`}
-            >
-              <Ionicons
-                name="copy-outline"
-                size={18}
-                color="#2F80ED"
-              />
-              <Text className="ml-2 text-signal-500 font-semibold text-sm">
-                + Duplicate
-              </Text>
-            </Pressable>
-          )}
-          <Pressable
-            onPress={onAddSet}
-            className={`flex-1 flex-row items-center justify-center py-3 rounded-xl border border-dashed ${
-              isDark ? 'border-graphite-600' : 'border-graphite-300'
-            }`}
-          >
-            <Ionicons
-              name="add-circle-outline"
-              size={18}
-              color={isDark ? '#808fb0' : '#607296'}
             />
-            <Text
-              className={`ml-2 font-medium ${
-                isDark ? 'text-graphite-400' : 'text-graphite-500'
-              }`}
-            >
-              + Add Set
-            </Text>
-          </Pressable>
+          )}
+          <LabButton 
+            label="Add Set" 
+            variant="outline" 
+            size="sm"
+            className="flex-1 border-dashed"
+            icon={<Ionicons name="add" size={14} color={isDark ? '#6B7485' : '#6B7485'} />}
+            onPress={onAddSet}
+          />
         </View>
       </View>
     </View>

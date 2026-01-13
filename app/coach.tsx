@@ -30,7 +30,8 @@ export default function CoachScreen() {
 
   return (
     <SafeAreaView
-      className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
+      className="flex-1 bg-carbon-950"
+      style={{ backgroundColor: '#0E1116' }}
       edges={['left', 'right', 'bottom']}
     >
       <CoachChat

@@ -56,10 +56,10 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#2F80ED', // signal-500
-        tabBarInactiveTintColor: isDark ? '#6B7485' : '#525C6E', // graphite-400/500
+        tabBarInactiveTintColor: '#6B7485', // graphite-400 - force dark
         tabBarStyle: {
-          backgroundColor: isDark ? '#0E1116' : '#ffffff',
-          borderTopColor: isDark ? '#353D4B' : '#A5ABB6',
+          backgroundColor: '#0E1116', // carbon-950 - force dark
+          borderTopColor: '#353D4B', // graphite-700 - force dark
           borderTopWidth: 1,
           paddingBottom: Platform.OS === 'ios' ? 24 : 12,
           paddingTop: 8,
@@ -70,11 +70,12 @@ export default function TabLayout() {
           fontWeight: '600',
         },
         headerStyle: {
-          backgroundColor: isDark ? '#0E1116' : '#ffffff',
+          backgroundColor: '#0E1116', // carbon-950 - force dark
         },
-        headerTintColor: isDark ? '#E6E8EB' : '#0E1116',
+        headerTintColor: '#E6E8EB', // graphite-100 - force dark
         headerTitleStyle: {
           fontWeight: '700',
+          color: '#E6E8EB', // Ensure header text is light
         },
       }}
     >
@@ -85,20 +86,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} focused={focused} />
           ),
-          headerTitle: 'Foundry Lab',
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={handleLogout}
-              style={{ marginRight: 16 }}
-              disabled={logoutMutation.isPending}
-            >
-              <Ionicons
-                name="log-out-outline"
-                size={24}
-                color={isDark ? '#E6E8EB' : '#0E1116'}
-              />
-            </TouchableOpacity>
-          ),
+          headerShown: false, // Hide header - we have our own in the component
         }}
       />
       <Tabs.Screen

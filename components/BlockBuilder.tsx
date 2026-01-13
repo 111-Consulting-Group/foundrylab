@@ -13,6 +13,7 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -28,6 +29,7 @@ import {
   TRAINING_SPLITS,
 } from '@/lib/blockBuilder';
 import type { TrainingGoal, TrainingExperience } from '@/types/database';
+import { LabButton, LabCard } from '@/components/ui/LabPrimitives';
 
 // ============================================================================
 // Types
@@ -366,8 +368,17 @@ function PreviewStep({
   block: GeneratedBlock;
   isDark: boolean;
 }) {
-  const [expandedWeek, setExpandedWeek] = useState<number | null>(1);
+  const [selectedDay, setSelectedDay] = useState<{
+    week: number;
+    day: number;
+    workout: any;
+  } | null>(null);
+  
   const difficulty = getBlockDifficulty(block);
+
+  // Grid constants
+  const days = Array.from({ length: 7 }, (_, i) => i + 1);
+  const weeks = block.weeks;
 
   return (
     <View>
@@ -379,181 +390,124 @@ function PreviewStep({
         {block.name}
       </Text>
       <Text
-        className={`text-base mb-4 ${
+        className={`text-base mb-6 ${
           isDark ? 'text-graphite-400' : 'text-graphite-500'
         }`}
       >
         {block.description}
       </Text>
 
-      {/* Quick stats */}
-      <View className="flex-row gap-3 mb-6">
-        <View
-          className={`flex-1 p-3 rounded-xl ${
-            isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-          }`}
-        >
-          <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-            Duration
-          </Text>
-          <Text
-            className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
-          >
-            {block.durationWeeks} weeks
-          </Text>
-        </View>
-        <View
-          className={`flex-1 p-3 rounded-xl ${
-            isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-          }`}
-        >
-          <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-            Workouts
-          </Text>
-          <Text
-            className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
-          >
-            {block.weeks.reduce((sum, w) => sum + w.workouts.length, 0)}
-          </Text>
-        </View>
-        <View
-          className={`flex-1 p-3 rounded-xl ${
-            isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-          }`}
-        >
-          <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-            Difficulty
-          </Text>
-          <Text
-            className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
-          >
-            {difficulty.label}
-          </Text>
-        </View>
-      </View>
-
-      {/* Projected progress */}
-      {block.projectedProgress.mainLifts.length > 0 && (
-        <View
-          className={`p-4 rounded-xl mb-6 ${
-            isDark ? 'bg-progress-500/10' : 'bg-progress-50'
-          }`}
-        >
-          <View className="flex-row items-center mb-2">
-            <Ionicons name="trending-up" size={18} color="#22c55e" />
-            <Text
-              className={`ml-2 font-semibold ${
-                isDark ? 'text-progress-400' : 'text-progress-600'
-              }`}
-            >
-              Projected Progress
-            </Text>
+      {/* Spreadsheet Grid View */}
+      <View className={`border rounded-lg overflow-hidden ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}>
+        {/* Header Row */}
+        <View className={`flex-row border-b ${isDark ? 'border-graphite-700 bg-graphite-800' : 'border-graphite-300 bg-graphite-100'}`}>
+          <View className={`w-10 p-2 items-center justify-center border-r ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}>
+            <Text className={`text-xs font-bold ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>Wk</Text>
           </View>
-          {block.projectedProgress.mainLifts
-            .filter((lift) => lift.currentE1RM)
-            .slice(0, 3)
-            .map((lift) => (
-              <View key={lift.exerciseName} className="flex-row justify-between mt-2">
-                <Text
-                  className={`text-sm ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}
-                >
-                  {lift.exerciseName}
-                </Text>
-                <Text className="text-sm text-progress-500 font-semibold">
-                  {lift.currentE1RM} → {lift.projectedE1RM} lbs (+{lift.percentIncrease}%)
-                </Text>
-              </View>
-            ))}
+          {days.map(d => (
+            <View key={d} className="flex-1 p-2 items-center justify-center">
+              <Text className={`text-xs font-bold ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>D{d}</Text>
+            </View>
+          ))}
         </View>
-      )}
 
-      {/* Week breakdown */}
-      <Text
-        className={`font-semibold mb-3 ${
-          isDark ? 'text-graphite-200' : 'text-graphite-800'
-        }`}
-      >
-        Week Breakdown
-      </Text>
-      <View className="gap-2">
-        {block.weeks.map((week) => (
-          <Pressable
-            key={week.weekNumber}
-            onPress={() =>
-              setExpandedWeek(expandedWeek === week.weekNumber ? null : week.weekNumber)
-            }
-            className={`rounded-xl overflow-hidden ${
-              isDark ? 'bg-graphite-800' : 'bg-white'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-          >
-            <View className="flex-row items-center justify-between p-4">
-              <View className="flex-row items-center">
-                <View
-                  className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${
-                    isDark ? 'bg-graphite-700' : 'bg-graphite-100'
-                  }`}
-                >
-                  <Text
-                    className={`font-bold ${
-                      isDark ? 'text-graphite-200' : 'text-graphite-800'
-                    }`}
-                  >
-                    {week.weekNumber}
-                  </Text>
-                </View>
-                <View>
-                  <Text
-                    className={`font-semibold ${
-                      isDark ? 'text-graphite-100' : 'text-graphite-900'
-                    }`}
-                  >
-                    {week.theme}
-                  </Text>
-                  <Text
-                    className={`text-xs ${
-                      isDark ? 'text-graphite-400' : 'text-graphite-500'
-                    }`}
-                  >
-                    {week.workouts.length} workouts · {week.totalVolume} sets · RPE {week.intensityRange.min}-{week.intensityRange.max}
-                  </Text>
-                </View>
-              </View>
-              <Ionicons
-                name={expandedWeek === week.weekNumber ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={isDark ? '#808fb0' : '#607296'}
-              />
+        {/* Weeks Rows */}
+        {weeks.map((week) => (
+          <View key={week.weekNumber} className={`flex-row border-b ${isDark ? 'border-graphite-700' : 'border-graphite-300'} last:border-b-0`}>
+            {/* Week Number Column */}
+            <View className={`w-10 p-2 items-center justify-center border-r ${isDark ? 'border-graphite-700 bg-graphite-800' : 'border-graphite-300 bg-graphite-50'}`}>
+              <Text className={`text-sm font-lab-mono font-bold ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
+                {week.weekNumber}
+              </Text>
             </View>
 
-            {expandedWeek === week.weekNumber && (
-              <View
-                className={`px-4 pb-4 pt-2 border-t ${
-                  isDark ? 'border-graphite-700' : 'border-graphite-100'
-                }`}
-              >
-                {week.workouts.map((workout) => (
-                  <View key={workout.dayNumber} className="mt-2">
-                    <Text
-                      className={`font-medium ${
-                        isDark ? 'text-graphite-200' : 'text-graphite-800'
-                      }`}
-                    >
-                      Day {workout.dayNumber}: {workout.name}
-                    </Text>
-                    <Text
-                      className={`text-xs ${
-                        isDark ? 'text-graphite-400' : 'text-graphite-500'
-                      }`}
-                    >
-                      {workout.exercises.map((e) => e.exerciseName).join(' · ')}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </Pressable>
+            {/* Days Cells */}
+            {days.map((dayNum) => {
+              const workout = week.workouts.find(w => w.dayNumber === dayNum);
+              const isRest = !workout;
+              
+              return (
+                <Pressable
+                  key={dayNum}
+                  onPress={() => workout && setSelectedDay({ week: week.weekNumber, day: dayNum, workout })}
+                  className={`flex-1 h-12 p-1 border-r ${isDark ? 'border-graphite-700' : 'border-graphite-300'} last:border-r-0 ${
+                    !isRest ? (isDark ? 'bg-signal-500/10' : 'bg-signal-500/5') : ''
+                  }`}
+                >
+                  {workout ? (
+                    <View className="flex-1 justify-center items-center">
+                      <Text 
+                        className={`text-[10px] font-medium text-center leading-tight ${isDark ? 'text-signal-400' : 'text-signal-600'}`}
+                        numberOfLines={2}
+                      >
+                        {workout.name.split(' ')[0]} 
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="flex-1 justify-center items-center">
+                      <Text className={`text-[10px] ${isDark ? 'text-graphite-600' : 'text-graphite-300'}`}>-</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
         ))}
       </View>
+
+      {/* Detail Modal */}
+      <Modal
+        visible={!!selectedDay}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedDay(null)}
+      >
+        <Pressable 
+          className="flex-1 bg-black/60 justify-center px-6"
+          onPress={() => setSelectedDay(null)}
+        >
+          <Pressable 
+            className={`p-6 rounded-xl ${isDark ? 'bg-graphite-900' : 'bg-white'}`}
+            onPress={e => e.stopPropagation()}
+          >
+            {selectedDay && (
+              <>
+                <View className="flex-row justify-between items-center mb-4">
+                  <Text className={`text-xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                    Week {selectedDay.week} · Day {selectedDay.day}
+                  </Text>
+                  <Pressable onPress={() => setSelectedDay(null)}>
+                    <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
+                  </Pressable>
+                </View>
+                
+                <Text className={`text-lg font-semibold mb-2 ${isDark ? 'text-signal-400' : 'text-signal-600'}`}>
+                  {selectedDay.workout.name}
+                </Text>
+                
+                <View className="h-px bg-graphite-700 my-3" />
+                
+                <Text className={`text-sm font-bold uppercase mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                  Exercises
+                </Text>
+                
+                <View className="gap-2">
+                  {selectedDay.workout.exercises.map((ex: any, idx: number) => (
+                    <View key={idx} className="flex-row justify-between">
+                      <Text className={`flex-1 ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+                        {ex.exerciseName}
+                      </Text>
+                      <Text className={`font-lab-mono ${isDark ? 'text-graphite-400' : 'text-graphite-600'}`}>
+                        {ex.sets} sets
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -714,25 +668,20 @@ export const BlockBuilder = React.memo(function BlockBuilder({
             isDark ? 'border-graphite-800' : 'border-graphite-200'
           }`}
         >
-          <Pressable
+          <LabButton
+            label={
+              step === 'goal'
+                ? 'Continue'
+                : step === 'config'
+                ? 'Generate Block'
+                : 'Start Training'
+            }
             onPress={handleNext}
             disabled={!canProceed || isGenerating}
-            className={`py-4 rounded-xl items-center ${
-              canProceed && !isGenerating ? 'bg-signal-500' : 'bg-graphite-500'
-            }`}
-          >
-            {isGenerating ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text className="text-white font-semibold text-lg">
-                {step === 'goal'
-                  ? 'Continue'
-                  : step === 'config'
-                  ? 'Generate Block'
-                  : 'Start Training'}
-              </Text>
-            )}
-          </Pressable>
+            loading={isGenerating}
+            variant={canProceed ? 'primary' : 'secondary'}
+            className={!canProceed && !isGenerating ? 'opacity-50' : ''}
+          />
         </View>
       )}
     </View>

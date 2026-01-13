@@ -651,9 +651,8 @@ export default function ActiveWorkoutScreen() {
   if (!isNewWorkout && workoutLoading) {
     return (
       <SafeAreaView
-        className={`flex-1 items-center justify-center ${
-          isDark ? 'bg-carbon-950' : 'bg-graphite-50'
-        }`}
+        className="flex-1 items-center justify-center bg-carbon-950"
+        style={{ backgroundColor: '#0E1116' }}
       >
         <ActivityIndicator size="large" color="#2F80ED" />
       </SafeAreaView>
@@ -662,14 +661,14 @@ export default function ActiveWorkoutScreen() {
 
   return (
     <SafeAreaView
-      className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
+      className="flex-1 bg-carbon-950"
+      style={{ backgroundColor: '#0E1116' }}
       edges={['left', 'right', 'bottom']}
     >
       {/* Header */}
       <View
-        className={`px-4 py-3 border-b ${
-          isDark ? 'border-graphite-700 bg-graphite-900' : 'border-graphite-200 bg-white'
-        }`}
+        className="px-4 py-3 border-b border-graphite-700 bg-graphite-900"
+        style={{ borderColor: '#353D4B', backgroundColor: '#1C222B' }}
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center flex-1">
@@ -681,15 +680,14 @@ export default function ActiveWorkoutScreen() {
               <Ionicons
                 name="close"
                 size={24}
-                color={isDark ? '#E6E8EB' : '#0E1116'}
+                color="#E6E8EB"
               />
             </Pressable>
             <View className="ml-2 flex-1">
               <View className="flex-row items-center gap-2">
                 <Text
-                  className={`font-semibold ${
-                    isDark ? 'text-graphite-100' : 'text-graphite-900'
-                  }`}
+                  className="font-semibold text-graphite-100"
+                  style={{ color: '#E6E8EB' }}
                   numberOfLines={1}
                 >
                   {workout?.focus || focusParam || 'Quick Workout'}
@@ -722,12 +720,11 @@ export default function ActiveWorkoutScreen() {
                 <Ionicons
                   name="time-outline"
                   size={14}
-                  color={isDark ? '#808fb0' : '#607296'}
+                  color="#808fb0"
                 />
                 <Text
-                  className={`ml-1 text-sm ${
-                    isDark ? 'text-graphite-400' : 'text-graphite-500'
-                  }`}
+                  className="ml-1 text-sm text-graphite-400"
+                  style={{ color: '#6B7485' }}
                 >
                   {formattedTime}
                 </Text>
@@ -737,15 +734,13 @@ export default function ActiveWorkoutScreen() {
 
           <View className="flex-row items-center gap-2">
             <Pressable
-              className={`px-3 py-2 rounded-full border ${
-                isDark ? 'border-graphite-600' : 'border-graphite-300'
-              }`}
+              className="px-3 py-2 rounded-full border border-graphite-600"
+              style={{ borderColor: '#4A5568' }}
               onPress={handleSaveAndExit}
             >
               <Text
-                className={`font-semibold ${
-                  isDark ? 'text-graphite-200' : 'text-graphite-700'
-                }`}
+                className="font-semibold text-graphite-200"
+                style={{ color: '#D4D7DC' }}
               >
                 Save & Exit
               </Text>
@@ -792,9 +787,8 @@ export default function ActiveWorkoutScreen() {
         {trackedExercises.length === 0 ? (
           <View className="items-center justify-center py-8">
             <View
-              className={`w-20 h-20 rounded-full items-center justify-center mb-4 ${
-                isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-              }`}
+              className="w-20 h-20 rounded-full items-center justify-center mb-4 bg-graphite-800"
+              style={{ backgroundColor: '#1A1F2E' }}
             >
               <Ionicons
                 name="barbell-outline"
@@ -803,16 +797,14 @@ export default function ActiveWorkoutScreen() {
               />
             </View>
             <Text
-              className={`text-lg font-semibold mb-2 ${
-                isDark ? 'text-graphite-100' : 'text-graphite-900'
-              }`}
+              className="text-lg font-semibold mb-2 text-graphite-100"
+              style={{ color: '#E6E8EB' }}
             >
               Ready to train?
             </Text>
             <Text
-              className={`text-center mb-6 ${
-                isDark ? 'text-graphite-400' : 'text-graphite-500'
-              }`}
+              className="text-center mb-6 text-graphite-400"
+              style={{ color: '#6B7485' }}
             >
               {isNewWorkout && smartSuggestions.length > 0
                 ? 'Pick from your go-to exercises or browse the full library'
@@ -823,9 +815,8 @@ export default function ActiveWorkoutScreen() {
             {isNewWorkout && smartSuggestions.length > 0 && (
               <View className="w-full mb-6">
                 <Text
-                  className={`text-sm font-semibold mb-3 ${
-                    isDark ? 'text-graphite-300' : 'text-graphite-600'
-                  }`}
+                  className="text-sm font-semibold mb-3 text-graphite-300"
+                  style={{ color: '#C4C8D0' }}
                 >
                   Suggested for you
                 </Text>
@@ -833,9 +824,8 @@ export default function ActiveWorkoutScreen() {
                   {smartSuggestions.map((suggestion) => (
                     <Pressable
                       key={suggestion.exercise.id}
-                      className={`flex-row items-center p-3 rounded-xl ${
-                        isDark ? 'bg-graphite-800' : 'bg-white'
-                      } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                      className="flex-row items-center p-3 rounded-xl bg-graphite-800 border border-graphite-700"
+                      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
                       onPress={() => handleAddExercise(suggestion.exercise)}
                     >
                       <View
@@ -868,15 +858,15 @@ export default function ActiveWorkoutScreen() {
                       <View className="flex-1 ml-3">
                         <Text
                           className={`font-semibold ${
-                            isDark ? 'text-graphite-100' : 'text-graphite-900'
+                            'text-graphite-100'
                           }`}
+                          style={{ color: '#E6E8EB' }}
                         >
                           {suggestion.exercise.name}
                         </Text>
                         <Text
-                          className={`text-xs ${
-                            isDark ? 'text-graphite-400' : 'text-graphite-500'
-                          }`}
+                          className="text-xs text-graphite-400"
+                          style={{ color: '#6B7485' }}
                         >
                           {suggestion.message}
                         </Text>
@@ -904,7 +894,7 @@ export default function ActiveWorkoutScreen() {
         ) : (
           <Pressable
             className={`flex-row items-center justify-center py-4 rounded-xl mt-4 ${
-              isDark ? 'bg-signal-600' : 'bg-signal-500'
+              'bg-signal-500'
             }`}
             onPress={() => setShowExercisePicker(true)}
           >
@@ -953,7 +943,7 @@ export default function ActiveWorkoutScreen() {
         presentationStyle="pageSheet"
         onRequestClose={handleReadinessSkip}
       >
-        <View className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}>
+        <View className="flex-1 bg-carbon-950" style={{ backgroundColor: '#0E1116' }}>
           <SafeAreaView className="flex-1 justify-center px-4">
             <ReadinessCheckIn
               onComplete={handleReadinessComplete}

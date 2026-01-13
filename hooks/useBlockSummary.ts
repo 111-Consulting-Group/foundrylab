@@ -134,7 +134,10 @@ export function useBlockSummary(blockId: string): {
       const endDate = completedDates.length > 0 ? completedDates[completedDates.length - 1] : null;
 
       // Fetch PRs hit during this block
-      const { data: prs } = await supabase
+      const startDate = block.start_date || new Date(0).toISOString();
+      const endDateForPRs = endDate || new Date().toISOString();
+      
+      const { data: prs, error: prsError } = await supabase
         .from('personal_records')
         .select(`
           id,
@@ -145,8 +148,12 @@ export function useBlockSummary(blockId: string): {
           exercise:exercises(name)
         `)
         .eq('user_id', userId)
-        .gte('achieved_at', block.start_date)
-        .lte('achieved_at', endDate || new Date().toISOString());
+        .gte('achieved_at', startDate)
+        .lte('achieved_at', endDateForPRs);
+      
+      if (prsError) {
+        console.warn('Error fetching PRs for block summary:', prsError);
+      }
 
       const prsHit = (prs || []).map((pr: any) => ({
         exerciseId: pr.exercise_id,

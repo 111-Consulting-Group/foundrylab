@@ -49,26 +49,26 @@ export function PatternCard({ pattern, onPress, compact = false }: PatternCardPr
   if (compact) {
     return (
       <View
-        className={`flex-row items-center p-3 rounded-xl ${
-          isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-        }`}
+        className="flex-row items-center p-3 rounded-xl bg-graphite-800"
+        style={{ backgroundColor: '#1A1F2E' }}
       >
         <View
-          className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${
-            isDark ? 'bg-graphite-700' : 'bg-graphite-200'
-          }`}
+          className="w-8 h-8 rounded-full items-center justify-center mr-3 bg-graphite-700"
+          style={{ backgroundColor: '#353D4B' }}
         >
-          <Ionicons name={icon as any} size={16} color={isDark ? '#808fb0' : '#607296'} />
+          <Ionicons name={icon as any} size={16} color="#808fb0" />
         </View>
         <View className="flex-1">
           <Text
-            className={`font-medium ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}
+            className="font-medium text-graphite-200"
+            style={{ color: '#D4D7DC' }}
             numberOfLines={1}
           >
             {pattern.name}
           </Text>
           <Text
-            className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
+            className="text-xs text-graphite-400"
+            style={{ color: '#6B7485' }}
             numberOfLines={1}
           >
             {pattern.description}
@@ -82,33 +82,32 @@ export function PatternCard({ pattern, onPress, compact = false }: PatternCardPr
   return (
     <Pressable
       onPress={onPress}
-      className={`p-4 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${
-        isDark ? 'border-graphite-700' : 'border-graphite-200'
-      }`}
+      className="p-4 rounded-xl bg-graphite-800 border border-graphite-700"
+      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
     >
       <View className="flex-row items-start">
         <View
-          className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
-            isDark ? 'bg-graphite-700' : 'bg-graphite-100'
-          }`}
+          className="w-10 h-10 rounded-full items-center justify-center mr-3 bg-graphite-700"
+          style={{ backgroundColor: '#353D4B' }}
         >
-          <Ionicons name={icon as any} size={20} color={isDark ? '#808fb0' : '#607296'} />
+          <Ionicons name={icon as any} size={20} color="#808fb0" />
         </View>
         <View className="flex-1">
           <View className="flex-row items-center justify-between mb-1">
-            <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+            <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
               {pattern.name}
             </Text>
             <View className="flex-row items-center">
               <ConfidenceIndicator level={confidenceLevel} />
               <Text
-                className={`text-xs ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
+                className="text-xs ml-1 text-graphite-400"
+                style={{ color: '#6B7485' }}
               >
                 {Math.round(pattern.confidence * 100)}%
               </Text>
             </View>
           </View>
-          <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
             {pattern.description}
           </Text>
 
@@ -118,9 +117,10 @@ export function PatternCard({ pattern, onPress, compact = false }: PatternCardPr
               {(pattern.data.splits as string[]).map((split, index) => (
                 <View
                   key={index}
-                  className={`px-2 py-0.5 rounded ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}
+                  className="px-2 py-0.5 rounded bg-graphite-700"
+                  style={{ backgroundColor: '#353D4B' }}
                 >
-                  <Text className={`text-xs ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                  <Text className="text-xs text-graphite-300" style={{ color: '#C4C8D0' }}>
                     {split}
                   </Text>
                 </View>
@@ -179,11 +179,12 @@ export function PatternInsightsList({
           size={48}
           color={isDark ? '#808fb0' : '#607296'}
         />
-        <Text className={`mt-4 text-center ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+        <Text className="mt-4 text-center text-graphite-400" style={{ color: '#6B7485' }}>
           Keep training to discover your patterns
         </Text>
         <Text
-          className={`text-sm text-center mt-1 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}
+          className="text-sm text-center mt-1 text-graphite-400"
+          style={{ color: '#6B7485' }}
         >
           We need at least 4 workouts to detect patterns
         </Text>
@@ -195,7 +196,8 @@ export function PatternInsightsList({
     <View>
       {title && (
         <Text
-          className={`text-lg font-bold mb-4 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
+          className="text-lg font-bold mb-4 text-graphite-100"
+          style={{ color: '#E6E8EB' }}
         >
           {title}
         </Text>
@@ -237,9 +239,8 @@ export function TrainingSplitSummary({
 
   return (
     <View
-      className={`p-4 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-white'} border ${
-        isDark ? 'border-graphite-700' : 'border-graphite-200'
-      }`}
+      className="p-4 rounded-xl bg-graphite-800 border border-graphite-700"
+      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
     >
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center">
@@ -247,10 +248,10 @@ export function TrainingSplitSummary({
             <Ionicons name="calendar" size={20} color="#2F80ED" />
           </View>
           <View>
-            <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+            <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
               {name}
             </Text>
-            <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
               ~{daysPerWeek} days/week
             </Text>
           </View>
@@ -270,10 +271,9 @@ export function TrainingSplitSummary({
                 ? 'text-green-500'
                 : confidence >= 0.6
                 ? 'text-yellow-500'
-                : isDark
-                ? 'text-graphite-400'
-                : 'text-graphite-500'
+                : 'text-graphite-400'
             }`}
+            style={confidence < 0.6 ? { color: '#6B7485' } : undefined}
           >
             {Math.round(confidence * 100)}% confident
           </Text>
@@ -285,9 +285,10 @@ export function TrainingSplitSummary({
         {splits.map((split, index) => (
           <View
             key={index}
-            className={`px-3 py-1.5 rounded-lg ${isDark ? 'bg-graphite-700' : 'bg-graphite-100'}`}
+            className="px-3 py-1.5 rounded-lg bg-graphite-700"
+            style={{ backgroundColor: '#353D4B' }}
           >
-            <Text className={`font-medium ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+            <Text className="font-medium text-graphite-200" style={{ color: '#D4D7DC' }}>
               {split}
             </Text>
           </View>
@@ -303,7 +304,7 @@ export function TrainingSplitSummary({
             color={isDark ? '#808fb0' : '#607296'}
             style={{ marginRight: 6 }}
           />
-          <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
             Usually on {preferredDays.join(', ')}
           </Text>
         </View>
@@ -336,10 +337,10 @@ export function StructureOffer({ pattern, onAccept, onDismiss }: StructureOfferP
           <Ionicons name="sparkles" size={20} color="#2F80ED" />
         </View>
         <View className="flex-1">
-          <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+          <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
             We noticed a pattern!
           </Text>
-          <Text className={`text-sm mt-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+          <Text className="text-sm mt-1 text-graphite-400" style={{ color: '#6B7485' }}>
             You've been training consistently with a {pattern.name} split. Would you like to turn
             this into a structured training block?
           </Text>
@@ -349,11 +350,10 @@ export function StructureOffer({ pattern, onAccept, onDismiss }: StructureOfferP
       <View className="flex-row gap-3">
         <Pressable
           onPress={onDismiss}
-          className={`flex-1 py-3 rounded-xl items-center ${
-            isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-          }`}
+          className="flex-1 py-3 rounded-xl items-center bg-graphite-800"
+          style={{ backgroundColor: '#1A1F2E' }}
         >
-          <Text className={`font-medium ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+          <Text className="font-medium text-graphite-300" style={{ color: '#C4C8D0' }}>
             Keep it Flexible
           </Text>
         </Pressable>

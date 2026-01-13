@@ -5,8 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { WeeklyInsights } from '@/components/WeeklyInsights';
+import { PatternInsightsList } from '@/components/PatternInsights';
 import { useWorkoutHistory } from '@/hooks/useWorkouts';
 import { useMainLiftPRs } from '@/hooks/usePersonalRecords';
+import { usePatternInsights } from '@/hooks/usePatternDetection';
 
 type MetricType = 'strength' | 'conditioning';
 
@@ -21,18 +23,24 @@ export default function AnalyticsScreen() {
   // Fetch main lift PRs
   const { data: mainLiftPRs = [], isLoading: prsLoading } = useMainLiftPRs();
 
+  // Fetch pattern insights
+  const { patterns, insights, isLoading: patternsLoading } = usePatternInsights();
+
   // Filter to only lifts with recorded PRs
   const liftsWithPRs = mainLiftPRs.filter(lift => lift.e1rm !== null);
 
   return (
-    <SafeAreaView className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`} edges={['left', 'right']}>
+    <SafeAreaView 
+      className="flex-1 bg-carbon-950" 
+      style={{ backgroundColor: '#0E1116' }}
+      edges={['left', 'right']}
+    >
       <ScrollView className="flex-1">
         {/* Metric Toggle */}
         <View className="px-4 pt-4">
           <View
-            className={`flex-row p-1 rounded-xl ${
-              isDark ? 'bg-graphite-800' : 'bg-graphite-200'
-            }`}
+            className="flex-row p-1 rounded-xl bg-graphite-800"
+            style={{ backgroundColor: '#1A1F2E' }}
           >
             <Pressable
               onPress={() => setSelectedMetric('strength')}
@@ -46,10 +54,9 @@ export default function AnalyticsScreen() {
                 className={`font-semibold ${
                   selectedMetric === 'strength'
                     ? 'text-white'
-                    : isDark
-                    ? 'text-graphite-400'
-                    : 'text-graphite-600'
+                    : 'text-graphite-300'
                 }`}
+                style={selectedMetric !== 'strength' ? { color: '#C4C8D0' } : undefined}
               >
                 Strength
               </Text>
@@ -66,10 +73,9 @@ export default function AnalyticsScreen() {
                 className={`font-semibold ${
                   selectedMetric === 'conditioning'
                     ? 'text-white'
-                    : isDark
-                    ? 'text-graphite-400'
-                    : 'text-graphite-600'
+                    : 'text-graphite-300'
                 }`}
+                style={selectedMetric !== 'conditioning' ? { color: '#C4C8D0' } : undefined}
               >
                 Conditioning
               </Text>
@@ -84,25 +90,36 @@ export default function AnalyticsScreen() {
               <WeeklyInsights workouts={recentWorkouts} />
             </View>
 
+            {/* Pattern Detection */}
+            {patterns.length > 0 && (
+              <View className="px-4 mt-6">
+                <PatternInsightsList 
+                  patterns={patterns} 
+                  title="Training Patterns"
+                  maxItems={3}
+                  compact
+                />
+              </View>
+            )}
+
             {/* Estimated 1RM Chart Placeholder */}
             <View className="px-4 mt-6">
-              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
                 Estimated 1RM Progress
               </Text>
               <View
-                className={`h-48 rounded-xl items-center justify-center ${
-                  isDark ? 'bg-graphite-800' : 'bg-white'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                className="h-48 rounded-xl items-center justify-center bg-graphite-800 border border-graphite-700"
+                style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
               >
                 <Ionicons
                   name="trending-up"
                   size={48}
                   color={isDark ? '#353D4B' : '#A5ABB6'}
                 />
-                <Text className={`mt-2 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                <Text className="mt-2 text-graphite-400" style={{ color: '#6B7485' }}>
                   Line chart visualization
                 </Text>
-                <Text className={`text-sm ${isDark ? 'text-graphite-600' : 'text-graphite-300'}`}>
+                <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
                   Coming with chart library integration
                 </Text>
               </View>
@@ -110,34 +127,32 @@ export default function AnalyticsScreen() {
 
             {/* Lift Progress Cards */}
             <View className="px-4 mt-6">
-              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
                 Main Lifts (E1RM)
               </Text>
               {prsLoading ? (
                 <View
-                  className={`p-6 rounded-xl items-center ${
-                    isDark ? 'bg-graphite-800' : 'bg-white'
-                  } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                  className="p-6 rounded-xl items-center bg-graphite-800 border border-graphite-700"
+                  style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
                 >
-                  <Text className={isDark ? 'text-graphite-400' : 'text-graphite-500'}>
+                  <Text className="text-graphite-400" style={{ color: '#6B7485' }}>
                     Loading...
                   </Text>
                 </View>
               ) : liftsWithPRs.length === 0 ? (
                 <View
-                  className={`p-6 rounded-xl items-center ${
-                    isDark ? 'bg-graphite-800' : 'bg-white'
-                  } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                  className="p-6 rounded-xl items-center bg-graphite-800 border border-graphite-700"
+                  style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
                 >
                   <Ionicons
                     name="barbell-outline"
                     size={48}
-                    color={isDark ? '#353D4B' : '#A5ABB6'}
+                    color="#353D4B"
                   />
-                  <Text className={`mt-3 font-semibold ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                  <Text className="mt-3 font-semibold text-graphite-300" style={{ color: '#C4C8D0' }}>
                     No PRs Recorded Yet
                   </Text>
-                  <Text className={`mt-1 text-sm text-center ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                  <Text className="mt-1 text-sm text-center text-graphite-500" style={{ color: '#808FB0' }}>
                     Complete workouts to start tracking your estimated 1RM progress
                   </Text>
                 </View>
@@ -146,12 +161,11 @@ export default function AnalyticsScreen() {
                   {liftsWithPRs.map((lift) => (
                     <View
                       key={lift.exerciseId}
-                      className={`p-4 rounded-xl ${
-                        isDark ? 'bg-graphite-800' : 'bg-white'
-                      } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                      className="p-4 rounded-xl bg-graphite-800 border border-graphite-700"
+                      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
                     >
                       <View className="flex-row items-center justify-between mb-2">
-                        <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                        <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
                           {lift.exerciseName}
                         </Text>
                         <View className="flex-row items-center px-2 py-1 rounded-full bg-signal-500/20">
@@ -163,22 +177,22 @@ export default function AnalyticsScreen() {
                       </View>
                       <View className="flex-row items-end justify-between">
                         <View>
-                          <Text className={`text-3xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                          <Text className="text-3xl font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
                             {lift.e1rm}
                           </Text>
-                          <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
                             lbs
                           </Text>
                         </View>
                         {lift.achievedAt && (
-                          <Text className={`text-sm ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
                             {new Date(lift.achievedAt).toLocaleDateString()}
                           </Text>
                         )}
                       </View>
 
                       {/* Progress Bar */}
-                      <View className={`h-1 rounded-full mt-3 ${isDark ? 'bg-graphite-700' : 'bg-graphite-200'}`}>
+                      <View className="h-1 rounded-full mt-3 bg-graphite-700" style={{ backgroundColor: '#353D4B' }}>
                         <View
                           className="h-full rounded-full bg-signal-500"
                           style={{ width: `${Math.min(((lift.e1rm || 0) / 500) * 100, 100)}%` }}
@@ -194,23 +208,22 @@ export default function AnalyticsScreen() {
           <>
             {/* Aerobic Efficiency Chart Placeholder */}
             <View className="px-4 mt-6">
-              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
                 Aerobic Efficiency
               </Text>
               <View
-                className={`h-48 rounded-xl items-center justify-center ${
-                  isDark ? 'bg-graphite-800' : 'bg-white'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                className="h-48 rounded-xl items-center justify-center bg-graphite-800 border border-graphite-700"
+                style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
               >
                 <Ionicons
                   name="pulse"
                   size={48}
                   color={isDark ? '#353D4B' : '#A5ABB6'}
                 />
-                <Text className={`mt-2 ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                <Text className="mt-2 text-graphite-400" style={{ color: '#6B7485' }}>
                   Watts vs Heart Rate scatter plot
                 </Text>
-                <Text className={`text-sm ${isDark ? 'text-graphite-600' : 'text-graphite-300'}`}>
+                <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
                   Coming with chart library integration
                 </Text>
               </View>
@@ -218,23 +231,22 @@ export default function AnalyticsScreen() {
 
             {/* Conditioning Metrics - Empty State */}
             <View className="px-4 mt-6">
-              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
                 Conditioning Metrics
               </Text>
               <View
-                className={`p-6 rounded-xl items-center ${
-                  isDark ? 'bg-graphite-800' : 'bg-white'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                className="p-6 rounded-xl items-center bg-graphite-800 border border-graphite-700"
+                style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
               >
                 <Ionicons
                   name="watch-outline"
                   size={48}
-                  color={isDark ? '#353D4B' : '#A5ABB6'}
+                  color="#353D4B"
                 />
-                <Text className={`mt-3 font-semibold ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                <Text className="mt-3 font-semibold text-graphite-300" style={{ color: '#C4C8D0' }}>
                   No Conditioning Data Yet
                 </Text>
-                <Text className={`mt-1 text-sm text-center ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                <Text className="mt-1 text-sm text-center text-graphite-500" style={{ color: '#808FB0' }}>
                   Wearable integration coming soon to track watts, heart rate, and zone compliance
                 </Text>
               </View>

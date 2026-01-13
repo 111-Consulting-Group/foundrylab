@@ -71,21 +71,20 @@ export function ExerciseEntryModal({
         className="flex-1"
       >
         <SafeAreaView
-          className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
+          className="flex-1 bg-carbon-950"
+          style={{ backgroundColor: '#0E1116' }}
           edges={['top', 'left', 'right']}
         >
           {/* Header */}
           <View
-            className={`px-4 py-3 border-b ${
-              isDark ? 'border-graphite-700' : 'border-graphite-200'
-            }`}
+            className="px-4 py-3 border-b border-graphite-700"
+            style={{ borderColor: '#353D4B' }}
           >
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
                 <Text
-                  className={`text-lg font-bold ${
-                    isDark ? 'text-graphite-100' : 'text-graphite-900'
-                  }`}
+                  className="text-lg font-bold text-graphite-100"
+                  style={{ color: '#E6E8EB' }}
                   numberOfLines={1}
                 >
                   {exercise.name}
@@ -107,9 +106,8 @@ export function ExerciseEntryModal({
                     </Text>
                   </View>
                   <Text
-                    className={`ml-2 text-sm font-medium ${
-                      isDark ? 'text-graphite-300' : 'text-graphite-700'
-                    }`}
+                    className="ml-2 text-sm font-medium text-graphite-300"
+                    style={{ color: '#C4C8D0' }}
                   >
                     {prescription || `${sets.length} set${sets.length > 1 ? 's' : ''}`}
                   </Text>
@@ -117,15 +115,14 @@ export function ExerciseEntryModal({
               </View>
               <Pressable
                 onPress={onClose}
-                className={`p-2 rounded-full ${
-                  isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-                }`}
+                className="p-2 rounded-full bg-graphite-800"
+                style={{ backgroundColor: '#1A1F2E' }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons
                   name="close"
                   size={24}
-                  color={isDark ? '#E6E8EB' : '#0E1116'}
+                  color="#E6E8EB"
                 />
               </Pressable>
             </View>
@@ -164,9 +161,8 @@ export function ExerciseEntryModal({
           {/* Done button */}
           <SafeAreaView
             edges={['bottom']}
-            className={`px-4 py-3 border-t ${
-              isDark ? 'border-graphite-700 bg-carbon-950' : 'border-graphite-200 bg-white'
-            }`}
+            className="px-4 py-3 border-t border-graphite-700 bg-carbon-950"
+            style={{ borderColor: '#353D4B', backgroundColor: '#0E1116' }}
           >
             <Pressable
               onPress={onClose}

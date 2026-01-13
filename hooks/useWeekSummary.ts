@@ -117,7 +117,7 @@ export function useWeekSummary(): {
         .not('date_completed', 'is', null);
 
       // Fetch PRs from this week
-      const { data: prs } = await supabase
+      const { data: prs, error: prsError } = await supabase
         .from('personal_records')
         .select(`
           id,
@@ -130,6 +130,10 @@ export function useWeekSummary(): {
         .eq('user_id', userId)
         .gte('achieved_at', weekStart.toISOString())
         .lte('achieved_at', weekEnd.toISOString());
+      
+      if (prsError) {
+        console.warn('Error fetching PRs for week summary:', prsError);
+      }
 
       // Fetch active goals with progress
       const { data: goals } = await supabase

@@ -70,6 +70,18 @@ export function ExerciseCard({
   // Status colors and icons
   const statusConfig = getStatusConfig(status, isDark);
   
+  // Force dark mode styling
+  const bgColor = status === 'completed' 
+    ? 'rgba(34, 197, 94, 0.1)' 
+    : status === 'in_progress'
+    ? 'rgba(47, 128, 237, 0.1)'
+    : '#1A1F2E';
+  const borderColor = status === 'completed'
+    ? 'rgba(34, 197, 94, 0.3)'
+    : status === 'in_progress'
+    ? 'rgba(47, 128, 237, 0.3)'
+    : '#353D4B';
+
   return (
     <Pressable
       onPress={onPress}
@@ -78,6 +90,8 @@ export function ExerciseCard({
       } border ${statusConfig.borderClass}`}
       style={({ pressed }) => ({
         opacity: pressed ? 0.7 : 1,
+        backgroundColor: bgColor,
+        borderColor,
       })}
     >
       {/* Status indicator */}
@@ -91,9 +105,7 @@ export function ExerciseCard({
             <View className="w-3 h-3 rounded-full bg-signal-500" />
           </View>
         ) : (
-          <View className={`w-6 h-6 rounded-full border-2 ${
-            isDark ? 'border-graphite-600' : 'border-graphite-300'
-          }`} />
+          <View className="w-6 h-6 rounded-full border-2 border-graphite-600" style={{ borderColor: '#4A5568' }} />
         )}
       </View>
       
@@ -102,11 +114,10 @@ export function ExerciseCard({
         <Text
           className={`font-semibold ${
             status === 'completed'
-              ? 'text-progress-600'
-              : isDark
-              ? 'text-graphite-100'
-              : 'text-graphite-900'
+              ? 'text-progress-500'
+              : 'text-graphite-100'
           }`}
+          style={status !== 'completed' ? { color: '#E6E8EB' } : undefined}
           numberOfLines={1}
         >
           {exercise.name}
@@ -114,13 +125,10 @@ export function ExerciseCard({
         <Text
           className={`text-sm mt-0.5 ${
             status === 'completed'
-              ? isDark
-                ? 'text-progress-400'
-                : 'text-progress-600'
-              : isDark
-              ? 'text-graphite-400'
-              : 'text-graphite-500'
+              ? 'text-progress-400'
+              : 'text-graphite-400'
           }`}
+          style={status === 'completed' ? undefined : { color: '#6B7485' }}
           numberOfLines={1}
         >
           {displayText}
@@ -131,7 +139,7 @@ export function ExerciseCard({
       <Ionicons
         name="chevron-forward"
         size={20}
-        color={isDark ? '#607296' : '#808fb0'}
+        color="#607296"
       />
     </Pressable>
   );
@@ -141,21 +149,22 @@ function getStatusConfig(
   status: CompletionStatus,
   isDark: boolean
 ): { bgClass: string; borderClass: string } {
+  // Force dark mode
   switch (status) {
     case 'completed':
       return {
-        bgClass: isDark ? 'bg-progress-500/10' : 'bg-progress-500/5',
-        borderClass: isDark ? 'border-progress-500/30' : 'border-progress-500/20',
+        bgClass: 'bg-progress-500/10',
+        borderClass: 'border-progress-500/30',
       };
     case 'in_progress':
       return {
-        bgClass: isDark ? 'bg-signal-500/10' : 'bg-signal-500/5',
-        borderClass: isDark ? 'border-signal-500/30' : 'border-signal-500/20',
+        bgClass: 'bg-signal-500/10',
+        borderClass: 'border-signal-500/30',
       };
     default:
       return {
-        bgClass: isDark ? 'bg-graphite-800' : 'bg-white',
-        borderClass: isDark ? 'border-graphite-700' : 'border-graphite-200',
+        bgClass: 'bg-graphite-800',
+        borderClass: 'border-graphite-700',
       };
   }
 }
@@ -166,22 +175,17 @@ interface SectionHeaderProps {
 }
 
 export function SectionHeader({ title }: SectionHeaderProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  
   return (
     <View className="flex-row items-center mb-3 mt-4">
       <Text
-        className={`text-xs font-bold uppercase tracking-wide ${
-          isDark ? 'text-graphite-400' : 'text-graphite-500'
-        }`}
+        className="text-xs font-bold uppercase tracking-wide text-graphite-400"
+        style={{ color: '#6B7485' }}
       >
         {title}
       </Text>
       <View
-        className={`flex-1 h-px ml-3 ${
-          isDark ? 'bg-graphite-700' : 'bg-graphite-200'
-        }`}
+        className="flex-1 h-px ml-3 bg-graphite-700"
+        style={{ backgroundColor: '#353D4B' }}
       />
     </View>
   );

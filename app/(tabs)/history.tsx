@@ -129,13 +129,16 @@ export default function HistoryScreen() {
   const isLoading = historyLoading || incompleteLoading;
 
   return (
-    <SafeAreaView className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`} edges={['left', 'right']}>
+    <SafeAreaView 
+      className="flex-1 bg-carbon-950" 
+      style={{ backgroundColor: '#0E1116' }}
+      edges={['left', 'right']}
+    >
       {/* Search Bar */}
       <View className="px-4 py-3">
         <View
-          className={`flex-row items-center px-4 py-3 rounded-xl ${
-            isDark ? 'bg-graphite-800' : 'bg-white'
-          } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+          className="flex-row items-center px-4 py-3 rounded-xl bg-graphite-800 border border-graphite-700"
+          style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
         >
           <Ionicons
             name="search"
@@ -144,7 +147,8 @@ export default function HistoryScreen() {
             style={{ marginRight: 10 }}
           />
           <TextInput
-            className={`flex-1 text-base ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
+            className="flex-1 text-base text-graphite-100"
+            style={{ color: '#E6E8EB' }}
             placeholder="Search workouts or exercises..."
             placeholderTextColor={isDark ? '#808fb0' : '#607296'}
             value={searchQuery}
@@ -162,40 +166,37 @@ export default function HistoryScreen() {
       <View className="px-4 mb-4">
         <View className="flex-row gap-3">
           <View
-            className={`flex-1 p-4 rounded-xl ${
-              isDark ? 'bg-graphite-800' : 'bg-white'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+            className="flex-1 p-4 rounded-xl bg-graphite-800 border border-graphite-700"
+            style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
           >
-            <Text className={`text-2xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+            <Text className="text-2xl font-bold text-graphite-100" style={{ color: '#E6E8EB' }}>
               {isLoading ? '...' : stats.totalWorkouts}
             </Text>
-            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
               Total Workouts
             </Text>
           </View>
           <View
-            className={`flex-1 p-4 rounded-xl ${
-              isDark ? 'bg-graphite-800' : 'bg-white'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+            className="flex-1 p-4 rounded-xl bg-graphite-800 border border-graphite-700"
+            style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
           >
             <Text className={`text-2xl font-bold text-signal-500`}>
               {isLoading ? '...' : stats.totalVolume >= 1000 
                 ? `${(stats.totalVolume / 1000).toFixed(1)}k` 
                 : Math.round(stats.totalVolume).toString()}
             </Text>
-            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
               Total Volume (lbs)
             </Text>
           </View>
           <View
-            className={`flex-1 p-4 rounded-xl ${
-              isDark ? 'bg-graphite-800' : 'bg-white'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+            className="flex-1 p-4 rounded-xl bg-graphite-800 border border-graphite-700"
+            style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
           >
             <Text className={`text-2xl font-bold text-oxide-500`}>
               {isLoading ? '...' : stats.prsThisMonth}
             </Text>
-            <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text className="text-xs text-graphite-400" style={{ color: '#6B7485' }}>
               PRs This Month
             </Text>
           </View>
@@ -213,16 +214,15 @@ export default function HistoryScreen() {
             {/* Incomplete Workouts Section */}
             {filteredIncomplete.length > 0 && (
               <View className="mb-6">
-                <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
                   Continue Workout
                 </Text>
                 <View className="gap-2">
                   {filteredIncomplete.map((workout) => (
                     <Pressable
                       key={workout.id}
-                      className={`p-4 rounded-xl ${
-                        isDark ? 'bg-graphite-800' : 'bg-white'
-                      } border-2 ${isDark ? 'border-signal-500/50' : 'border-signal-500/50'}`}
+                      className="p-4 rounded-xl bg-graphite-800 border-2"
+                      style={{ backgroundColor: '#1A1F2E', borderColor: 'rgba(47, 128, 237, 0.5)' }}
                       onPress={() => router.push(`/workout/${workout.id}`)}
                     >
                       <View className="flex-row items-start justify-between mb-2">
@@ -240,14 +240,14 @@ export default function HistoryScreen() {
                           </View>
                           <View>
                             <View className="flex-row items-center">
-                              <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                              <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
                                 {workout.focus}
                               </Text>
                               <View className="ml-2 px-2 py-0.5 rounded-full bg-signal-500/20">
                                 <Text className="text-signal-500 text-xs font-semibold">In Progress</Text>
                               </View>
                             </View>
-                            <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
                               Last updated {format(workout.date, 'MMM d')}
                             </Text>
                           </View>
@@ -269,7 +269,7 @@ export default function HistoryScreen() {
                             size={14}
                             color={isDark ? '#808fb0' : '#607296'}
                           />
-                          <Text className={`text-sm ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                          <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                             {workout.exerciseCount} exercises
                           </Text>
                         </View>
@@ -280,7 +280,7 @@ export default function HistoryScreen() {
                               size={14}
                               color={isDark ? '#808fb0' : '#607296'}
                             />
-                            <Text className={`text-sm ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                               {workout.totalVolume >= 1000 
                                 ? `${(workout.totalVolume / 1000).toFixed(1)}k lbs`
                                 : `${Math.round(workout.totalVolume)} lbs`}
@@ -296,7 +296,7 @@ export default function HistoryScreen() {
 
             {/* Completed Workouts Section */}
             <View>
-              <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+              <Text className="text-lg font-bold mb-3 text-graphite-100" style={{ color: '#E6E8EB' }}>
                 Recent Workouts
               </Text>
 
@@ -307,7 +307,7 @@ export default function HistoryScreen() {
                     size={48}
                     color={isDark ? '#808fb0' : '#607296'}
                   />
-                  <Text className={`mt-4 text-center ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                  <Text className="mt-4 text-center text-graphite-400" style={{ color: '#6B7485' }}>
                     No completed workouts yet.{'\n'}Start your first workout to see it here!
                   </Text>
                 </View>
@@ -316,9 +316,8 @@ export default function HistoryScreen() {
                   {filteredCompleted.map((workout) => (
                     <View
                       key={workout.id}
-                      className={`p-4 rounded-xl ${
-                        isDark ? 'bg-graphite-800' : 'bg-white'
-                      } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+                      className="p-4 rounded-xl bg-graphite-800 border border-graphite-700"
+                      style={{ backgroundColor: '#1A1F2E', borderColor: '#353D4B' }}
                     >
                       <Pressable
                         onPress={() => router.push(`/workout-summary/${workout.id}`)}
@@ -337,10 +336,10 @@ export default function HistoryScreen() {
                             />
                           </View>
                           <View>
-                            <Text className={`font-semibold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                              {workout.focus}
-                            </Text>
-                            <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                              <Text className="font-semibold text-graphite-100" style={{ color: '#E6E8EB' }}>
+                                {workout.focus}
+                              </Text>
+                              <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
                               {format(workout.date, 'EEEE, MMM d')}
                             </Text>
                           </View>
@@ -363,7 +362,7 @@ export default function HistoryScreen() {
                               size={14}
                               color={isDark ? '#808fb0' : '#607296'}
                             />
-                            <Text className={`text-sm ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                               {workout.duration_minutes} min
                             </Text>
                           </View>
@@ -374,7 +373,7 @@ export default function HistoryScreen() {
                             size={14}
                             color={isDark ? '#808fb0' : '#607296'}
                           />
-                          <Text className={`text-sm ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                          <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                             {workout.exerciseCount} exercises
                           </Text>
                         </View>
@@ -385,7 +384,7 @@ export default function HistoryScreen() {
                               size={14}
                               color={isDark ? '#808fb0' : '#607296'}
                             />
-                            <Text className={`text-sm ml-1 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+                            <Text className="text-sm ml-1 text-graphite-400" style={{ color: '#6B7485' }}>
                               {workout.totalVolume >= 1000 
                                 ? `${(workout.totalVolume / 1000).toFixed(1)}k lbs`
                                 : `${Math.round(workout.totalVolume)} lbs`}

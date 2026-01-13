@@ -144,16 +144,16 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
               className={`items-center p-3 rounded-xl flex-1 mx-1 ${
                 isSelected
                   ? 'bg-signal-500'
-                  : isDark
-                  ? 'bg-graphite-700'
-                  : 'bg-graphite-100'
+                  : 'bg-graphite-700'
               }`}
+              style={!isSelected ? { backgroundColor: '#353D4B' } : undefined}
             >
               <Text className="text-2xl mb-1">{metric.emoji}</Text>
               <Text
                 className={`text-xs font-medium ${
-                  isSelected ? 'text-white' : isDark ? 'text-graphite-300' : 'text-graphite-600'
+                  isSelected ? 'text-white' : 'text-graphite-300'
                 }`}
+                style={!isSelected ? { color: '#C4C8D0' } : undefined}
               >
                 {value}
               </Text>
@@ -182,28 +182,25 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
 
         {/* AI Message */}
         <View
-          className={`p-4 rounded-xl mb-4 ${
-            isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-          }`}
+          className="p-4 rounded-xl mb-4 bg-graphite-800"
+          style={{ backgroundColor: '#1A1F2E' }}
         >
           <View className="flex-row items-center mb-2">
             <Ionicons
               name="sparkles"
               size={18}
-              color={isDark ? '#2F80ED' : '#1a5fb4'}
+              color="#2F80ED"
             />
             <Text
-              className={`ml-2 font-semibold ${
-                isDark ? 'text-graphite-100' : 'text-graphite-900'
-              }`}
+              className="ml-2 font-semibold text-graphite-100"
+              style={{ color: '#E6E8EB' }}
             >
               Coach Recommendation
             </Text>
           </View>
           <Text
-            className={`text-base leading-6 ${
-              isDark ? 'text-graphite-300' : 'text-graphite-700'
-            }`}
+            className="text-base leading-6 text-graphite-300"
+            style={{ color: '#C4C8D0' }}
           >
             {analysis.message}
           </Text>
@@ -227,10 +224,9 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
                       ? 'text-progress-500'
                       : impact === 'negative'
                       ? 'text-oxide-500'
-                      : isDark
-                      ? 'text-graphite-400'
-                      : 'text-graphite-500'
+                      : 'text-graphite-400'
                   }`}
+                  style={impact === 'neutral' ? { color: '#6B7485' } : undefined}
                 >
                   {metric.label}
                 </Text>
@@ -246,12 +242,9 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
               value={notes}
               onChangeText={setNotes}
               placeholder="Anything else? (optional)"
-              placeholderTextColor={isDark ? '#607296' : '#9ca3af'}
-              className={`p-3 rounded-xl ${
-                isDark
-                  ? 'bg-graphite-800 text-graphite-100'
-                  : 'bg-white text-graphite-900'
-              } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+              placeholderTextColor="#607296"
+              className="p-3 rounded-xl bg-graphite-800 text-graphite-100 border border-graphite-700"
+              style={{ backgroundColor: '#1A1F2E', color: '#E6E8EB', borderColor: '#353D4B' }}
               multiline
               maxLength={200}
             />
@@ -261,7 +254,7 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
             onPress={() => setShowNotes(true)}
             className="mb-4"
           >
-            <Text className={`text-center text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+            <Text className="text-center text-sm text-graphite-400" style={{ color: '#6B7485' }}>
               + Add notes (optional)
             </Text>
           </Pressable>
@@ -287,14 +280,12 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
           {analysis.suggestion !== 'full' && (
             <Pressable
               onPress={() => handleConfirm('full')}
-              className={`py-3 px-6 rounded-xl border ${
-                isDark ? 'border-graphite-600' : 'border-graphite-300'
-              }`}
+              className="py-3 px-6 rounded-xl border border-graphite-600"
+              style={{ borderColor: '#4A5568' }}
             >
               <Text
-                className={`text-center font-medium ${
-                  isDark ? 'text-graphite-300' : 'text-graphite-600'
-                }`}
+                className="text-center font-medium text-graphite-300"
+                style={{ color: '#C4C8D0' }}
               >
                 Override: Train Full Anyway
               </Text>
@@ -307,9 +298,8 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
 
   return (
     <View
-      className={`p-6 rounded-2xl ${
-        isDark ? 'bg-graphite-900' : 'bg-white'
-      }`}
+      className="p-6 rounded-2xl bg-graphite-900"
+      style={{ backgroundColor: '#1C222B' }}
     >
       {/* Header */}
       <View className="flex-row items-center justify-between mb-6">
@@ -319,27 +309,26 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
               <Ionicons
                 name="arrow-back"
                 size={24}
-                color={isDark ? '#d3d8e4' : '#374151'}
+                color="#d3d8e4"
               />
             </Pressable>
           )}
           <View>
             <Text
-              className={`text-xl font-bold ${
-                isDark ? 'text-graphite-100' : 'text-graphite-900'
-              }`}
+              className="text-xl font-bold text-graphite-100"
+              style={{ color: '#E6E8EB' }}
             >
               {step === 'result' ? 'Your Readiness' : 'Quick Check-In'}
             </Text>
             {step !== 'result' && (
-              <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+              <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
                 Step {step === 'sleep' ? 1 : step === 'soreness' ? 2 : 3} of 3
               </Text>
             )}
           </View>
         </View>
         <Pressable onPress={onSkip} className="p-2">
-          <Text className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+          <Text className="text-sm text-graphite-400" style={{ color: '#6B7485' }}>
             Skip
           </Text>
         </Pressable>
@@ -356,10 +345,9 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
                   ? 'bg-signal-500'
                   : i < ['sleep', 'soreness', 'stress'].indexOf(step)
                   ? 'bg-progress-500'
-                  : isDark
-                  ? 'bg-graphite-700'
-                  : 'bg-graphite-300'
+                  : 'bg-graphite-700'
               }`}
+              style={step !== s && i >= ['sleep', 'soreness', 'stress'].indexOf(step) ? { backgroundColor: '#353D4B' } : undefined}
             />
           ))}
         </View>
@@ -371,20 +359,18 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
           {/* Question */}
           <View className="items-center mb-4">
             <View
-              className={`w-16 h-16 rounded-full items-center justify-center mb-4 ${
-                isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-              }`}
+              className="w-16 h-16 rounded-full items-center justify-center mb-4 bg-graphite-800"
+              style={{ backgroundColor: '#1A1F2E' }}
             >
               <Ionicons
                 name={currentConfig!.icon}
                 size={32}
-                color={isDark ? '#d3d8e4' : '#374151'}
+                color="#d3d8e4"
               />
             </View>
             <Text
-              className={`text-2xl font-semibold text-center ${
-                isDark ? 'text-graphite-100' : 'text-graphite-900'
-              }`}
+              className="text-2xl font-semibold text-center text-graphite-100"
+              style={{ color: '#E6E8EB' }}
             >
               {currentConfig!.question}
             </Text>
@@ -392,10 +378,10 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
 
           {/* Scale labels */}
           <View className="flex-row justify-between px-4 mb-2">
-            <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+            <Text className="text-xs text-graphite-500" style={{ color: '#808FB0' }}>
               {currentConfig!.lowLabel}
             </Text>
-            <Text className={`text-xs ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+            <Text className="text-xs text-graphite-500" style={{ color: '#808FB0' }}>
               {currentConfig!.highLabel}
             </Text>
           </View>
