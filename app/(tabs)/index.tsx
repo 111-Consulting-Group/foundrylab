@@ -16,6 +16,8 @@ import { useExerciseMemory } from '@/hooks/useExerciseMemory';
 import { useWeekSummary } from '@/hooks/useWeekSummary';
 import { useWorkoutTemplates } from '@/hooks/useWorkoutTemplates';
 import { GoalCard } from '@/components/GoalCard';
+import { PatternInsightsList, TrainingSplitSummary } from '@/components/PatternInsights';
+import { usePatternInsights, useTrainingSplitSummary } from '@/hooks/usePatternDetection';
 import type { WorkoutTemplate } from '@/types/database';
 import { suggestProgression } from '@/lib/autoProgress';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
@@ -96,6 +98,10 @@ export default function DashboardScreen() {
 
   // Fetch active goals
   const { data: activeGoals = [] } = useActiveGoals();
+
+  // Fetch training patterns
+  const { patterns, isLoading: patternsLoading } = usePatternInsights();
+  const splitSummary = useTrainingSplitSummary();
 
   // Fetch comprehensive week summary
   const { data: weekSummary } = useWeekSummary();
@@ -852,6 +858,33 @@ export default function DashboardScreen() {
             </View>
           )}
         </View>
+
+        {/* Training Patterns */}
+        {patterns.length > 0 && (
+          <View className="mb-6">
+            {splitSummary ? (
+              <>
+                <Text className={`text-lg font-bold mb-3 ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                  Your Training Pattern
+                </Text>
+                <TrainingSplitSummary
+                  name={splitSummary.name}
+                  splits={splitSummary.splits}
+                  daysPerWeek={splitSummary.daysPerWeek}
+                  confidence={splitSummary.confidence}
+                  preferredDays={splitSummary.preferredDays}
+                />
+              </>
+            ) : (
+              <PatternInsightsList
+                patterns={patterns}
+                title="Training Insights"
+                maxItems={3}
+                compact
+              />
+            )}
+          </View>
+        )}
 
         {/* Bottom spacing */}
         <View className="h-8" />
