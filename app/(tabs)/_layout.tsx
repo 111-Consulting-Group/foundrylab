@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, useRouter, Redirect } from 'expo-router';
 import { Platform, TouchableOpacity, Alert } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { useLogout } from '@/hooks/useAuth';
+import { useAppStore } from '@/stores/useAppStore';
 
 type TabIconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -22,6 +23,12 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const logoutMutation = useLogout();
+  const userId = useAppStore((state) => state.userId);
+
+  // Redirect to login if not authenticated
+  if (!userId) {
+    return <Redirect href="/login" />;
+  }
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
