@@ -54,6 +54,12 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
       persistSession: true,
       detectSessionInUrl: false,
     },
+    global: {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    },
   }
 );
 
