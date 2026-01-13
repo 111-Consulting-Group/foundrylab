@@ -48,13 +48,19 @@ export default function LoginScreen() {
           setUserProfile(profile);
         }
 
+        // Small delay to ensure state is set before navigation
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Redirect to tabs
         router.replace('/(tabs)');
+      } else {
+        Alert.alert('Error', 'Login failed - no user data returned');
+        setLoading(false);
       }
     } catch (err: any) {
+      console.error('Login error:', err);
       const message = getAuthErrorMessage(err);
       Alert.alert('Error', message);
-    } finally {
       setLoading(false);
     }
   }

@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter, Redirect } from 'expo-router';
 import { Platform, TouchableOpacity, Alert } from 'react-native';
+import { useEffect, useState } from 'react';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { useLogout } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/useAppStore';
+import { supabase } from '@/lib/supabase';
 
 type TabIconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -24,9 +26,26 @@ export default function TabLayout() {
   const isDark = colorScheme === 'dark';
   const logoutMutation = useLogout();
   const userId = useAppStore((state) => state.userId);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
 
-  // Redirect to login if not authenticated
-  if (!userId) {
+  // Check Supabase session on mount
+  useEffect(() => {
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      setHasSession(!!session);
+      setIsCheckingAuth(false);
+    }
+    checkSession();
+  }, []);
+
+  // Show nothing while checking
+  if (isCheckingAuth) {
+    return null;
+  }
+
+  // Redirect to login if not authenticated (check both store and session)
+  if (!userId && !hasSession) {
     return <Redirect href="/login" />;
   }
 
