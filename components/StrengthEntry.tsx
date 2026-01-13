@@ -7,7 +7,8 @@ import { View, Text, TextInput, Pressable, Alert, Platform } from 'react-native'
 import Slider from '@react-native-community/slider';
 
 import { useColorScheme } from '@/components/useColorScheme';
-import { useExerciseMemory } from '@/hooks/useExerciseMemory';
+import { MovementMemoryCard, EmptyMemoryCard } from '@/components/MovementMemoryCard';
+import { useMovementMemory, useNextTimeSuggestion } from '@/hooks/useMovementMemory';
 import { type SetWithExercise } from '@/lib/workoutSummary';
 import type { Exercise, WorkoutSetInsert } from '@/types/database';
 
@@ -49,8 +50,9 @@ export function StrengthEntry({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Fetch exercise memory (last performance)
-  const { data: exerciseMemory } = useExerciseMemory(exercise.id, workoutId);
+  // Fetch movement memory and suggestion (Training Intelligence)
+  const { data: movementMemory } = useMovementMemory(exercise.id, workoutId);
+  const { data: suggestion } = useNextTimeSuggestion(exercise.id, exercise.name, workoutId);
 
   // Form state - declare editingSetId first since it's used below
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
@@ -82,11 +84,11 @@ export function StrengthEntry({
     if (weight === '' && !isBodyweight) {
       if (targetLoad) {
         setWeight(targetLoad.toString());
-      } else if (exerciseMemory?.lastWeight) {
-        setWeight(exerciseMemory.lastWeight.toString());
+      } else if (movementMemory?.lastWeight) {
+        setWeight(movementMemory.lastWeight.toString());
       }
     }
-  }, [targetLoad, exerciseMemory?.lastWeight, isBodyweight]); // Remove 'weight' from deps to prevent reset loop
+  }, [targetLoad, movementMemory?.lastWeight, isBodyweight]); // Remove 'weight' from deps to prevent reset loop
 
   // Initialize reps from target (only once, don't reset if user has cleared it)
   useEffect(() => {
@@ -118,15 +120,15 @@ export function StrengthEntry({
       if (!weight && !isBodyweight) {
         if (targetLoad) {
           setWeight(targetLoad.toString());
-        } else if (exerciseMemory?.lastWeight) {
-          setWeight(exerciseMemory.lastWeight.toString());
+        } else if (movementMemory?.lastWeight) {
+          setWeight(movementMemory.lastWeight.toString());
         }
       }
       if (!reps && targetReps) {
         setReps(targetReps.toString());
       }
     }
-  }, [editingSet, targetLoad, targetReps, exerciseMemory?.lastWeight]);
+  }, [editingSet, targetLoad, targetReps, movementMemory?.lastWeight]);
 
   // Handle logging a set
   const handleLogSet = useCallback(async () => {
@@ -250,26 +252,32 @@ export function StrengthEntry({
   // All sets logged?
   const allComplete = currentSetIndex >= totalSets;
 
+  // Handle applying suggestion to form
+  const handleApplySuggestion = useCallback((suggestedWeight: number, suggestedReps: number) => {
+    if (suggestedWeight > 0) {
+      setWeight(suggestedWeight.toString());
+      setIsBodyweight(false);
+    }
+    if (suggestedReps > 0) {
+      setReps(suggestedReps.toString());
+    }
+  }, []);
+
   return (
     <View className="px-4 pt-4">
-      {/* Last Performance */}
-      {exerciseMemory && !allComplete && (
-        <View
-          className={`mb-4 p-3 rounded-xl ${
-            isDark ? 'bg-signal-500/10' : 'bg-signal-500/5'
-          } border ${isDark ? 'border-signal-500/30' : 'border-signal-500/20'}`}
-        >
-          <View className="flex-row items-center mb-1">
-            <Ionicons name="time-outline" size={14} color="#2F80ED" />
-            <Text className="text-xs font-semibold ml-1 text-signal-500">
-              Last time
-            </Text>
-          </View>
-          <Text
-            className={`text-sm ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
-          >
-            {exerciseMemory.displayText}
-          </Text>
+      {/* Movement Memory Card - shows last performance + suggestion */}
+      {!allComplete && (
+        <View className="mb-4">
+          {movementMemory ? (
+            <MovementMemoryCard
+              memory={movementMemory}
+              suggestion={suggestion}
+              compact
+              onApplySuggestion={handleApplySuggestion}
+            />
+          ) : (
+            <EmptyMemoryCard />
+          )}
         </View>
       )}
 
