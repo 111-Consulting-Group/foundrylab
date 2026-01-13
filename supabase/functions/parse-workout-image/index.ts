@@ -1,0 +1,314 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Types for parsed workout data
+interface ParsedSet {
+  reps: number;
+  weight?: number;
+  rpe?: number;
+  notes?: string;
+}
+
+interface ParsedExercise {
+  name: string;
+  originalName: string; // What was written on the board
+  sets: ParsedSet[];
+  notes?: string;
+}
+
+interface ParsedWorkout {
+  title?: string;
+  date?: string;
+  exercises: ParsedExercise[];
+  notes?: string;
+  goals?: { exercise: string; target: number }[];
+  warmup?: string[];
+  mode: 'log' | 'plan'; // Whether this is completed work or a plan
+  rawText?: string; // For debugging
+}
+
+const VISION_SYSTEM_PROMPT = `You are an expert at reading handwritten workout logs and whiteboard workout plans.
+Your job is to parse images of workouts and extract structured data.
+
+Common notations you'll see:
+- "5x10" or "5 x 10" = 5 sets of 10 reps
+- "3x8@185" or "3x8 @ 185" = 3 sets of 8 reps at 185 lbs
+- "225x5" sometimes means 225 lbs for 5 reps (context matters)
+- "RPE 8" or "@8" = Rate of Perceived Exertion of 8
+- Weights with # symbol (e.g., "185#") = pounds
+- Checkmarks (✓, ✔, ☑) indicate completed items
+- Empty boxes (☐, □) indicate planned but not completed
+
+Common abbreviations:
+- DB = Dumbbell
+- BB = Barbell (or just "B" or "Bar")
+- KB = Kettlebell
+- BW = Bodyweight
+- OHP = Overhead Press
+- RDL = Romanian Deadlift
+- EMOM = Every Minute On the Minute
+
+Determine if this is:
+1. A COMPLETED workout log (has actual weights logged) - mode: "log"
+2. A WORKOUT PLAN (just exercises/sets/reps, needs weight suggestions) - mode: "plan"
+
+Output ONLY valid JSON matching this structure:
+{
+  "title": "Optional workout title",
+  "exercises": [
+    {
+      "name": "Standardized exercise name (e.g., 'Back Squat' not 'Squat')",
+      "originalName": "Exactly what was written",
+      "sets": [
+        { "reps": 10, "weight": 185, "rpe": null, "notes": null }
+      ],
+      "notes": "Any exercise-specific notes"
+    }
+  ],
+  "notes": "General workout notes",
+  "goals": [{ "exercise": "Deadlift", "target": 410 }],
+  "warmup": ["List of warmup items if visible"],
+  "mode": "log" or "plan",
+  "rawText": "Plain text representation of what you saw"
+}
+
+Important:
+- If multiple weights are listed for sets, create individual set entries
+- Convert all weights to pounds (lbs)
+- Standardize exercise names (e.g., "Back Squat" not "Squat", "Bench Press" not "Bench")
+- If sets have "x" notation like "5x10@185", expand to 5 individual sets
+- Handle ascending/pyramid sets with different weights`;
+
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not configured');
+    }
+
+    const { image_base64, image_url, user_id } = await req.json();
+
+    if (!image_base64 && !image_url) {
+      return new Response(
+        JSON.stringify({ error: 'Either image_base64 or image_url is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Build the image content for GPT-4 Vision
+    const imageContent = image_base64
+      ? {
+          type: 'image_url',
+          image_url: {
+            url: `data:image/jpeg;base64,${image_base64}`,
+            detail: 'high',
+          },
+        }
+      : {
+          type: 'image_url',
+          image_url: {
+            url: image_url,
+            detail: 'high',
+          },
+        };
+
+    // Call OpenAI Vision API
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: VISION_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Parse this workout image and extract all exercises, sets, reps, and weights. Determine if this is a completed log or a plan needing suggestions.',
+              },
+              imageContent,
+            ],
+          },
+        ],
+        max_tokens: 2000,
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('OpenAI API error:', error);
+      throw new Error(error.error?.message || 'Failed to parse image');
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('No content in OpenAI response');
+    }
+
+    let parsedWorkout: ParsedWorkout;
+    try {
+      parsedWorkout = JSON.parse(content);
+    } catch (parseError) {
+      console.error('Failed to parse OpenAI response:', content);
+      throw new Error('Failed to parse workout data from image');
+    }
+
+    // If user_id provided, try to match exercises to database
+    let matchedExercises: { parsed: string; matched: { id: string; name: string } | null }[] = [];
+    
+    if (user_id) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Get all available exercises
+      const { data: exercises } = await supabase
+        .from('exercises')
+        .select('id, name')
+        .or(`is_custom.eq.false,created_by.eq.${user_id}`);
+
+      if (exercises) {
+        // Try to match parsed exercise names to database
+        matchedExercises = parsedWorkout.exercises.map((ex) => {
+          const normalizedName = ex.name.toLowerCase().trim();
+          
+          // Exact match first
+          let match = exercises.find(
+            (e) => e.name.toLowerCase() === normalizedName
+          );
+          
+          // Fuzzy match - check if database exercise contains parsed name
+          if (!match) {
+            match = exercises.find(
+              (e) => e.name.toLowerCase().includes(normalizedName) ||
+                     normalizedName.includes(e.name.toLowerCase())
+            );
+          }
+
+          // Try common variations
+          if (!match) {
+            const variations: Record<string, string[]> = {
+              'back squat': ['squat', 'barbell squat', 'bb squat'],
+              'bench press': ['bench', 'flat bench', 'barbell bench', 'bb bench'],
+              'deadlift': ['conventional deadlift', 'barbell deadlift'],
+              'overhead press': ['ohp', 'shoulder press', 'military press'],
+              'barbell row': ['bent over row', 'bb row', 'row'],
+              'pull-up': ['pullup', 'pull up', 'chin up', 'chinup'],
+              'romanian deadlift': ['rdl', 'stiff leg deadlift'],
+              'dumbbell bench press': ['db bench', 'dumbbell bench'],
+              'dumbbell shoulder press': ['db shoulder press', 'db ohp', 'seated db press'],
+            };
+
+            for (const [standard, alts] of Object.entries(variations)) {
+              if (alts.includes(normalizedName) || normalizedName.includes(standard)) {
+                match = exercises.find(
+                  (e) => e.name.toLowerCase() === standard ||
+                         e.name.toLowerCase().includes(standard)
+                );
+                if (match) break;
+              }
+            }
+          }
+
+          return {
+            parsed: ex.name,
+            matched: match ? { id: match.id, name: match.name } : null,
+          };
+        });
+
+        // Attach matched IDs to parsed exercises
+        parsedWorkout.exercises = parsedWorkout.exercises.map((ex, i) => ({
+          ...ex,
+          exercise_id: matchedExercises[i]?.matched?.id || null,
+          matchedName: matchedExercises[i]?.matched?.name || null,
+        }));
+      }
+
+      // If mode is 'plan', get suggestions from movement memory
+      if (parsedWorkout.mode === 'plan') {
+        const exerciseIds = parsedWorkout.exercises
+          .filter((ex: any) => ex.exercise_id)
+          .map((ex: any) => ex.exercise_id);
+
+        if (exerciseIds.length > 0) {
+          // Get movement memory for suggestions
+          const { data: memories } = await supabase
+            .from('movement_memory')
+            .select('*')
+            .eq('user_id', user_id)
+            .in('exercise_id', exerciseIds);
+
+          if (memories) {
+            parsedWorkout.exercises = parsedWorkout.exercises.map((ex: any) => {
+              if (!ex.exercise_id) return ex;
+              
+              const memory = memories.find((m) => m.exercise_id === ex.exercise_id);
+              if (!memory) return ex;
+
+              // Apply progressive overload logic
+              let suggestedWeight = memory.last_weight;
+              let reasoning = '';
+
+              if (memory.last_rpe !== null && memory.last_rpe < 7) {
+                suggestedWeight = memory.last_weight;
+                reasoning = `Last set felt easy (RPE ${memory.last_rpe}). Try same weight, aim for +1 rep.`;
+              } else if (memory.last_rpe !== null && memory.last_rpe <= 8.5) {
+                suggestedWeight = Math.round((memory.last_weight + 5) / 5) * 5; // Round to 5
+                reasoning = `Good effort last time (RPE ${memory.last_rpe}). Try +5 lbs.`;
+              } else {
+                reasoning = `Last set was challenging. Match ${memory.last_weight} lbs before progressing.`;
+              }
+
+              return {
+                ...ex,
+                suggestion: {
+                  weight: suggestedWeight,
+                  lastWeight: memory.last_weight,
+                  lastReps: memory.last_reps,
+                  lastRpe: memory.last_rpe,
+                  lastDate: memory.last_date,
+                  confidence: memory.confidence_level,
+                  reasoning,
+                  prWeight: memory.pr_weight,
+                  exposureCount: memory.exposure_count,
+                },
+              };
+            });
+          }
+        }
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        workout: parsedWorkout,
+        matchedExercises,
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error parsing workout image:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});

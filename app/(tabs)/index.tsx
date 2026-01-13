@@ -80,7 +80,14 @@ export default function DashboardScreen() {
               PROGRESS, ENGINEERED
             </Text>
           </View>
-          {/* Secondary Actions Menu could go here */}
+          {/* Scan Workout Button */}
+          <Pressable 
+            onPress={() => router.push('/scan-workout')}
+            className="w-11 h-11 rounded-full items-center justify-center"
+            style={{ backgroundColor: 'rgba(47, 128, 237, 0.1)' }}
+          >
+            <Ionicons name="camera-outline" size={22} color="#2F80ED" />
+          </Pressable>
         </View>
 
         {/* 1. Hero: Today's Target */}
@@ -131,14 +138,22 @@ export default function DashboardScreen() {
                   Calibration Mode
                 </Text>
                 <Text className="text-sm text-center mt-1 mb-4 text-graphite-400" style={{ color: '#6B7485' }}>
-                  No scheduled session. Log a custom workout or rest.
+                  No scheduled session. Scan a workout or log manually.
                 </Text>
-                <LabButton 
-                  label="Quick Log" 
-                  variant="outline"
-                  size="sm"
-                  onPress={() => router.push('/workout/new')}
-                />
+                <View className="flex-row gap-3">
+                  <LabButton 
+                    label="Scan Workout" 
+                    icon={<Ionicons name="camera-outline" size={16} color="white" />}
+                    size="sm"
+                    onPress={() => router.push('/scan-workout')}
+                  />
+                  <LabButton 
+                    label="Quick Log" 
+                    variant="outline"
+                    size="sm"
+                    onPress={() => router.push('/workout/new')}
+                  />
+                </View>
               </View>
             </LabCard>
           )}
