@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { ExerciseBreakdown } from '@/components/ExerciseBreakdown';
 import { SaveTemplateModal } from '@/components/TemplatePicker';
 import { NextTimeSummary } from '@/components/NextTimeSummary';
+import { NewAchievementToast, AchievementRow } from '@/components/AchievementBadge';
 import { useWorkout, useUncompleteWorkout } from '@/hooks/useWorkouts';
+import { useCheckAchievements, useRecentAchievements } from '@/hooks/useAchievements';
 import { useWorkoutSuggestions } from '@/hooks/useMovementMemory';
 import { useShareWorkout } from '@/hooks/useSocial';
 import { useIsBlockComplete, useBlockSummary } from '@/hooks/useBlockSummary';
@@ -46,6 +48,24 @@ export default function WorkoutSummaryScreen() {
   const { isBlockComplete, blockId } = useIsBlockComplete(id);
   const { data: blockSummary } = useBlockSummary(blockId || '');
   const [showBlockSummary, setShowBlockSummary] = useState(true);
+
+  // Achievement checking
+  const { checkAndAward } = useCheckAchievements();
+  const { data: recentAchievements } = useRecentAchievements(3);
+  const [newAchievement, setNewAchievement] = useState<any>(null);
+  const [achievementsChecked, setAchievementsChecked] = useState(false);
+
+  // Check for new achievements when workout summary loads
+  useEffect(() => {
+    if (workout && id && !achievementsChecked) {
+      setAchievementsChecked(true);
+      checkAndAward(id).then((newAchievements) => {
+        if (newAchievements.length > 0) {
+          setNewAchievement(newAchievements[0]);
+        }
+      });
+    }
+  }, [workout, id, achievementsChecked, checkAndAward]);
 
   // Get "Next Time" suggestions for all exercises in this workout
   const exerciseData = useMemo(() => {
@@ -596,6 +616,26 @@ ${exerciseDetails.join('\n')}
               ))}
             </View>
 
+            {/* Recent Achievements */}
+            {recentAchievements && recentAchievements.length > 0 && (
+              <View className="mt-6 pt-4 border-t border-graphite-700">
+                <Text
+                  className={`text-xs font-medium mb-3 ${
+                    isDark ? 'text-graphite-400' : 'text-graphite-500'
+                  }`}
+                >
+                  Recent Achievements
+                </Text>
+                <AchievementRow
+                  achievements={recentAchievements.map((a) => ({
+                    definition: a.definition,
+                    earnedAt: a.stored.earned_at,
+                  }))}
+                  size="sm"
+                />
+              </View>
+            )}
+
             {/* Footer */}
             <View className="mt-6 pt-4 border-t border-graphite-700 items-center">
               <Text
@@ -857,6 +897,15 @@ ${exerciseDetails.join('\n')}
         defaultFocus={workout?.focus || ''}
         isSaving={createTemplateMutation.isPending}
       />
+
+      {/* Achievement Toast */}
+      {newAchievement && (
+        <NewAchievementToast
+          achievement={newAchievement}
+          visible={!!newAchievement}
+          onDismiss={() => setNewAchievement(null)}
+        />
+      )}
     </SafeAreaView>
     </>
   );
