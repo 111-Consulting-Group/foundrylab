@@ -37,6 +37,7 @@ export default function WorkoutSummaryScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const summaryRef = useRef<View>(null);
+  const webDomRef = useRef<HTMLElement | null>(null);
 
   const { data: workout, isLoading } = useWorkout(id);
   const shareWorkoutMutation = useShareWorkout();
@@ -303,44 +304,83 @@ export default function WorkoutSummaryScreen() {
       })
     : 'Not completed';
 
-  // Handle share (keeping existing logic)
+  // Handle share - capture screenshot of the receipt
   const handleShare = async () => {
     if (!workout?.workout_sets) return;
-    // ... existing share logic ...
-    // Note: Re-implementing share logic if needed or relying on existing implementation if I didn't delete it
-    // The previous implementation was quite long, I'll simplify/stub it here or assume I'm replacing the whole file content
-    // I will stub it for brevity but in a real scenario I would copy the logic.
-    // Actually, I'll rely on the user having the `useShareWorkout` hook and implementation details in `workout-summary/[id].tsx` from previous context.
     
-    const summary = `🏋️ ${workout?.focus || 'Workout'} Summary\n\n#FitnessTracking #WorkoutComplete`;
-    
-    if (Platform.OS === 'web') {
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: `${workout?.focus || 'Workout'} Summary`,
-            text: summary,
-          });
-        } catch (error) {}
-      } else {
-        await navigator.clipboard.writeText(summary);
-        alert('Summary copied to clipboard!');
-      }
-    } else {
-      try {
-        if (summaryRef.current) {
-          const uri = await captureRef(summaryRef, {
-            format: 'png',
-            quality: 1,
-          });
-          await Share.share({
-            message: summary,
-            url: uri,
-          });
+    try {
+      if (Platform.OS === 'web') {
+        // For web, use html2canvas
+        const html2canvas = (await import('html2canvas')).default;
+        
+        // Use the stored DOM node or try to get it from the ref
+        let domNode = webDomRef.current;
+        
+        if (!domNode && summaryRef.current) {
+          const element = summaryRef.current as any;
+          domNode = element?._nativeNode || element;
         }
-      } catch (error) {
-        console.error('Failed to share:', error);
+        
+        if (!domNode || domNode.nodeType !== 1) {
+          Alert.alert('Error', 'Unable to capture screenshot. Please try again.');
+          return;
+        }
+        
+        const canvas = await html2canvas(domNode, {
+          backgroundColor: '#0E1116',
+          scale: 2,
+          logging: false,
+          useCORS: true,
+        });
+        
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            Alert.alert('Error', 'Failed to generate image.');
+            return;
+          }
+          
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${workout.focus || 'Workout'}_${new Date(workout.date_completed || Date.now()).toISOString().split('T')[0]}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          
+          // Try Web Share API if available
+          if (navigator.share) {
+            try {
+              const file = new File([blob], link.download, { type: 'image/png' });
+              navigator.share({
+                title: `${workout.focus || 'Workout'} Summary`,
+                text: `Check out my workout from Foundry Labs!`,
+                files: [file],
+              }).catch(() => {
+                // Share API failed, but download already happened
+              });
+            } catch (shareError) {
+              // Share API not available, download already happened
+            }
+          }
+        }, 'image/png');
+      } else {
+        // Native: Use react-native-view-shot
+        if (!summaryRef.current) return;
+        
+        const uri = await captureRef(summaryRef, {
+          format: 'png',
+          quality: 1.0,
+        });
+        
+        await Share.share({
+          message: `Check out my workout from Foundry Labs!`,
+          url: uri,
+        });
       }
+    } catch (error) {
+      console.error('Failed to share:', error);
+      Alert.alert('Error', 'Failed to capture screenshot. Please try again.');
     }
   };
 
@@ -390,7 +430,20 @@ export default function WorkoutSummaryScreen() {
 
         <ScrollView className="flex-1">
           {/* Shareable Card Content */}
-          <View ref={summaryRef} className="bg-carbon-950" style={{ backgroundColor: '#0E1116' }}>
+          <View 
+            ref={(node) => {
+              summaryRef.current = node;
+              if (Platform.OS === 'web' && node) {
+                // Store the actual DOM node for web
+                const domNode = (node as any)?._nativeNode || (node as any);
+                if (domNode?.nodeType === 1) {
+                  webDomRef.current = domNode;
+                }
+              }
+            }}
+            className="bg-carbon-950" 
+            style={{ backgroundColor: '#0E1116' }}
+          >
             
             {/* Header with Date */}
             <View className="px-4 pt-6 pb-4">
@@ -408,7 +461,7 @@ export default function WorkoutSummaryScreen() {
             </View>
 
             {/* Exercise Summary - Simplified for screenshot */}
-            <View className="px-4 pb-6">
+            <View className="px-4 pb-4">
               <Text className="text-sm font-bold uppercase tracking-wide mb-3 text-graphite-400" style={{ color: '#6B7485' }}>
                 Performance Breakdown
               </Text>
@@ -474,6 +527,19 @@ export default function WorkoutSummaryScreen() {
                     })}
                   </View>
                 ))}
+              </View>
+            </View>
+
+            {/* Foundry Labs Branding Footer - Only visible in screenshot */}
+            <View className="px-4 pb-6 pt-4 border-t border-graphite-800" style={{ borderColor: '#1A1F2E' }}>
+              <View className="flex-row items-center justify-center gap-2">
+                <View className="w-2 h-2 rounded-full bg-signal-500" style={{ backgroundColor: '#2F80ED' }} />
+                <Text className="text-xs font-semibold text-signal-500 uppercase tracking-wider" style={{ color: '#2F80ED' }}>
+                  Foundry Labs
+                </Text>
+                <Text className="text-xs text-graphite-500" style={{ color: '#808FB0' }}>
+                  Training Intelligence
+                </Text>
               </View>
             </View>
 

@@ -788,10 +788,10 @@ export default function ActiveWorkoutScreen() {
     >
       {/* Header */}
       <View
-        className="px-4 py-3 border-b border-graphite-700 bg-graphite-900"
+        className="px-4 pt-4 pb-3 border-b border-graphite-700 bg-graphite-900"
         style={{ borderColor: '#353D4B', backgroundColor: '#1C222B' }}
       >
-        <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center flex-1">
             <Pressable 
               onPress={handleDiscard}
@@ -805,13 +805,24 @@ export default function ActiveWorkoutScreen() {
               />
             </Pressable>
             <View className="ml-2 flex-1">
-              <View className="flex-row items-center gap-2">
+              <Text
+                className="font-semibold text-graphite-100"
+                style={{ color: '#E6E8EB' }}
+                numberOfLines={1}
+              >
+                {workout?.focus || focusParam || 'Quick Workout'}
+              </Text>
+              <View className="flex-row items-center mt-1 gap-2">
+                <Ionicons
+                  name="time-outline"
+                  size={14}
+                  color="#808fb0"
+                />
                 <Text
-                  className="font-semibold text-graphite-100"
-                  style={{ color: '#E6E8EB' }}
-                  numberOfLines={1}
+                  className="text-sm text-graphite-400"
+                  style={{ color: '#6B7485' }}
                 >
-                  {workout?.focus || focusParam || 'Quick Workout'}
+                  {formattedTime}
                 </Text>
                 {workout && (() => {
                   const context = detectWorkoutContext(workout);
@@ -837,42 +848,29 @@ export default function ActiveWorkoutScreen() {
                   />
                 )}
               </View>
-              <View className="flex-row items-center mt-1">
-                <Ionicons
-                  name="time-outline"
-                  size={14}
-                  color="#808fb0"
-                />
-                <Text
-                  className="ml-1 text-sm text-graphite-400"
-                  style={{ color: '#6B7485' }}
-                >
-                  {formattedTime}
-                </Text>
-              </View>
             </View>
           </View>
+        </View>
 
-          <View className="flex-row items-center gap-2">
-            <Pressable
-              className="px-3 py-2 rounded-full border border-graphite-600"
-              style={{ borderColor: '#4A5568' }}
-              onPress={handleSaveAndExit}
+        <View className="flex-row items-center justify-end gap-2">
+          <Pressable
+            className="px-3 py-2 rounded-full border border-graphite-600"
+            style={{ borderColor: '#4A5568' }}
+            onPress={handleSaveAndExit}
+          >
+            <Text
+              className="font-semibold text-graphite-200"
+              style={{ color: '#D4D7DC' }}
             >
-              <Text
-                className="font-semibold text-graphite-200"
-                style={{ color: '#D4D7DC' }}
-              >
-                Save & Exit
-              </Text>
-            </Pressable>
-            <Pressable
-              className="px-4 py-2 rounded-full bg-signal-500"
-              onPress={handleFinishWorkout}
-            >
-              <Text className="text-white font-semibold">Finish</Text>
-            </Pressable>
-          </View>
+              Save & Exit
+            </Text>
+          </Pressable>
+          <Pressable
+            className="px-4 py-2 rounded-full bg-signal-500"
+            onPress={handleFinishWorkout}
+          >
+            <Text className="text-white font-semibold">Finish</Text>
+          </Pressable>
         </View>
       </View>
 
