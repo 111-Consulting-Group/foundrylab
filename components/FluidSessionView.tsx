@@ -170,11 +170,25 @@ interface ExerciseCardProps {
   exercise: FluidExercise;
   exerciseNumber: number;
   totalExercises: number;
+  e1rm?: number | null; // Estimated 1RM / PR for this exercise
 }
 
-function ExerciseCard({ exercise, exerciseNumber, totalExercises }: ExerciseCardProps) {
-  const { base, context } = exercise;
+function ExerciseCard({ exercise, exerciseNumber, totalExercises, e1rm }: ExerciseCardProps) {
+  const { base, context, sets } = exercise;
   const lastPerf = context.lastPerformance;
+
+  // Get the first pending/active set's target load for Near PR check
+  const activeSet = sets.find((s) => s.uiStatus === 'active' || s.uiStatus === 'pending');
+  const currentTargetLoad = activeSet?.target_load;
+
+  // Check if we're within 95% of PR (Near PR territory)
+  const isNearPR = e1rm && currentTargetLoad && currentTargetLoad >= e1rm * 0.95;
+
+  // Format last session as compact chip: "Last: 225x5 @ RPE 8"
+  const lastSessionChip =
+    lastPerf?.last_weight && lastPerf?.last_reps
+      ? `${lastPerf.last_weight}×${lastPerf.last_reps}${lastPerf.last_rpe ? ` @ RPE ${lastPerf.last_rpe}` : ''}`
+      : null;
 
   return (
     <View
@@ -234,138 +248,178 @@ function ExerciseCard({ exercise, exerciseNumber, totalExercises }: ExerciseCard
             </Text>
           </View>
 
-          {/* Modality badge */}
-          <View
-            style={{
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderRadius: 8,
-              backgroundColor:
-                base.modality === 'Strength'
-                  ? 'rgba(59, 130, 246, 0.2)'
-                  : base.modality === 'Cardio'
-                  ? 'rgba(16, 185, 129, 0.2)'
-                  : 'rgba(245, 158, 11, 0.2)',
-            }}
-          >
-            <Text
+          {/* Badge Stack */}
+          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            {/* Near PR Badge */}
+            {isNearPR && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(245, 158, 11, 0.25)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(245, 158, 11, 0.4)',
+                }}
+              >
+                <Ionicons name="flash" size={12} color="#F59E0B" style={{ marginRight: 4 }} />
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: '#F59E0B',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Near PR
+                </Text>
+              </View>
+            )}
+
+            {/* Modality badge */}
+            <View
               style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color:
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 8,
+                backgroundColor:
                   base.modality === 'Strength'
-                    ? Colors.signal[400]
+                    ? 'rgba(59, 130, 246, 0.2)'
                     : base.modality === 'Cardio'
-                    ? Colors.emerald[400]
-                    : Colors.oxide[400],
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
+                    ? 'rgba(16, 185, 129, 0.2)'
+                    : 'rgba(245, 158, 11, 0.2)',
               }}
             >
-              {base.modality}
-            </Text>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color:
+                    base.modality === 'Strength'
+                      ? Colors.signal[400]
+                      : base.modality === 'Cardio'
+                      ? Colors.emerald[400]
+                      : Colors.oxide[400],
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
+              >
+                {base.modality}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Last Performance Context */}
-        {lastPerf && (
+        {/* Context Chips Row */}
+        {(lastSessionChip || e1rm) && (
           <View
             style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 8,
               marginTop: 16,
               paddingTop: 16,
               borderTopWidth: 1,
               borderTopColor: 'rgba(255, 255, 255, 0.06)',
             }}
           >
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: '600',
-                color: Colors.graphite[500],
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                marginBottom: 8,
-              }}
-            >
-              Last Performance
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 20 }}>
-              {lastPerf.last_weight && (
-                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                  <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[100] }}>
-                    {lastPerf.last_weight}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: Colors.graphite[400], marginLeft: 3 }}>lbs</Text>
-                </View>
-              )}
-              {lastPerf.last_reps && (
-                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                  <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[100] }}>
-                    {lastPerf.last_reps}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: Colors.graphite[400], marginLeft: 3 }}>reps</Text>
-                </View>
-              )}
-              {lastPerf.last_rpe && (
-                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                  <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[100] }}>
-                    {lastPerf.last_rpe}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: Colors.graphite[400], marginLeft: 3 }}>RPE</Text>
-                </View>
-              )}
-              {lastPerf.trend && (
-                <View
+            {/* Last Session Chip */}
+            {lastSessionChip && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <Ionicons name="time-outline" size={14} color={Colors.graphite[400]} style={{ marginRight: 6 }} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.graphite[300] }}>
+                  Last: {lastSessionChip}
+                </Text>
+              </View>
+            )}
+
+            {/* PR Reference Chip */}
+            {e1rm && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <Ionicons name="trophy-outline" size={14} color={Colors.graphite[400]} style={{ marginRight: 6 }} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.graphite[300] }}>
+                  PR: {e1rm} lbs
+                </Text>
+              </View>
+            )}
+
+            {/* Trend Badge */}
+            {lastPerf?.trend && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor:
+                    lastPerf.trend === 'progressing'
+                      ? 'rgba(16, 185, 129, 0.15)'
+                      : lastPerf.trend === 'regressing'
+                      ? 'rgba(239, 68, 68, 0.15)'
+                      : 'rgba(245, 158, 11, 0.15)',
+                }}
+              >
+                <Ionicons
+                  name={
+                    lastPerf.trend === 'progressing'
+                      ? 'trending-up'
+                      : lastPerf.trend === 'regressing'
+                      ? 'trending-down'
+                      : 'remove'
+                  }
+                  size={14}
+                  color={
+                    lastPerf.trend === 'progressing'
+                      ? Colors.emerald[400]
+                      : lastPerf.trend === 'regressing'
+                      ? Colors.regression[400]
+                      : Colors.oxide[400]
+                  }
+                  style={{ marginRight: 4 }}
+                />
+                <Text
                   style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 6,
-                    backgroundColor:
-                      lastPerf.trend === 'progressing'
-                        ? 'rgba(16, 185, 129, 0.15)'
-                        : lastPerf.trend === 'regressing'
-                        ? 'rgba(239, 68, 68, 0.15)'
-                        : 'rgba(245, 158, 11, 0.15)',
-                  }}
-                >
-                  <Ionicons
-                    name={
-                      lastPerf.trend === 'progressing'
-                        ? 'trending-up'
-                        : lastPerf.trend === 'regressing'
-                        ? 'trending-down'
-                        : 'remove'
-                    }
-                    size={14}
-                    color={
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color:
                       lastPerf.trend === 'progressing'
                         ? Colors.emerald[400]
                         : lastPerf.trend === 'regressing'
                         ? Colors.regression[400]
-                        : Colors.oxide[400]
-                    }
-                  />
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: '600',
-                      marginLeft: 4,
-                      color:
-                        lastPerf.trend === 'progressing'
-                          ? Colors.emerald[400]
-                          : lastPerf.trend === 'regressing'
-                          ? Colors.regression[400]
-                          : Colors.oxide[400],
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {lastPerf.trend}
-                  </Text>
-                </View>
-              )}
-            </View>
+                        : Colors.oxide[400],
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {lastPerf.trend}
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </LinearGradient>
@@ -1201,7 +1255,12 @@ function ProgressBar({ completed, total }: ProgressBarProps) {
 // MAIN COMPONENT
 // ============================================================================
 
-export function FluidSessionView() {
+interface FluidSessionViewProps {
+  /** Map of exercise ID to e1rm (estimated 1RM / PR) for Near PR detection */
+  personalRecords?: Map<string, number>;
+}
+
+export function FluidSessionView({ personalRecords }: FluidSessionViewProps = {}) {
   const insets = useSafeAreaInsets();
 
   const {
@@ -1218,6 +1277,11 @@ export function FluidSessionView() {
 
   const currentExercise = sessionQueue[activeExerciseIndex];
   const progress = getSessionProgress();
+
+  // Get e1rm for the current exercise
+  const currentExerciseE1rm = currentExercise
+    ? personalRecords?.get(currentExercise.base.id) ?? null
+    : null;
 
   if (!isActive || !currentExercise) {
     return (
@@ -1306,6 +1370,7 @@ export function FluidSessionView() {
           exercise={currentExercise}
           exerciseNumber={activeExerciseIndex + 1}
           totalExercises={sessionQueue.length}
+          e1rm={currentExerciseE1rm}
         />
 
         {/* Sets List */}
