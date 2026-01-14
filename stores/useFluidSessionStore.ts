@@ -18,6 +18,7 @@ export interface FluidSet extends Omit<WorkoutSet, 'id' | 'workout_id' | 'create
   uiStatus: SetUIStatus;
   agentReasoning?: string;
   agentAdjusted?: boolean;
+  missedReps?: boolean;
 }
 
 export interface FluidExercise {
@@ -259,61 +260,91 @@ interface AgentAnalysis {
   weightMultiplier: number;
   reasoning: string;
   message: string;
+  suggestRest: boolean;
+  missedReps: boolean;
 }
 
 function analyzeSetPerformance(
   result: { rpe: number; weight: number; reps: number },
   targetRpe: number | null,
-  targetReps: number | null
+  targetReps: number | null,
+  isLastSet: boolean
 ): AgentAnalysis {
-  const { rpe, weight, reps } = result;
+  const { rpe, reps } = result;
+  const effectiveTargetRpe = targetRpe ?? 8;
+  const effectiveTargetReps = targetReps ?? 8;
 
-  // RPE too low - set was easy
-  if (rpe < 6) {
+  // -------------------------------------------------------------------------
+  // SCENARIO C (Failure): Missed Reps - Check FIRST as it takes priority
+  // If actual_reps < target_reps: Suggest rest, don't auto-change weight, flag set
+  // -------------------------------------------------------------------------
+  if (reps < effectiveTargetReps) {
+    return {
+      shouldAdjustWeight: false,
+      weightMultiplier: 1,
+      reasoning: '',
+      message: "You missed reps. Take an extra 90s rest before the next set.",
+      suggestRest: true,
+      missedReps: true,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // SCENARIO A (Too Easy): RPE significantly under target
+  // If actual_rpe <= 6 AND target_rpe >= 8: Increase next set weight by 5%
+  // -------------------------------------------------------------------------
+  if (rpe <= 6 && effectiveTargetRpe >= 8) {
     return {
       shouldAdjustWeight: true,
       weightMultiplier: 1.05, // +5%
-      reasoning: `RPE ${rpe} indicates room for progression`,
-      message: `That looked easy! I've bumped up the weight for your next set.`,
+      reasoning: `Previous set RPE ${rpe} (Target ${effectiveTargetRpe}). +5% load.`,
+      message: "That looked easy! I've bumped up the weight for your next set.",
+      suggestRest: false,
+      missedReps: false,
     };
   }
 
-  // RPE very low with high reps - significant headroom
-  if (rpe <= 6.5 && reps >= (targetReps || 8)) {
-    return {
-      shouldAdjustWeight: true,
-      weightMultiplier: 1.025, // +2.5%
-      reasoning: `Strong performance at RPE ${rpe}`,
-      message: `Solid set. Let's add a little weight.`,
-    };
-  }
-
-  // RPE too high - struggling
-  if (rpe >= 9.5) {
-    return {
-      shouldAdjustWeight: true,
-      weightMultiplier: 0.95, // -5%
-      reasoning: `RPE ${rpe} suggests fatigue`,
-      message: `That was a grinder. I'm backing off the weight to keep quality high.`,
-    };
-  }
-
-  // RPE high with missed reps
-  if (rpe >= 9 && reps < (targetReps || 8)) {
+  // -------------------------------------------------------------------------
+  // SCENARIO B (Overshoot): Near failure - need to back off
+  // If actual_rpe >= 9.5 AND not the last set: Decrease by 5-10%
+  // -------------------------------------------------------------------------
+  if (rpe >= 9.5 && !isLastSet) {
+    // Use 7.5% backoff (middle of 5-10% range)
     return {
       shouldAdjustWeight: true,
       weightMultiplier: 0.925, // -7.5%
-      reasoning: `Missed target reps at high RPE`,
-      message: `Let's drop the weight and hit those reps clean.`,
+      reasoning: 'Near failure detected. Dropping load to maintain volume.',
+      message: "That was a grinder. I'm backing off the weight to keep quality high.",
+      suggestRest: false,
+      missedReps: false,
     };
   }
 
-  // Goldilocks zone
+  // -------------------------------------------------------------------------
+  // Additional case: Moderately easy (RPE 6-7 with target >= 8)
+  // Slight bump to dial in intensity
+  // -------------------------------------------------------------------------
+  if (rpe <= 7 && rpe > 6 && effectiveTargetRpe >= 8) {
+    return {
+      shouldAdjustWeight: true,
+      weightMultiplier: 1.025, // +2.5%
+      reasoning: `RPE ${rpe} slightly under target ${effectiveTargetRpe}. +2.5% load.`,
+      message: "Solid set. Let's add a little weight.",
+      suggestRest: false,
+      missedReps: false,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Goldilocks zone - no adjustment needed
+  // -------------------------------------------------------------------------
   return {
     shouldAdjustWeight: false,
     weightMultiplier: 1,
     reasoning: '',
     message: '',
+    suggestRest: false,
+    missedReps: false,
   };
 }
 
@@ -456,24 +487,27 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
 
     const currentSet = exercise.sets[setIdx];
     const nextSet = exercise.sets[setIdx + 1];
+    const isLastSet = !nextSet;
 
-    // Analyze performance
+    // Analyze performance with isLastSet context
     const analysis = analyzeSetPerformance(
       result,
       currentSet.target_rpe,
-      currentSet.target_reps
+      currentSet.target_reps,
+      isLastSet
     );
 
     // Build updated sets array
     const updatedSets = [...exercise.sets];
 
-    // Update current set with actual values
+    // Update current set with actual values and flag missed reps if applicable
     updatedSets[setIdx] = {
       ...currentSet,
       actual_weight: result.weight,
       actual_reps: result.reps,
       actual_rpe: result.rpe,
       uiStatus: 'completed' as SetUIStatus,
+      missedReps: analysis.missedReps || undefined,
     };
 
     // Call persistence callback if registered
@@ -495,32 +529,49 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
     // Track if we need to record an agent decision
     let newDecision: AgentDecision | null = null;
 
-    // Apply agent adjustments to next set if needed
-    if (nextSet && analysis.shouldAdjustWeight) {
-      const newTargetLoad = Math.round(
-        (result.weight * analysis.weightMultiplier) / 2.5
-      ) * 2.5; // Round to nearest 2.5
+    // Handle the three scenarios for next set adjustments
+    if (nextSet) {
+      if (analysis.shouldAdjustWeight) {
+        // SCENARIO A or B: Weight adjustment needed
+        const newTargetLoad = Math.round(
+          (result.weight * analysis.weightMultiplier) / 2.5
+        ) * 2.5; // Round to nearest 2.5
 
-      updatedSets[setIdx + 1] = {
-        ...nextSet,
-        target_load: newTargetLoad,
-        agentReasoning: analysis.reasoning,
-        agentAdjusted: true,
-        uiStatus: 'active' as SetUIStatus,
-      };
+        updatedSets[setIdx + 1] = {
+          ...nextSet,
+          target_load: newTargetLoad,
+          agentReasoning: analysis.reasoning,
+          agentAdjusted: true,
+          uiStatus: 'active' as SetUIStatus,
+        };
 
-      // Record the decision
-      newDecision = {
-        type: analysis.weightMultiplier > 1 ? 'weight_increase' : 'weight_decrease',
-        reasoning: analysis.reasoning,
-        appliedAt: new Date(),
-      };
-    } else if (nextSet) {
-      // Just activate the next set without adjustment
-      updatedSets[setIdx + 1] = {
-        ...nextSet,
-        uiStatus: 'active' as SetUIStatus,
-      };
+        // Record the decision
+        newDecision = {
+          type: analysis.weightMultiplier > 1 ? 'weight_increase' : 'weight_decrease',
+          reasoning: analysis.reasoning,
+          appliedAt: new Date(),
+        };
+      } else if (analysis.suggestRest) {
+        // SCENARIO C: Missed reps - suggest rest but don't change weight
+        // Just activate next set without weight adjustment
+        updatedSets[setIdx + 1] = {
+          ...nextSet,
+          uiStatus: 'active' as SetUIStatus,
+        };
+
+        // Record rest suggestion decision
+        newDecision = {
+          type: 'rest_suggestion',
+          reasoning: 'Missed target reps - extended rest recommended',
+          appliedAt: new Date(),
+        };
+      } else {
+        // Goldilocks zone - just activate the next set
+        updatedSets[setIdx + 1] = {
+          ...nextSet,
+          uiStatus: 'active' as SetUIStatus,
+        };
+      }
     }
 
     // Build updated queue
