@@ -10,8 +10,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { useExercises, useExerciseSearch } from '@/hooks/useExercises';
 import type { Exercise, ExerciseModality } from '@/types/database';
 
@@ -35,9 +36,6 @@ export function ExercisePicker({
   onSelectExercise,
   recentExerciseIds = [],
 }: ExercisePickerProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedModality, setSelectedModality] = useState<ExerciseModality | 'all'>('all');
 
@@ -78,50 +76,111 @@ export function ExercisePicker({
   const renderExerciseItem = useCallback(
     ({ item }: { item: Exercise }) => (
       <Pressable
-        className={`p-4 border-b ${isDark ? 'border-graphite-700' : 'border-graphite-200'} active:opacity-70`}
+        style={{
+          padding: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+        }}
         onPress={() => handleSelectExercise(item)}
       >
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1">
-            <Text className={`font-medium ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-              {item.name}
-            </Text>
-            <View className="flex-row items-center mt-1">
-              <View
-                className={`px-2 py-0.5 rounded mr-2 ${
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 14,
+                backgroundColor:
                   item.modality === 'Strength'
-                    ? 'bg-signal-500/20'
+                    ? 'rgba(59, 130, 246, 0.15)'
                     : item.modality === 'Cardio'
-                    ? 'bg-progress-500/20'
-                    : 'bg-purple-500/20'
-                }`}
-              >
-                <Text
-                  className={`text-xs ${
-                    item.modality === 'Strength'
-                      ? 'text-signal-500'
-                      : item.modality === 'Cardio'
-                      ? 'text-progress-500'
-                      : 'text-purple-500'
-                  }`}
+                    ? 'rgba(16, 185, 129, 0.15)'
+                    : 'rgba(155, 89, 182, 0.15)',
+                borderWidth: 1,
+                borderColor:
+                  item.modality === 'Strength'
+                    ? 'rgba(59, 130, 246, 0.3)'
+                    : item.modality === 'Cardio'
+                    ? 'rgba(16, 185, 129, 0.3)'
+                    : 'rgba(155, 89, 182, 0.3)',
+              }}
+            >
+              <Ionicons
+                name={
+                  item.modality === 'Strength'
+                    ? 'barbell-outline'
+                    : item.modality === 'Cardio'
+                    ? 'bicycle-outline'
+                    : 'fitness-outline'
+                }
+                size={22}
+                color={
+                  item.modality === 'Strength'
+                    ? Colors.signal[400]
+                    : item.modality === 'Cardio'
+                    ? Colors.emerald[400]
+                    : '#9B59B6'
+                }
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.graphite[50] }}>
+                {item.name}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 }}>
+                <View
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 8,
+                    backgroundColor:
+                      item.modality === 'Strength'
+                        ? 'rgba(59, 130, 246, 0.2)'
+                        : item.modality === 'Cardio'
+                        ? 'rgba(16, 185, 129, 0.2)'
+                        : 'rgba(155, 89, 182, 0.2)',
+                  }}
                 >
-                  {item.modality}
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: '600',
+                      color:
+                        item.modality === 'Strength'
+                          ? Colors.signal[400]
+                          : item.modality === 'Cardio'
+                          ? Colors.emerald[400]
+                          : '#9B59B6',
+                    }}
+                  >
+                    {item.modality}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>
+                  {item.muscle_group}
                 </Text>
               </View>
-              <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                {item.muscle_group}
-              </Text>
             </View>
           </View>
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={isDark ? '#808fb0' : '#607296'}
-          />
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="add" size={18} color={Colors.signal[400]} />
+          </View>
         </View>
       </Pressable>
     ),
-    [isDark, handleSelectExercise]
+    [handleSelectExercise]
   );
 
   return (
@@ -131,156 +190,272 @@ export function ExercisePicker({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}
-      >
-        {/* Header */}
+      <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+        {/* Ambient Background Glows */}
         <View
-          className={`flex-row items-center justify-between px-4 py-3 border-b ${
-            isDark ? 'border-graphite-700 bg-graphite-900' : 'border-graphite-200 bg-white'
-          }`}
-        >
-          <Text className={`text-lg font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-            Select Exercise
-          </Text>
-          <Pressable onPress={onClose} className="p-2">
-            <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
-          </Pressable>
-        </View>
+          style={{
+            position: 'absolute',
+            top: -100,
+            right: -100,
+            width: 300,
+            height: 300,
+            backgroundColor: 'rgba(37, 99, 235, 0.08)',
+            borderRadius: 150,
+          }}
+        />
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 100,
+            left: -80,
+            width: 250,
+            height: 250,
+            backgroundColor: 'rgba(37, 99, 235, 0.05)',
+            borderRadius: 125,
+          }}
+        />
 
-        {/* Search Input */}
-        <View className="px-4 py-3">
-          <View
-            className={`flex-row items-center px-4 py-3 rounded-xl ${
-              isDark ? 'bg-graphite-800' : 'bg-white'
-            } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
+        <SafeAreaView style={{ flex: 1 }}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
           >
-            <Ionicons
-              name="search"
-              size={20}
-              color={isDark ? '#808fb0' : '#607296'}
-            />
-            <TextInput
-              className={`flex-1 ml-3 text-base ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}
-              placeholder="Search exercises..."
-              placeholderTextColor={isDark ? '#607296' : '#808fb0'}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery('')}>
-                <Ionicons
-                  name="close-circle"
-                  size={20}
-                  color={isDark ? '#808fb0' : '#607296'}
-                />
-              </Pressable>
-            )}
-          </View>
-        </View>
-
-        {/* Modality Filters */}
-        <View className="px-4 pb-3">
-          <FlatList
-            horizontal
-            data={MODALITY_FILTERS}
-            keyExtractor={(item) => item.value}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8 }}
-            renderItem={({ item }) => (
-              <Pressable
-                className={`px-4 py-2 rounded-full ${
-                  selectedModality === item.value
-                    ? 'bg-signal-500'
-                    : isDark
-                    ? 'bg-graphite-800'
-                    : 'bg-white'
-                } ${
-                  selectedModality !== item.value
-                    ? `border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`
-                    : ''
-                }`}
-                onPress={() => setSelectedModality(item.value)}
-              >
-                <Text
-                  className={`font-medium ${
-                    selectedModality === item.value
-                      ? 'text-white'
-                      : isDark
-                      ? 'text-graphite-300'
-                      : 'text-graphite-600'
-                  }`}
-                >
-                  {item.label}
-                </Text>
-              </Pressable>
-            )}
-          />
-        </View>
-
-        {/* Recent Exercises */}
-        {recentExercises.length > 0 && searchQuery.length === 0 && (
-          <View className="px-4 mb-2">
-            <Text
-              className={`text-sm font-semibold mb-2 ${
-                isDark ? 'text-graphite-400' : 'text-graphite-500'
-              }`}
+            {/* Header */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+                backgroundColor: 'rgba(12, 12, 12, 0.95)',
+              }}
             >
-              Recent
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {recentExercises.map((exercise) => (
-                <Pressable
-                  key={exercise.id}
-                  className={`px-3 py-2 rounded-lg ${
-                    isDark ? 'bg-graphite-800' : 'bg-white'
-                  } border ${isDark ? 'border-signal-500/30' : 'border-signal-400/30'}`}
-                  onPress={() => handleSelectExercise(exercise)}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                    borderWidth: 1,
+                    borderColor: 'rgba(59, 130, 246, 0.3)',
+                  }}
                 >
-                  <Text className={`${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
-                    {exercise.name}
+                  <Ionicons name="search" size={20} color={Colors.signal[400]} />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.graphite[50] }}>
+                    Select Exercise
                   </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Exercise List */}
-        <FlatList
-          data={displayedExercises}
-          keyExtractor={(item) => item.id}
-          renderItem={renderExerciseItem}
-          className="flex-1"
-          contentContainerStyle={{ paddingBottom: 20 }}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <View className="items-center justify-center py-12">
-              {isLoading ? (
-                <Text className={`${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
-                  Loading exercises...
-                </Text>
-              ) : (
-                <View className="items-center">
-                  <Ionicons
-                    name="barbell-outline"
-                    size={48}
-                    color={isDark ? '#607296' : '#808fb0'}
-                  />
-                  <Text
-                    className={`mt-3 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-                  >
-                    No exercises found
+                  <Text style={{ fontSize: 12, color: Colors.graphite[500], marginTop: 2 }}>
+                    {displayedExercises.length} exercises available
                   </Text>
                 </View>
-              )}
+              </View>
+              <Pressable
+                onPress={onClose}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="close" size={22} color={Colors.graphite[300]} />
+              </Pressable>
             </View>
-          }
-        />
-      </KeyboardAvoidingView>
+
+            {/* Search Input */}
+            <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <Ionicons name="search" size={20} color={Colors.graphite[500]} style={{ marginRight: 12 }} />
+                <TextInput
+                  style={{ flex: 1, fontSize: 16, color: Colors.graphite[50] }}
+                  placeholder="Search exercises..."
+                  placeholderTextColor={Colors.graphite[500]}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                  <Pressable onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={20} color={Colors.graphite[500]} />
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
+            {/* Modality Filters */}
+            <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+              <FlatList
+                horizontal
+                data={MODALITY_FILTERS}
+                keyExtractor={(item) => item.value}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10 }}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      backgroundColor:
+                        selectedModality === item.value
+                          ? Colors.signal[600]
+                          : 'rgba(255, 255, 255, 0.05)',
+                      borderWidth: selectedModality !== item.value ? 1 : 0,
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    }}
+                    onPress={() => setSelectedModality(item.value)}
+                  >
+                    <Text
+                      style={{
+                        fontWeight: '600',
+                        fontSize: 13,
+                        color:
+                          selectedModality === item.value ? '#ffffff' : Colors.graphite[300],
+                      }}
+                    >
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                )}
+              />
+            </View>
+
+            {/* Recent Exercises */}
+            {recentExercises.length > 0 && searchQuery.length === 0 && (
+              <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: 2,
+                    color: Colors.signal[400],
+                    marginBottom: 10,
+                  }}
+                >
+                  Recent
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {recentExercises.map((exercise) => (
+                    <Pressable
+                      key={exercise.id}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(59, 130, 246, 0.3)',
+                      }}
+                      onPress={() => handleSelectExercise(exercise)}
+                    >
+                      <Text style={{ color: Colors.graphite[100], fontWeight: '500' }}>
+                        {exercise.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Section Label */}
+            <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: 2,
+                  color: Colors.graphite[500],
+                }}
+              >
+                {searchQuery.length >= 2 ? 'Search Results' : 'All Exercises'}
+              </Text>
+            </View>
+
+            {/* Exercise List */}
+            <FlatList
+              data={displayedExercises}
+              keyExtractor={(item) => item.id}
+              renderItem={renderExerciseItem}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+                  {isLoading ? (
+                    <View style={{ alignItems: 'center' }}>
+                      <View
+                        style={{
+                          width: 64,
+                          height: 64,
+                          borderRadius: 32,
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: 16,
+                        }}
+                      >
+                        <Ionicons name="barbell-outline" size={32} color={Colors.signal[400]} />
+                      </View>
+                      <Text style={{ color: Colors.graphite[400], fontSize: 14 }}>
+                        Loading exercises...
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ alignItems: 'center' }}>
+                      <View
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 40,
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: 16,
+                          borderWidth: 1,
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                        }}
+                      >
+                        <Ionicons name="search-outline" size={40} color={Colors.graphite[500]} />
+                      </View>
+                      <Text style={{ color: Colors.graphite[400], fontSize: 16, fontWeight: '600' }}>
+                        No exercises found
+                      </Text>
+                      <Text style={{ color: Colors.graphite[500], fontSize: 13, marginTop: 4 }}>
+                        Try a different search term
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              }
+            />
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }

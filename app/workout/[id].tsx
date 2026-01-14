@@ -21,6 +21,7 @@ import { PRCelebration } from '@/components/PRCelebration';
 import { ReadinessCheckIn, ReadinessIndicator } from '@/components/ReadinessCheckIn';
 import { GlassCard, LabButton, SectionLabel, LiveIndicator } from '@/components/ui/LabPrimitives';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
 import { generateReadinessAdjustments, type WorkoutAdjustments } from '@/lib/adjustmentEngine';
 import { useTodaysReadiness, analyzeReadiness } from '@/hooks/useReadiness';
@@ -786,23 +787,35 @@ export default function ActiveWorkoutScreen() {
       <View
         style={{
           position: 'absolute',
-          top: -50,
+          top: -100,
           right: -100,
-          width: 250,
-          height: 250,
-          backgroundColor: 'rgba(37, 99, 235, 0.06)',
-          borderRadius: 125,
+          width: 300,
+          height: 300,
+          backgroundColor: 'rgba(37, 99, 235, 0.08)',
+          borderRadius: 150,
         }}
       />
       <View
         style={{
           position: 'absolute',
-          bottom: 100,
+          bottom: 50,
           left: -80,
+          width: 280,
+          height: 280,
+          backgroundColor: 'rgba(37, 99, 235, 0.05)',
+          borderRadius: 140,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: '40%',
+          left: '50%',
           width: 200,
           height: 200,
-          backgroundColor: 'rgba(37, 99, 235, 0.04)',
+          backgroundColor: 'rgba(37, 99, 235, 0.03)',
           borderRadius: 100,
+          transform: [{ translateX: -100 }],
         }}
       />
 
@@ -812,33 +825,43 @@ export default function ActiveWorkoutScreen() {
           style={{
             paddingHorizontal: 16,
             paddingTop: 12,
-            paddingBottom: 12,
+            paddingBottom: 16,
             borderBottomWidth: 1,
-            borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-            backgroundColor: 'rgba(18, 18, 18, 0.9)',
+            borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+            backgroundColor: 'rgba(12, 12, 12, 0.95)',
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Pressable
                 onPress={handleDiscard}
-                style={{ padding: 8, marginLeft: -8 }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close" size={24} color={Colors.graphite[50]} />
+                <Ionicons name="close" size={22} color={Colors.graphite[300]} />
               </Pressable>
-              <View style={{ marginLeft: 8, flex: 1 }}>
+              <View style={{ marginLeft: 12, flex: 1 }}>
                 <Text
-                  style={{ fontSize: 16, fontWeight: '600', color: Colors.graphite[50] }}
+                  style={{ fontSize: 18, fontWeight: '700', color: Colors.graphite[50] }}
                   numberOfLines={1}
                 >
                   {workout?.focus || focusParam || 'Quick Workout'}
                 </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 10 }}>
                   <LiveIndicator />
-                  <Text style={{ fontSize: 13, fontFamily: 'monospace', color: Colors.graphite[400] }}>
-                    {formattedTime}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="time-outline" size={12} color={Colors.graphite[500]} />
+                    <Text style={{ fontSize: 12, fontFamily: 'monospace', color: Colors.graphite[400] }}>
+                      {formattedTime}
+                    </Text>
+                  </View>
                   {workout && (() => {
                     const context = detectWorkoutContext(workout);
                     const contextInfo = getContextInfo(context);
@@ -846,12 +869,12 @@ export default function ActiveWorkoutScreen() {
                       <View
                         style={{
                           paddingHorizontal: 8,
-                          paddingVertical: 2,
-                          borderRadius: 12,
+                          paddingVertical: 3,
+                          borderRadius: 10,
                           backgroundColor: contextInfo.bgColor,
                         }}
                       >
-                        <Text style={{ fontSize: 10, fontWeight: '600', color: contextInfo.color }}>
+                        <Text style={{ fontSize: 9, fontWeight: '700', color: contextInfo.color, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                           {contextInfo.label}
                         </Text>
                       </View>
@@ -868,15 +891,15 @@ export default function ActiveWorkoutScreen() {
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
             <Pressable
               style={{
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                borderRadius: 20,
+                paddingHorizontal: 18,
+                paddingVertical: 11,
+                borderRadius: 12,
                 borderWidth: 1,
                 borderColor: 'rgba(255, 255, 255, 0.1)',
-                backgroundColor: 'transparent',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
               }}
               onPress={handleSaveAndExit}
             >
@@ -887,16 +910,20 @@ export default function ActiveWorkoutScreen() {
             <Pressable
               style={{
                 paddingHorizontal: 20,
-                paddingVertical: 10,
-                borderRadius: 20,
+                paddingVertical: 11,
+                borderRadius: 12,
                 backgroundColor: Colors.emerald[500],
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 6,
+                shadowColor: Colors.emerald[400],
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
               }}
               onPress={handleFinishWorkout}
             >
-              <Ionicons name="checkmark-circle" size={16} color="#000" />
+              <Ionicons name="checkmark-circle" size={18} color="#000" />
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#000' }}>Finish</Text>
             </Pressable>
           </View>
@@ -934,103 +961,128 @@ export default function ActiveWorkoutScreen() {
 
           {/* Empty State / Add Exercise Button */}
           {trackedExercises.length === 0 ? (
-            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32 }}>
-              <View
-                style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 40,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 16,
-                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                }}
-              >
-                <Ionicons name="barbell-outline" size={40} color={Colors.signal[400]} />
-              </View>
-              <Text style={{ fontSize: 18, fontWeight: '600', color: Colors.graphite[50], marginBottom: 8 }}>
-                Ready to train?
-              </Text>
-              <Text style={{ fontSize: 14, textAlign: 'center', color: Colors.graphite[500], marginBottom: 24 }}>
-                {isNewWorkout && smartSuggestions.length > 0
-                  ? 'Pick from your go-to exercises or browse the full library'
-                  : 'Add your first exercise to get started'}
-              </Text>
-
-              {/* Smart Suggestions */}
-              {isNewWorkout && smartSuggestions.length > 0 && (
-                <View style={{ width: '100%', marginBottom: 24 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 12, color: Colors.graphite[300] }}>
-                    Suggested for you
-                  </Text>
-                  <View style={{ gap: 8 }}>
-                    {smartSuggestions.map((suggestion) => (
-                      <Pressable
-                        key={suggestion.exercise.id}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          padding: 12,
-                          borderRadius: 16,
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                          borderWidth: 1,
-                          borderColor: 'rgba(255, 255, 255, 0.1)',
-                        }}
-                        onPress={() => handleAddExercise(suggestion.exercise)}
-                      >
-                        <View
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 20,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor:
-                              suggestion.exercise.modality === 'Strength'
-                                ? 'rgba(59, 130, 246, 0.2)'
-                                : suggestion.exercise.modality === 'Cardio'
-                                ? 'rgba(16, 185, 129, 0.2)'
-                                : 'rgba(155, 89, 182, 0.2)',
-                          }}
-                        >
-                          <Ionicons
-                            name={
-                              suggestion.exercise.modality === 'Strength'
-                                ? 'barbell-outline'
-                                : suggestion.exercise.modality === 'Cardio'
-                                ? 'bicycle-outline'
-                                : 'fitness-outline'
-                            }
-                            size={20}
-                            color={
-                              suggestion.exercise.modality === 'Strength'
-                                ? Colors.signal[400]
-                                : suggestion.exercise.modality === 'Cardio'
-                                ? Colors.emerald[400]
-                                : '#9B59B6'
-                            }
-                          />
-                        </View>
-                        <View style={{ flex: 1, marginLeft: 12 }}>
-                          <Text style={{ fontWeight: '600', color: Colors.graphite[50] }}>
-                            {suggestion.exercise.name}
-                          </Text>
-                          <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>
-                            {suggestion.message}
-                          </Text>
-                        </View>
-                        <Ionicons name="add-circle" size={24} color={Colors.signal[400]} />
-                      </Pressable>
-                    ))}
-                  </View>
+            <GlassCard style={{ marginTop: 8 }}>
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 24 }}>
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 16,
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(59, 130, 246, 0.3)',
+                  }}
+                >
+                  <Ionicons name="barbell-outline" size={40} color={Colors.signal[400]} />
                 </View>
-              )}
+                <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50], marginBottom: 8 }}>
+                  Ready to train?
+                </Text>
+                <Text style={{ fontSize: 14, textAlign: 'center', color: Colors.graphite[400], marginBottom: 24, paddingHorizontal: 16 }}>
+                  {isNewWorkout && smartSuggestions.length > 0
+                    ? 'Pick from your go-to exercises or browse the full library'
+                    : 'Add your first exercise to get started'}
+                </Text>
 
-              <LabButton
-                label={isNewWorkout && smartSuggestions.length > 0 ? 'Browse All Exercises' : 'Add Exercise'}
-                onPress={() => setShowExercisePicker(true)}
-              />
-            </View>
+                {/* Smart Suggestions */}
+                {isNewWorkout && smartSuggestions.length > 0 && (
+                  <View style={{ width: '100%', marginBottom: 24 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2, color: Colors.signal[400] }}>
+                        Suggested for you
+                      </Text>
+                    </View>
+                    <View style={{ gap: 10 }}>
+                      {smartSuggestions.map((suggestion) => (
+                        <Pressable
+                          key={suggestion.exercise.id}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            padding: 14,
+                            borderRadius: 16,
+                            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                            borderWidth: 1,
+                            borderColor: 'rgba(255, 255, 255, 0.08)',
+                          }}
+                          onPress={() => handleAddExercise(suggestion.exercise)}
+                        >
+                          <View
+                            style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 22,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor:
+                                suggestion.exercise.modality === 'Strength'
+                                  ? 'rgba(59, 130, 246, 0.2)'
+                                  : suggestion.exercise.modality === 'Cardio'
+                                  ? 'rgba(16, 185, 129, 0.2)'
+                                  : 'rgba(155, 89, 182, 0.2)',
+                              borderWidth: 1,
+                              borderColor:
+                                suggestion.exercise.modality === 'Strength'
+                                  ? 'rgba(59, 130, 246, 0.3)'
+                                  : suggestion.exercise.modality === 'Cardio'
+                                  ? 'rgba(16, 185, 129, 0.3)'
+                                  : 'rgba(155, 89, 182, 0.3)',
+                            }}
+                          >
+                            <Ionicons
+                              name={
+                                suggestion.exercise.modality === 'Strength'
+                                  ? 'barbell-outline'
+                                  : suggestion.exercise.modality === 'Cardio'
+                                  ? 'bicycle-outline'
+                                  : 'fitness-outline'
+                              }
+                              size={22}
+                              color={
+                                suggestion.exercise.modality === 'Strength'
+                                  ? Colors.signal[400]
+                                  : suggestion.exercise.modality === 'Cardio'
+                                  ? Colors.emerald[400]
+                                  : '#9B59B6'
+                              }
+                            />
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 14 }}>
+                            <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.graphite[50] }}>
+                              {suggestion.exercise.name}
+                            </Text>
+                            <Text style={{ fontSize: 12, color: Colors.graphite[500], marginTop: 2 }}>
+                              {suggestion.message}
+                            </Text>
+                          </View>
+                          <View
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 16,
+                              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Ionicons name="add" size={20} color={Colors.signal[400]} />
+                          </View>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                <LabButton
+                  label={isNewWorkout && smartSuggestions.length > 0 ? 'Browse All Exercises' : 'Add Exercise'}
+                  icon={<Ionicons name="search" size={16} color="white" />}
+                  onPress={() => setShowExercisePicker(true)}
+                />
+              </View>
+            </GlassCard>
           ) : (
             <Pressable
               style={{
@@ -1041,11 +1093,15 @@ export default function ActiveWorkoutScreen() {
                 borderRadius: 16,
                 marginTop: 16,
                 backgroundColor: Colors.signal[600],
+                shadowColor: Colors.signal[500],
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.3,
+                shadowRadius: 16,
               }}
               onPress={() => setShowExercisePicker(true)}
             >
-              <Ionicons name="add" size={24} color="#ffffff" />
-              <Text style={{ color: '#ffffff', fontWeight: '600', marginLeft: 8 }}>Add Exercise</Text>
+              <Ionicons name="add-circle" size={22} color="#ffffff" />
+              <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 14, marginLeft: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Add Exercise</Text>
             </Pressable>
           )}
         </ScrollView>

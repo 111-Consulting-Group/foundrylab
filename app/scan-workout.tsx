@@ -119,21 +119,30 @@ export default function ScanWorkoutScreen() {
     setError(null);
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('parse-workout-image', {
+      // Add timeout wrapper (60 seconds)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timed out. The analysis is taking longer than expected. Please try again.')), 60000);
+      });
+
+      const functionPromise = supabase.functions.invoke('parse-workout-image', {
         body: {
           image_base64: base64,
           user_id: userId,
         },
       });
 
+      const { data, error: invokeError } = await Promise.race([functionPromise, timeoutPromise]) as any;
+
       if (invokeError) throw invokeError;
-      if (data.error) throw new Error(data.error);
+      if (data?.error) throw new Error(data.error);
+      if (!data?.workout) throw new Error('No workout data returned from analysis');
 
       setParsedWorkout(data.workout);
       setMode('review');
     } catch (err: any) {
       console.error('Error parsing image:', err);
-      setError(err.message || 'Failed to parse workout image');
+      const errorMessage = err.message || 'Failed to parse workout image. Please check your connection and try again.';
+      setError(errorMessage);
       setMode('capture');
     } finally {
       setIsParsing(false);
@@ -333,6 +342,29 @@ export default function ScanWorkoutScreen() {
       <Text style={{ fontSize: 14, color: Colors.graphite[400], marginTop: 8, textAlign: 'center' }}>
         Reading exercises, sets, reps, and weights
       </Text>
+      <Text style={{ fontSize: 12, color: Colors.graphite[500], marginTop: 12, textAlign: 'center' }}>
+        This may take up to a minute
+      </Text>
+      
+      <Pressable
+        onPress={() => {
+          setMode('capture');
+          setImageUri(null);
+          setIsParsing(false);
+          setError(null);
+        }}
+        style={{
+          marginTop: 32,
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+          borderRadius: 12,
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <Text style={{ color: Colors.graphite[200], fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+      </Pressable>
     </View>
   );
 
