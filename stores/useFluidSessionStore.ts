@@ -85,7 +85,7 @@ interface FluidSessionState {
 
   // Actions
   initializeSession: (
-    exercises: Exercise[],
+    templateQueue: FluidExercise[],
     readiness: DailyReadiness | null,
     history: MovementMemory[],
     workoutContext?: WorkoutContext,
@@ -194,6 +194,62 @@ function buildInitialSets(
   return sets;
 }
 
+/**
+ * Builds a FluidExercise queue from raw exercises and movement memory.
+ * This is used by callers to prepare the templateQueue before calling initializeSession.
+ */
+export function buildFluidQueue(
+  exercises: Exercise[],
+  history: MovementMemory[],
+  readiness: DailyReadiness | null
+): FluidExercise[] {
+  // Build memory lookup by exercise_id
+  const memoryByExercise = new Map<string, MovementMemory>();
+  history.forEach((mem) => {
+    memoryByExercise.set(mem.exercise_id, mem);
+  });
+
+  return exercises.map((exercise) => {
+    const memory = memoryByExercise.get(exercise.id);
+    const suggestedWeight = calculateSuggestedWeight(memory, readiness);
+
+    return {
+      base: exercise,
+      sets: buildInitialSets(exercise, memory, readiness),
+      context: {
+        lastPerformance: memory,
+        suggestedWeight,
+        suggestedReps: memory?.typical_rep_max || 8,
+      },
+    };
+  });
+}
+
+/**
+ * Identifies if an exercise is a compound lift based on common movement patterns.
+ * Compound lifts involve multiple joints and major muscle groups.
+ */
+function isCompoundLift(exercise: Exercise): boolean {
+  const compoundPatterns = [
+    /squat/i,
+    /deadlift/i,
+    /bench\s*press/i,
+    /overhead\s*press/i,
+    /military\s*press/i,
+    /row/i,
+    /pull[\s-]?up/i,
+    /chin[\s-]?up/i,
+    /clean/i,
+    /snatch/i,
+    /lunge/i,
+    /dip/i,
+    /press/i, // General press movements
+  ];
+
+  const exerciseName = exercise.name.toLowerCase();
+  return compoundPatterns.some((pattern) => pattern.test(exerciseName));
+}
+
 // ============================================================================
 // AGENT LOGIC
 // ============================================================================
@@ -288,41 +344,85 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
   // -------------------------------------------------------------------------
   // INITIALIZE SESSION
   // -------------------------------------------------------------------------
-  initializeSession: (exercises, readiness, history, workoutContext = 'building', workoutId = null) => {
-    // Build memory lookup by exercise_id
+  initializeSession: (templateQueue, readiness, history, workoutContext = 'building', workoutId = null) => {
+    // Build memory lookup by exercise_id (for context enrichment if needed)
     const memoryByExercise = new Map<string, MovementMemory>();
     history.forEach((mem) => {
       memoryByExercise.set(mem.exercise_id, mem);
     });
 
-    // Build the fluid queue
-    const sessionQueue: FluidExercise[] = exercises.map((exercise) => {
-      const memory = memoryByExercise.get(exercise.id);
-      const suggestedWeight = calculateSuggestedWeight(memory, readiness);
+    // Clone the template queue to avoid mutating the original
+    let sessionQueue: FluidExercise[] = templateQueue.map((fluidEx) => ({
+      ...fluidEx,
+      sets: fluidEx.sets.map((s) => ({ ...s })),
+      context: { ...fluidEx.context },
+    }));
 
-      return {
-        base: exercise,
-        sets: buildInitialSets(exercise, memory, readiness),
-        context: {
-          lastPerformance: memory,
-          suggestedWeight,
-          suggestedReps: memory?.typical_rep_max || 8,
-        },
-      };
-    });
+    // Determine agent message and apply readiness-based adjustments
+    let agentMessage = 'Session initialized. Let\'s get to work.';
 
-    // Build welcome message based on readiness
-    let welcomeMessage = 'Session initialized. Let\'s get to work.';
     if (readiness) {
-      if (readiness.readiness_score >= 80) {
-        welcomeMessage = 'You\'re feeling great today. Let\'s push it.';
-      } else if (readiness.readiness_score >= 60) {
-        welcomeMessage = 'Solid readiness. Standard session ahead.';
-      } else if (readiness.readiness_score >= 40) {
-        welcomeMessage = 'Recovery priority today. I\'ve adjusted targets accordingly.';
-      } else {
-        welcomeMessage = 'Low readiness detected. We\'ll take it easy and focus on movement quality.';
+      const score = readiness.readiness_score;
+
+      if (score < 40) {
+        // HIGH FATIGUE MODE: Reduce total sets by 1 for all exercises
+        agentMessage =
+          "Recovery is critical today. I've stripped back the volume to keep you moving without digging a deeper hole.";
+
+        sessionQueue = sessionQueue.map((fluidEx) => {
+          if (fluidEx.sets.length > 1) {
+            // Remove the last set
+            const reducedSets = fluidEx.sets.slice(0, -1);
+            // Re-number set_order and reset UI status
+            return {
+              ...fluidEx,
+              sets: reducedSets.map((s, idx) => ({
+                ...s,
+                set_order: idx + 1,
+                uiStatus: idx === 0 ? ('active' as SetUIStatus) : ('pending' as SetUIStatus),
+              })),
+            };
+          }
+          return fluidEx;
+        });
+      } else if (score > 85) {
+        // PEAK PERFORMANCE MODE: Add a "Joker Set" to the first compound lift
+        agentMessage =
+          "Green light. I've added a challenge set to your main lift to test your strength.";
+
+        const firstCompoundIndex = sessionQueue.findIndex((fluidEx) =>
+          isCompoundLift(fluidEx.base)
+        );
+
+        if (firstCompoundIndex !== -1) {
+          const compoundExercise = sessionQueue[firstCompoundIndex];
+          const lastSet = compoundExercise.sets[compoundExercise.sets.length - 1];
+
+          // Create a Joker Set based on the last set
+          const jokerSet: FluidSet = {
+            ...lastSet,
+            id: `fluid-set-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            set_order: compoundExercise.sets.length + 1,
+            actual_weight: null,
+            actual_reps: null,
+            actual_rpe: null,
+            uiStatus: 'pending',
+            agentReasoning: 'Joker Set - push your limits',
+            agentAdjusted: true,
+          };
+
+          sessionQueue[firstCompoundIndex] = {
+            ...compoundExercise,
+            sets: [...compoundExercise.sets, jokerSet],
+          };
+        }
       }
+      // Else: Standard volume - no modifications needed
+    }
+
+    // Ensure proper UI status on first exercise's first set
+    if (sessionQueue.length > 0 && sessionQueue[0].sets.length > 0) {
+      sessionQueue[0].sets[0].uiStatus = 'active';
     }
 
     set({
@@ -331,7 +431,7 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
       sessionQueue,
       activeExerciseIndex: 0,
       activeSetIndex: 0,
-      agentMessage: welcomeMessage,
+      agentMessage,
       agentDecisions: [],
       readinessContext: readiness,
       workoutContext,

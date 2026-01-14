@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FluidSessionView } from '@/components/FluidSessionView';
 import { ExercisePicker } from '@/components/ExercisePicker';
 import { Colors } from '@/constants/Colors';
-import { useFluidSessionStore } from '@/stores/useFluidSessionStore';
+import { useFluidSessionStore, buildFluidQueue } from '@/stores/useFluidSessionStore';
 import {
   useFluidSessionData,
   useTodayReadiness,
@@ -279,7 +279,8 @@ export default function FluidSessionScreen() {
       const exercises = Array.from(exerciseMap.values());
 
       if (exercises.length > 0) {
-        initializeSession(exercises, readiness || null, memoryArray, workout.context || 'building', workout.id);
+        const templateQueue = buildFluidQueue(exercises, memoryArray, readiness || null);
+        initializeSession(templateQueue, readiness || null, memoryArray, workout.context || 'building', workout.id);
         setInitialized(true);
       }
     }
@@ -320,8 +321,9 @@ export default function FluidSessionScreen() {
       // Convert memory map to array
       const memoryArray = Array.from(memoryMap.values());
 
-      // Initialize session with the new workout ID
-      initializeSession(exercises, readiness || null, memoryArray, 'building', workout.id);
+      // Build the fluid queue and initialize session
+      const templateQueue = buildFluidQueue(exercises, memoryArray, readiness || null);
+      initializeSession(templateQueue, readiness || null, memoryArray, 'building', workout.id);
       setWorkoutId(workout.id);
     },
     [readiness, createWorkout, initializeSession, setWorkoutId]
