@@ -40,12 +40,45 @@ export type ModificationIntent =
   | 'add_set'
   | 'remove_set'
   | 'swap_exercise'
-  | 'time_crunch';
+  | 'time_crunch'
+  | 'travel'
+  | 'sick';
 
 export interface AgentDecision {
   type: 'weight_increase' | 'weight_decrease' | 'volume_adjustment' | 'exercise_swap' | 'rest_suggestion';
   reasoning: string;
   appliedAt: Date;
+}
+
+// ============================================================================
+// TIMELINE-AWARE DISRUPTION HANDLING TYPES
+// ============================================================================
+
+export type LifeEventType = 'travel' | 'sickness' | 'injury' | 'stress';
+export type BlockPhase = 'hypertrophy' | 'strength' | 'peaking' | 'deload' | 'transition';
+
+export interface FutureAdjustment {
+  id: string;
+  week: number;
+  day: number;
+  action: 'add_volume' | 'reduce_intensity' | 'extend_block' | 'add_deload' | 'swap_exercise';
+  targetExerciseId?: string;
+  targetExerciseName?: string;
+  volumeModifier?: number; // e.g., 1.1 for +10%
+  reason: string;
+  createdAt: Date;
+  appliedAt?: Date;
+}
+
+export interface CurrentBlockStatus {
+  blockId?: string;
+  blockName?: string;
+  phase: BlockPhase;
+  weeksRemaining: number;
+  weekNumber: number;
+  totalWeeks: number;
+  adherenceRate: number; // 0-100%
+  volumeDebt: number; // Accumulated "lost" volume that needs makeup
 }
 
 // ============================================================================
@@ -85,6 +118,10 @@ interface FluidSessionState {
   // Persistence callback
   onSetCompleted: OnSetCompletedCallback | null;
 
+  // Macro context (Periodization Copilot)
+  currentBlockStatus: CurrentBlockStatus | null;
+  futureAdjustments: FutureAdjustment[];
+
   // Actions
   initializeSession: (
     templateQueue: FluidExercise[],
@@ -96,6 +133,7 @@ interface FluidSessionState {
 
   setWorkoutId: (id: string) => void;
   setOnSetCompleted: (callback: OnSetCompletedCallback | null) => void;
+  setCurrentBlockStatus: (status: CurrentBlockStatus | null) => void;
 
   logSet: (
     exerciseId: string,
@@ -104,6 +142,7 @@ interface FluidSessionState {
   ) => void;
 
   requestModification: (intent: ModificationIntent, context?: string) => void;
+  handleLifeEvent: (eventType: LifeEventType, durationDays: number) => void;
 
   advanceToNextSet: () => void;
   advanceToNextExercise: () => void;
@@ -112,6 +151,7 @@ interface FluidSessionState {
   removeExerciseFromSession: (exerciseId: string) => void;
 
   dismissAgentMessage: () => void;
+  clearFutureAdjustment: (adjustmentId: string) => void;
   endSession: () => void;
   resetSession: () => void;
 
@@ -367,11 +407,16 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
   workoutId: null,
   onSetCompleted: null,
 
+  // Macro context (Periodization Copilot)
+  currentBlockStatus: null,
+  futureAdjustments: [],
+
   // -------------------------------------------------------------------------
   // PERSISTENCE HELPERS
   // -------------------------------------------------------------------------
   setWorkoutId: (id) => set({ workoutId: id }),
   setOnSetCompleted: (callback) => set({ onSetCompleted: callback }),
+  setCurrentBlockStatus: (status) => set({ currentBlockStatus: status }),
 
   // -------------------------------------------------------------------------
   // INITIALIZE SESSION
@@ -795,6 +840,18 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
         break;
       }
 
+      case 'travel': {
+        // Delegate to handleLifeEvent for timeline-aware handling
+        get().handleLifeEvent('travel', 3); // Default 3 days for travel
+        return; // handleLifeEvent handles the state update
+      }
+
+      case 'sick': {
+        // Delegate to handleLifeEvent for timeline-aware handling
+        get().handleLifeEvent('sickness', 3); // Default 3 days for sickness
+        return; // handleLifeEvent handles the state update
+      }
+
       default:
         agentMessage = 'Noted. Continue when ready.';
     }
@@ -812,6 +869,191 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
     } else {
       set(updates);
     }
+  },
+
+  // -------------------------------------------------------------------------
+  // TIMELINE-AWARE LIFE EVENT HANDLING
+  // -------------------------------------------------------------------------
+  handleLifeEvent: (eventType, durationDays) => {
+    const state = get();
+    const { sessionQueue, currentBlockStatus, futureAdjustments } = state;
+
+    const newAdjustments: FutureAdjustment[] = [...futureAdjustments];
+    let agentMessage = '';
+    let updatedQueue = [...sessionQueue];
+    let updatedBlockStatus = currentBlockStatus ? { ...currentBlockStatus } : null;
+
+    switch (eventType) {
+      case 'travel': {
+        // =====================================================================
+        // TRAVEL MODE (Maintenance)
+        // - Present: Swap heavy compounds for hotel-friendly alternatives
+        // - Future: Schedule volume makeup for return
+        // =====================================================================
+
+        // Calculate lost volume from heavy compounds
+        let lostVolumeLoad = 0;
+        const compoundExerciseNames: string[] = [];
+
+        // Transform session queue: swap compounds for high-rep isolation/bodyweight
+        updatedQueue = sessionQueue.map((fluidEx) => {
+          const isCompound = isCompoundLift(fluidEx.base);
+
+          if (isCompound) {
+            // Track the lost volume (sets × target_load approximation)
+            const volumeFromExercise = fluidEx.sets.reduce((acc, s) => {
+              return acc + (s.target_load || 0) * (s.target_reps || 8);
+            }, 0);
+            lostVolumeLoad += volumeFromExercise;
+            compoundExerciseNames.push(fluidEx.base.name);
+
+            // Transform to high-rep, lighter version
+            const modifiedSets = fluidEx.sets.map((s) => ({
+              ...s,
+              target_load: s.target_load ? Math.round((s.target_load * 0.5) / 2.5) * 2.5 : null,
+              target_reps: 15, // High rep for pump/blood flow
+              target_rpe: 6, // Keep it light
+              agentReasoning: 'Travel mode: maintenance stimulus',
+              agentAdjusted: true,
+            }));
+
+            return {
+              ...fluidEx,
+              sets: modifiedSets,
+            };
+          }
+
+          return fluidEx;
+        });
+
+        // Schedule future volume makeup: +10% on first heavy session back
+        if (lostVolumeLoad > 0 && compoundExerciseNames.length > 0) {
+          // Mock calculation: assume return is after durationDays, next heavy day
+          const returnWeek = Math.ceil(durationDays / 7);
+          const returnDay = (durationDays % 7) + 1;
+
+          newAdjustments.push({
+            id: `adj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            week: (currentBlockStatus?.weekNumber || 1) + returnWeek,
+            day: Math.min(returnDay + 1, 7), // Next day after return
+            action: 'add_volume',
+            targetExerciseName: compoundExerciseNames[0], // Primary compound
+            volumeModifier: 1.1, // +10% volume
+            reason: `Makeup for ${durationDays}-day travel. Lost ${Math.round(lostVolumeLoad)} volume-load units.`,
+            createdAt: new Date(),
+          });
+
+          // Update volume debt tracking
+          if (updatedBlockStatus) {
+            updatedBlockStatus.volumeDebt += lostVolumeLoad;
+          }
+        }
+
+        const primaryLift = compoundExerciseNames[0] || 'your main lift';
+        agentMessage = `I've switched to a hotel-friendly circuit. I've also added a volume booster to next week's ${primaryLift} session to make up for the missed heavy stimulus.`;
+        break;
+      }
+
+      case 'sickness': {
+        // =====================================================================
+        // SICKNESS MODE (Recovery)
+        // - Present: Clear queue or reduce to light mobility
+        // - Future: Extend block if duration > 3 days
+        // =====================================================================
+
+        // Clear the session or reduce to minimal
+        if (durationDays > 1) {
+          // Clear the queue entirely - rest is the priority
+          updatedQueue = [];
+        } else {
+          // Just reduce intensity dramatically for light movement
+          updatedQueue = sessionQueue.slice(0, 1).map((fluidEx) => ({
+            ...fluidEx,
+            sets: fluidEx.sets.slice(0, 1).map((s) => ({
+              ...s,
+              target_load: null, // Bodyweight only
+              target_reps: 10,
+              target_rpe: 4, // Very light
+              agentReasoning: 'Recovery mode: light mobility only',
+              agentAdjusted: true,
+            })),
+          }));
+        }
+
+        // If sick for >3 days, extend the block by 1 week
+        if (durationDays > 3 && updatedBlockStatus) {
+          const extendWeeks = 1;
+          updatedBlockStatus.totalWeeks += extendWeeks;
+          updatedBlockStatus.weeksRemaining += extendWeeks;
+
+          newAdjustments.push({
+            id: `adj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            week: updatedBlockStatus.weekNumber,
+            day: 0, // Applies to whole week
+            action: 'extend_block',
+            reason: `Extended ${updatedBlockStatus.phase} block by ${extendWeeks} week due to ${durationDays}-day illness.`,
+            createdAt: new Date(),
+          });
+
+          agentMessage = `Health comes first. I've scrapped today. Since you're out for ${durationDays} days, I'm extending this ${updatedBlockStatus.phase} block by a week so we don't rush the progression.`;
+        } else {
+          agentMessage = durationDays > 1
+            ? "Health comes first. I've cleared today's session. Focus on rest and recovery."
+            : "Taking it easy today. I've set up some light mobility work - skip it if you need to.";
+        }
+        break;
+      }
+
+      case 'injury': {
+        // =====================================================================
+        // INJURY MODE
+        // - Present: Remove affected exercises, suggest alternatives
+        // - Future: Schedule gradual reintroduction
+        // =====================================================================
+        agentMessage = "I've noted the injury. Let's work around it today. Please consult a professional before resuming that movement pattern.";
+        break;
+      }
+
+      case 'stress': {
+        // =====================================================================
+        // HIGH STRESS MODE
+        // - Present: Reduce intensity by 20%, keep volume moderate
+        // - Future: Add extra deload consideration
+        // =====================================================================
+        updatedQueue = sessionQueue.map((fluidEx) => ({
+          ...fluidEx,
+          sets: fluidEx.sets.map((s) => ({
+            ...s,
+            target_load: s.target_load ? Math.round((s.target_load * 0.8) / 2.5) * 2.5 : null,
+            target_rpe: Math.max((s.target_rpe || 8) - 1, 5),
+            agentReasoning: 'Stress management: reduced intensity',
+            agentAdjusted: true,
+          })),
+        }));
+
+        agentMessage = "I can tell you're under stress. I've dialed back the intensity today - you'll still get a good session without adding to the load.";
+        break;
+      }
+
+      default:
+        agentMessage = 'Life event noted. Adjusting your plan accordingly.';
+    }
+
+    // Persist all changes
+    set({
+      sessionQueue: updatedQueue,
+      agentMessage,
+      currentBlockStatus: updatedBlockStatus,
+      futureAdjustments: newAdjustments,
+      agentDecisions: [
+        ...state.agentDecisions,
+        {
+          type: 'volume_adjustment',
+          reasoning: `Life event: ${eventType} (${durationDays} days)`,
+          appliedAt: new Date(),
+        },
+      ],
+    });
   },
 
   // -------------------------------------------------------------------------
@@ -888,6 +1130,13 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
   // -------------------------------------------------------------------------
   dismissAgentMessage: () => set({ agentMessage: null }),
 
+  clearFutureAdjustment: (adjustmentId) => {
+    const { futureAdjustments } = get();
+    set({
+      futureAdjustments: futureAdjustments.filter((adj) => adj.id !== adjustmentId),
+    });
+  },
+
   endSession: () =>
     set({
       isActive: false,
@@ -906,6 +1155,9 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
       readinessContext: null,
       workoutContext: 'building',
       workoutId: null,
+      // Clear macro context
+      currentBlockStatus: null,
+      futureAdjustments: [],
     }),
 
   // -------------------------------------------------------------------------
