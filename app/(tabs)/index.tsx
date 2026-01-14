@@ -368,6 +368,29 @@ export default function DashboardScreen() {
             </View>
           )}
 
+          {/* Fluid Session Test */}
+          <View style={{ marginBottom: 16 }}>
+            <Pressable
+              onPress={() => router.push('/fluid-session')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                paddingVertical: 16,
+                borderRadius: 14,
+                backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                borderWidth: 1,
+                borderColor: 'rgba(139, 92, 246, 0.4)',
+              }}
+            >
+              <Ionicons name="sparkles" size={20} color="#A78BFA" />
+              <Text style={{ fontSize: 15, fontWeight: '600', color: '#A78BFA' }}>
+                Test Fluid Session
+              </Text>
+            </Pressable>
+          </View>
+
           {/* Bottom Actions */}
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{ flex: 1 }}>

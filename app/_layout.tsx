@@ -243,6 +243,13 @@ function RootLayoutNav() {
               headerShown: false,
             }}
           />
+          <Stack.Screen
+            name="fluid-session"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
         </Stack>
       </GestureHandlerRootView>
     </ThemeProvider>

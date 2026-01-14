@@ -15,7 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.foundrylab.app"
+      "bundleIdentifier": "com.foundrylab.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Foundry Lab uses your microphone for voice commands during workouts",
+        "NSSpeechRecognitionUsageDescription": "Foundry Lab uses speech recognition to understand your voice commands"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +36,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Foundry Lab uses your microphone for voice commands during workouts",
+          "speechRecognitionPermission": "Foundry Lab uses speech recognition to understand your voice commands"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
