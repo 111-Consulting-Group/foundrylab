@@ -82,6 +82,25 @@ export interface CurrentBlockStatus {
 }
 
 // ============================================================================
+// MORNING CONTEXT INJECTION TYPES
+// ============================================================================
+
+export type ReadinessSignal = 'green' | 'amber' | 'red' | 'neutral';
+
+export interface MorningContextInjection {
+  signal: ReadinessSignal;
+  readinessScore: number;
+  sleepQuality: number;
+  soreness: number;
+  appliedAdjustments: {
+    type: 'joker_set_added' | 'accessory_volume_reduced' | 'full_volume_reduced' | 'none';
+    affectedExercises: string[];
+    reasoning: string;
+  };
+  timestamp: Date;
+}
+
+// ============================================================================
 // STORE STATE INTERFACE
 // ============================================================================
 
@@ -121,6 +140,9 @@ interface FluidSessionState {
   // Macro context (Periodization Copilot)
   currentBlockStatus: CurrentBlockStatus | null;
   futureAdjustments: FutureAdjustment[];
+
+  // Morning Context Injection (why the workout was modified)
+  morningContext: MorningContextInjection | null;
 
   // Actions
   initializeSession: (
@@ -292,6 +314,45 @@ function isCompoundLift(exercise: Exercise): boolean {
   return compoundPatterns.some((pattern) => pattern.test(exerciseName));
 }
 
+/**
+ * Identifies if an exercise is an accessory/isolation movement.
+ * Accessory exercises are single-joint movements that target specific muscles.
+ */
+function isAccessoryExercise(exercise: Exercise): boolean {
+  // Accessory exercises are generally NOT compound lifts
+  // But we can also explicitly identify common accessories
+  const accessoryPatterns = [
+    /curl/i,
+    /extension/i,
+    /fly/i,
+    /flye/i,
+    /raise/i, // lateral raise, front raise
+    /kickback/i,
+    /pushdown/i,
+    /pullover/i,
+    /shrug/i,
+    /calf/i,
+    /ab\s/i,
+    /crunch/i,
+    /plank/i,
+    /face\s*pull/i,
+    /reverse\s*fly/i,
+    /cable/i,
+    /machine/i,
+    /isolation/i,
+  ];
+
+  const exerciseName = exercise.name.toLowerCase();
+
+  // If explicitly matches accessory patterns, it's an accessory
+  if (accessoryPatterns.some((pattern) => pattern.test(exerciseName))) {
+    return true;
+  }
+
+  // Otherwise, it's an accessory if it's NOT a compound
+  return !isCompoundLift(exercise);
+}
+
 // ============================================================================
 // AGENT LOGIC
 // ============================================================================
@@ -411,6 +472,9 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
   currentBlockStatus: null,
   futureAdjustments: [],
 
+  // Morning Context Injection
+  morningContext: null,
+
   // -------------------------------------------------------------------------
   // PERSISTENCE HELPERS
   // -------------------------------------------------------------------------
@@ -419,7 +483,7 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
   setCurrentBlockStatus: (status) => set({ currentBlockStatus: status }),
 
   // -------------------------------------------------------------------------
-  // INITIALIZE SESSION
+  // INITIALIZE SESSION (with Morning Context Injection)
   // -------------------------------------------------------------------------
   initializeSession: (templateQueue, readiness, history, workoutContext = 'building', workoutId = null) => {
     // Build memory lookup by exercise_id (for context enrichment if needed)
@@ -437,17 +501,94 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
 
     // Determine agent message and apply readiness-based adjustments
     let agentMessage = 'Session initialized. Let\'s get to work.';
+    let morningContext: MorningContextInjection | null = null;
 
     if (readiness) {
       const score = readiness.readiness_score;
+      const sleepQuality = readiness.sleep_quality;
+      const soreness = readiness.muscle_soreness;
 
-      if (score < 40) {
-        // HIGH FATIGUE MODE: Reduce total sets by 1 for all exercises
-        agentMessage =
-          "Recovery is critical today. I've stripped back the volume to keep you moving without digging a deeper hole.";
+      // =====================================================================
+      // GREEN LIGHT: readiness_score >= 80 AND sleep_quality >= 4
+      // Add a "Joker Set" at 105% intensity to the primary compound lift
+      // =====================================================================
+      if (score >= 80 && sleepQuality >= 4) {
+        const firstCompoundIndex = sessionQueue.findIndex((fluidEx) =>
+          isCompoundLift(fluidEx.base)
+        );
+
+        if (firstCompoundIndex !== -1) {
+          const compoundExercise = sessionQueue[firstCompoundIndex];
+          const lastSet = compoundExercise.sets[compoundExercise.sets.length - 1];
+
+          // Calculate 105% intensity for the Joker Set
+          const jokerLoad = lastSet.target_load
+            ? Math.round((lastSet.target_load * 1.05) / 2.5) * 2.5
+            : null;
+
+          // Create a Joker Set at 105% intensity
+          const jokerSet: FluidSet = {
+            ...lastSet,
+            id: `fluid-set-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            set_order: compoundExercise.sets.length + 1,
+            target_load: jokerLoad,
+            target_reps: lastSet.target_reps ? Math.max(lastSet.target_reps - 2, 1) : 3, // Slightly fewer reps for heavier load
+            target_rpe: 9, // Push it
+            actual_weight: null,
+            actual_reps: null,
+            actual_rpe: null,
+            uiStatus: 'pending',
+            agentReasoning: 'Joker Set @ 105% - you earned this',
+            agentAdjusted: true,
+          };
+
+          sessionQueue[firstCompoundIndex] = {
+            ...compoundExercise,
+            sets: [...compoundExercise.sets, jokerSet],
+          };
+
+          agentMessage = "Green light today. I've unlocked a Joker Set for your main lift. Go for it if you feel good.";
+
+          morningContext = {
+            signal: 'green',
+            readinessScore: score,
+            sleepQuality,
+            soreness,
+            appliedAdjustments: {
+              type: 'joker_set_added',
+              affectedExercises: [compoundExercise.base.name],
+              reasoning: `Sleep quality (${sleepQuality}/5) and readiness (${score}) indicate peak performance potential. Added 105% intensity Joker Set to ${compoundExercise.base.name}.`,
+            },
+            timestamp: new Date(),
+          };
+        } else {
+          // No compound lift found, neutral context
+          morningContext = {
+            signal: 'green',
+            readinessScore: score,
+            sleepQuality,
+            soreness,
+            appliedAdjustments: {
+              type: 'none',
+              affectedExercises: [],
+              reasoning: 'Green light conditions met but no compound lift in session to add Joker Set.',
+            },
+            timestamp: new Date(),
+          };
+        }
+      }
+      // =====================================================================
+      // AMBER LIGHT: readiness_score < 50 OR soreness > 4
+      // Reduce volume: Remove the last set from ACCESSORY exercises only
+      // =====================================================================
+      else if (score < 50 || soreness > 4) {
+        const affectedExercises: string[] = [];
 
         sessionQueue = sessionQueue.map((fluidEx) => {
-          if (fluidEx.sets.length > 1) {
+          // Only reduce accessory exercises, preserve compound volume
+          if (isAccessoryExercise(fluidEx.base) && fluidEx.sets.length > 1) {
+            affectedExercises.push(fluidEx.base.name);
+
             // Remove the last set
             const reducedSets = fluidEx.sets.slice(0, -1);
             // Re-number set_order and reset UI status
@@ -462,39 +603,83 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
           }
           return fluidEx;
         });
-      } else if (score > 85) {
-        // PEAK PERFORMANCE MODE: Add a "Joker Set" to the first compound lift
-        agentMessage =
-          "Green light. I've added a challenge set to your main lift to test your strength.";
 
-        const firstCompoundIndex = sessionQueue.findIndex((fluidEx) =>
-          isCompoundLift(fluidEx.base)
-        );
+        const amberReason = score < 50
+          ? `Low readiness score (${score})`
+          : `High soreness (${soreness}/5)`;
 
-        if (firstCompoundIndex !== -1) {
-          const compoundExercise = sessionQueue[firstCompoundIndex];
-          const lastSet = compoundExercise.sets[compoundExercise.sets.length - 1];
+        agentMessage = "Recovery metrics are down. I've trimmed the accessory volume to preserve your CNS for the main work.";
 
-          // Create a Joker Set based on the last set
-          const jokerSet: FluidSet = {
-            ...lastSet,
-            id: `fluid-set-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            set_order: compoundExercise.sets.length + 1,
-            actual_weight: null,
-            actual_reps: null,
-            actual_rpe: null,
-            uiStatus: 'pending',
-            agentReasoning: 'Joker Set - push your limits',
-            agentAdjusted: true,
-          };
-
-          sessionQueue[firstCompoundIndex] = {
-            ...compoundExercise,
-            sets: [...compoundExercise.sets, jokerSet],
-          };
-        }
+        morningContext = {
+          signal: 'amber',
+          readinessScore: score,
+          sleepQuality,
+          soreness,
+          appliedAdjustments: {
+            type: 'accessory_volume_reduced',
+            affectedExercises,
+            reasoning: `${amberReason}. Removed last set from ${affectedExercises.length} accessory exercise(s) to protect recovery while maintaining compound stimulus.`,
+          },
+          timestamp: new Date(),
+        };
       }
-      // Else: Standard volume - no modifications needed
+      // =====================================================================
+      // RED LIGHT: readiness_score < 40 (severe fatigue override)
+      // This takes precedence - reduce ALL volume, not just accessories
+      // =====================================================================
+      else if (score < 40) {
+        const affectedExercises: string[] = [];
+
+        sessionQueue = sessionQueue.map((fluidEx) => {
+          if (fluidEx.sets.length > 1) {
+            affectedExercises.push(fluidEx.base.name);
+
+            // Remove the last set from ALL exercises
+            const reducedSets = fluidEx.sets.slice(0, -1);
+            return {
+              ...fluidEx,
+              sets: reducedSets.map((s, idx) => ({
+                ...s,
+                set_order: idx + 1,
+                uiStatus: idx === 0 ? ('active' as SetUIStatus) : ('pending' as SetUIStatus),
+              })),
+            };
+          }
+          return fluidEx;
+        });
+
+        agentMessage = "Recovery is critical today. I've stripped back the volume to keep you moving without digging a deeper hole.";
+
+        morningContext = {
+          signal: 'red',
+          readinessScore: score,
+          sleepQuality,
+          soreness,
+          appliedAdjustments: {
+            type: 'full_volume_reduced',
+            affectedExercises,
+            reasoning: `Critically low readiness (${score}). Reduced volume across all ${affectedExercises.length} exercises to prevent overreaching.`,
+          },
+          timestamp: new Date(),
+        };
+      }
+      // =====================================================================
+      // NEUTRAL: No significant adjustments needed
+      // =====================================================================
+      else {
+        morningContext = {
+          signal: 'neutral',
+          readinessScore: score,
+          sleepQuality,
+          soreness,
+          appliedAdjustments: {
+            type: 'none',
+            affectedExercises: [],
+            reasoning: 'Readiness metrics within normal range. Standard session volume applied.',
+          },
+          timestamp: new Date(),
+        };
+      }
     }
 
     // Ensure proper UI status on first exercise's first set
@@ -513,6 +698,7 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
       readinessContext: readiness,
       workoutContext,
       workoutId,
+      morningContext,
     });
   },
 
@@ -1158,6 +1344,8 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
       // Clear macro context
       currentBlockStatus: null,
       futureAdjustments: [],
+      // Clear morning context
+      morningContext: null,
     }),
 
   // -------------------------------------------------------------------------
@@ -1258,3 +1446,4 @@ export const useIsFluidSessionActive = () => useFluidSessionStore((state) => sta
 export const useAgentMessage = () => useFluidSessionStore((state) => state.agentMessage);
 export const useSessionQueue = () => useFluidSessionStore((state) => state.sessionQueue);
 export const useActiveExerciseIndex = () => useFluidSessionStore((state) => state.activeExerciseIndex);
+export const useMorningContext = () => useFluidSessionStore((state) => state.morningContext);
