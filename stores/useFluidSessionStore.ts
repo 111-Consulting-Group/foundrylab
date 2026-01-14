@@ -39,7 +39,8 @@ export type ModificationIntent =
   | 'skip_exercise'
   | 'add_set'
   | 'remove_set'
-  | 'swap_exercise';
+  | 'swap_exercise'
+  | 'time_crunch';
 
 export interface AgentDecision {
   type: 'weight_increase' | 'weight_decrease' | 'volume_adjustment' | 'exercise_swap' | 'rest_suggestion';
@@ -765,6 +766,32 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
         }));
         updatedQueue[activeExerciseIndex] = { ...exercise, sets: updatedSets };
         agentMessage = 'Exercise skipped. Moving to the next one.';
+        break;
+      }
+
+      case 'time_crunch': {
+        // Time pressure: Strip one set from each remaining exercise
+        let setsRemoved = 0;
+        for (let i = activeExerciseIndex; i < sessionQueue.length; i++) {
+          const ex = updatedQueue[i];
+          const pendingSets = ex.sets.filter((s) => s.uiStatus === 'pending');
+          if (pendingSets.length > 0) {
+            // Remove the last pending set
+            const newSets = ex.sets.slice(0, -1);
+            updatedQueue[i] = { ...ex, sets: newSets };
+            setsRemoved++;
+          }
+        }
+        if (setsRemoved > 0) {
+          agentMessage = `Got it, short on time. I've trimmed ${setsRemoved} set${setsRemoved > 1 ? 's' : ''} to keep you moving.`;
+          decision = {
+            type: 'volume_adjustment',
+            reasoning: 'Time crunch - reduced volume across remaining exercises',
+            appliedAt: new Date(),
+          };
+        } else {
+          agentMessage = "You're already lean on sets. Let's finish strong.";
+        }
         break;
       }
 

@@ -736,6 +736,75 @@ function SetRow({ set, setNumber, isActive, onLog }: SetRowProps) {
 }
 
 // ============================================================================
+// NATURAL LANGUAGE INTENT PARSING
+// ============================================================================
+
+/**
+ * Parses user text input and maps keywords to modification intents.
+ * Returns null if no clear intent is detected.
+ */
+function parseIntent(text: string): ModificationIntent | null {
+  const lowerText = text.toLowerCase();
+
+  // Pain / Injury keywords
+  if (
+    lowerText.includes('hurt') ||
+    lowerText.includes('pain') ||
+    lowerText.includes('injury')
+  ) {
+    return 'pain';
+  }
+
+  // Too easy / Want more weight
+  if (
+    lowerText.includes('easy') ||
+    lowerText.includes('light') ||
+    lowerText.includes('more weight')
+  ) {
+    return 'too_easy';
+  }
+
+  // Too hard / Struggling
+  if (
+    lowerText.includes('hard') ||
+    lowerText.includes('heavy') ||
+    lowerText.includes('tired')
+  ) {
+    return 'too_hard';
+  }
+
+  // Time pressure
+  if (
+    lowerText.includes('time') ||
+    lowerText.includes('late') ||
+    lowerText.includes('rush')
+  ) {
+    return 'time_crunch';
+  }
+
+  // Fatigue / Exhaustion
+  if (
+    lowerText.includes('fatigue') ||
+    lowerText.includes('exhausted') ||
+    lowerText.includes('gassed')
+  ) {
+    return 'fatigue';
+  }
+
+  // Skip exercise
+  if (lowerText.includes('skip') || lowerText.includes('next exercise')) {
+    return 'skip_exercise';
+  }
+
+  // Add set
+  if (lowerText.includes('add set') || lowerText.includes('another set')) {
+    return 'add_set';
+  }
+
+  return null;
+}
+
+// ============================================================================
 // COMMAND INPUT BAR
 // ============================================================================
 
@@ -745,6 +814,7 @@ interface CommandInputBarProps {
 
 function CommandInputBar({ onSubmit }: CommandInputBarProps) {
   const [inputText, setInputText] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const insets = useSafeAreaInsets();
 
   // Voice input
@@ -833,29 +903,25 @@ function CommandInputBar({ onSubmit }: CommandInputBarProps) {
   }, [finalTranscript]);
 
   const handleSubmitText = useCallback((text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || isProcessing) return;
 
-    const lowerText = text.toLowerCase();
+    const intent = parseIntent(text);
 
-    // Parse intent from natural language
-    let intent: ModificationIntent = 'too_easy';
-    if (lowerText.includes('pain') || lowerText.includes('hurt')) {
-      intent = 'pain';
-    } else if (lowerText.includes('hard') || lowerText.includes('heavy') || lowerText.includes('struggle')) {
-      intent = 'too_hard';
-    } else if (lowerText.includes('easy') || lowerText.includes('light')) {
-      intent = 'too_easy';
-    } else if (lowerText.includes('tired') || lowerText.includes('fatigue') || lowerText.includes('exhausted')) {
-      intent = 'fatigue';
-    } else if (lowerText.includes('skip') || lowerText.includes('next')) {
-      intent = 'skip_exercise';
-    } else if (lowerText.includes('add') || lowerText.includes('more')) {
-      intent = 'add_set';
+    if (!intent) {
+      // No recognized intent - could show a hint to user
+      return;
     }
 
-    onSubmit(intent, text);
+    // Show loading state briefly before agent responds
+    setIsProcessing(true);
     setInputText('');
-  }, [onSubmit]);
+
+    // Small delay to show processing state, then submit
+    setTimeout(() => {
+      onSubmit(intent, text);
+      setIsProcessing(false);
+    }, 300);
+  }, [onSubmit, isProcessing]);
 
   const handleSubmit = useCallback(() => {
     handleSubmitText(inputText);
@@ -1009,34 +1075,54 @@ function CommandInputBar({ onSubmit }: CommandInputBarProps) {
             fontSize: 15,
             color: Colors.graphite[50],
           }}
-          placeholder={isListening ? 'Speak now...' : 'Tell coach what\'s happening...'}
-          placeholderTextColor={isListening ? '#EF4444' : Colors.graphite[500]}
+          placeholder={
+            isProcessing
+              ? 'Processing...'
+              : isListening
+                ? 'Speak now...'
+                : 'Tell coach what\'s happening...'
+          }
+          placeholderTextColor={
+            isProcessing
+              ? Colors.signal[400]
+              : isListening
+                ? '#EF4444'
+                : Colors.graphite[500]
+          }
           value={inputText}
           onChangeText={setInputText}
           onSubmitEditing={handleSubmit}
           returnKeyType="send"
-          editable={!isListening}
+          editable={!isListening && !isProcessing}
         />
         <Pressable
           onPress={handleSubmit}
-          disabled={isListening}
+          disabled={isListening || isProcessing}
           style={({ pressed }) => ({
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: inputText.trim() && !isListening
-              ? pressed
-                ? Colors.signal[600]
-                : Colors.signal[500]
-              : 'rgba(255, 255, 255, 0.05)',
+            backgroundColor: isProcessing
+              ? Colors.signal[500]
+              : inputText.trim() && !isListening
+                ? pressed
+                  ? Colors.signal[600]
+                  : Colors.signal[500]
+                : 'rgba(255, 255, 255, 0.05)',
             alignItems: 'center',
             justifyContent: 'center',
           })}
         >
           <Ionicons
-            name="send"
+            name={isProcessing ? 'hourglass' : 'send'}
             size={16}
-            color={inputText.trim() && !isListening ? '#fff' : Colors.graphite[600]}
+            color={
+              isProcessing
+                ? '#fff'
+                : inputText.trim() && !isListening
+                  ? '#fff'
+                  : Colors.graphite[600]
+            }
           />
         </Pressable>
       </View>
