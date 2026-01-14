@@ -18,6 +18,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import {
+  parseIntent as parseNaturalLanguageIntent,
+  mapToStoreModificationIntent,
+  type ActionIntent,
+  type ModifySessionPayload,
+} from '@/lib/intentParser';
+import {
   useFluidSessionStore,
   type FluidExercise,
   type FluidSet,
@@ -794,68 +800,84 @@ function SetRow({ set, setNumber, isActive, onLog }: SetRowProps) {
 // ============================================================================
 
 /**
- * Parses user text input and maps keywords to modification intents.
- * Returns null if no clear intent is detected.
+ * Result of parsing user input with additional metadata for UI feedback.
+ */
+interface ParseResult {
+  type: 'modification' | 'workout_log' | 'cardio_log' | 'chat' | 'unknown';
+  modificationIntent?: ModificationIntent;
+  parsedIntent: ActionIntent;
+  feedbackMessage?: string;
+}
+
+/**
+ * Parses user text input using the NLP intent parser.
+ * Returns a structured result with the parsed intent and UI feedback.
+ */
+function parseUserInput(text: string): ParseResult {
+  const parsedIntent = parseNaturalLanguageIntent(text);
+
+  switch (parsedIntent.type) {
+    case 'MODIFY_SESSION': {
+      const payload = parsedIntent.payload as ModifySessionPayload;
+      const storeIntent = mapToStoreModificationIntent(payload);
+
+      if (storeIntent) {
+        return {
+          type: 'modification',
+          modificationIntent: storeIntent,
+          parsedIntent,
+          feedbackMessage: payload.reason,
+        };
+      }
+
+      // Unrecognized modification
+      return {
+        type: 'unknown',
+        parsedIntent,
+        feedbackMessage: 'I detected a modification request but couldn\'t determine the action.',
+      };
+    }
+
+    case 'LOG_WORKOUT': {
+      return {
+        type: 'workout_log',
+        parsedIntent,
+        feedbackMessage: `Detected workout: ${JSON.stringify(parsedIntent.payload)}`,
+      };
+    }
+
+    case 'LOG_CARDIO': {
+      return {
+        type: 'cardio_log',
+        parsedIntent,
+        feedbackMessage: `Detected cardio: ${JSON.stringify(parsedIntent.payload)}`,
+      };
+    }
+
+    case 'CHAT': {
+      return {
+        type: 'chat',
+        parsedIntent,
+        feedbackMessage: undefined, // No feedback for chat
+      };
+    }
+
+    default:
+      return {
+        type: 'unknown',
+        parsedIntent,
+        feedbackMessage: 'I didn\'t quite understand that. Try "too easy", "knee hurts", or "running late".',
+      };
+  }
+}
+
+/**
+ * Legacy function for backward compatibility.
+ * Parses user text and returns a ModificationIntent or null.
  */
 function parseIntent(text: string): ModificationIntent | null {
-  const lowerText = text.toLowerCase();
-
-  // Pain / Injury keywords
-  if (
-    lowerText.includes('hurt') ||
-    lowerText.includes('pain') ||
-    lowerText.includes('injury')
-  ) {
-    return 'pain';
-  }
-
-  // Too easy / Want more weight
-  if (
-    lowerText.includes('easy') ||
-    lowerText.includes('light') ||
-    lowerText.includes('more weight')
-  ) {
-    return 'too_easy';
-  }
-
-  // Too hard / Struggling
-  if (
-    lowerText.includes('hard') ||
-    lowerText.includes('heavy') ||
-    lowerText.includes('tired')
-  ) {
-    return 'too_hard';
-  }
-
-  // Time pressure
-  if (
-    lowerText.includes('time') ||
-    lowerText.includes('late') ||
-    lowerText.includes('rush')
-  ) {
-    return 'time_crunch';
-  }
-
-  // Fatigue / Exhaustion
-  if (
-    lowerText.includes('fatigue') ||
-    lowerText.includes('exhausted') ||
-    lowerText.includes('gassed')
-  ) {
-    return 'fatigue';
-  }
-
-  // Skip exercise
-  if (lowerText.includes('skip') || lowerText.includes('next exercise')) {
-    return 'skip_exercise';
-  }
-
-  // Add set
-  if (lowerText.includes('add set') || lowerText.includes('another set')) {
-    return 'add_set';
-  }
-
-  return null;
+  const result = parseUserInput(text);
+  return result.modificationIntent || null;
 }
 
 // ============================================================================
@@ -864,11 +886,15 @@ function parseIntent(text: string): ModificationIntent | null {
 
 interface CommandInputBarProps {
   onSubmit: (intent: ModificationIntent, context?: string) => void;
+  onWorkoutLog?: (payload: ActionIntent['payload']) => void;
+  onCardioLog?: (payload: ActionIntent['payload']) => void;
 }
 
-function CommandInputBar({ onSubmit }: CommandInputBarProps) {
+function CommandInputBar({ onSubmit, onWorkoutLog, onCardioLog }: CommandInputBarProps) {
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const insets = useSafeAreaInsets();
 
   // Voice input
@@ -956,26 +982,70 @@ function CommandInputBar({ onSubmit }: CommandInputBarProps) {
     }
   }, [finalTranscript]);
 
+  // Clear feedback message after delay
+  const showFeedback = useCallback((message: string, duration = 3000) => {
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+    }
+    setFeedbackMessage(message);
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setFeedbackMessage(null);
+    }, duration);
+  }, []);
+
   const handleSubmitText = useCallback((text: string) => {
     if (!text.trim() || isProcessing) return;
 
-    const intent = parseIntent(text);
+    // Parse using the NLP intent parser
+    const result = parseUserInput(text);
 
-    if (!intent) {
-      // No recognized intent - could show a hint to user
-      return;
-    }
-
-    // Show loading state briefly before agent responds
+    // Show loading state
     setIsProcessing(true);
     setInputText('');
 
-    // Small delay to show processing state, then submit
+    // Small delay to show processing state
     setTimeout(() => {
-      onSubmit(intent, text);
+      switch (result.type) {
+        case 'modification':
+          if (result.modificationIntent) {
+            onSubmit(result.modificationIntent, text);
+          }
+          break;
+
+        case 'workout_log':
+          if (onWorkoutLog) {
+            onWorkoutLog(result.parsedIntent.payload);
+            showFeedback('Workout logged!', 2000);
+          } else {
+            // No handler, show feedback about what was detected
+            showFeedback(result.feedbackMessage || 'Workout detected but logging not available in session mode.', 3000);
+          }
+          break;
+
+        case 'cardio_log':
+          if (onCardioLog) {
+            onCardioLog(result.parsedIntent.payload);
+            showFeedback('Cardio logged!', 2000);
+          } else {
+            showFeedback(result.feedbackMessage || 'Cardio detected but logging not available in session mode.', 3000);
+          }
+          break;
+
+        case 'chat':
+          // For chat, we could integrate with an LLM later
+          // For now, just acknowledge
+          showFeedback('Try commands like "too easy", "knee hurts", or "running late"', 3000);
+          break;
+
+        case 'unknown':
+        default:
+          showFeedback(result.feedbackMessage || 'I didn\'t understand that. Try "too hard" or "add set".', 3000);
+          break;
+      }
+
       setIsProcessing(false);
     }, 300);
-  }, [onSubmit, isProcessing]);
+  }, [onSubmit, onWorkoutLog, onCardioLog, isProcessing, showFeedback]);
 
   const handleSubmit = useCallback(() => {
     handleSubmitText(inputText);
@@ -1038,6 +1108,41 @@ function CommandInputBar({ onSubmit }: CommandInputBarProps) {
           />
           <Text style={{ fontSize: 13, color: '#EF4444', fontWeight: '600' }}>
             Listening...
+          </Text>
+        </View>
+      )}
+
+      {/* Feedback Message */}
+      {feedbackMessage && !isListening && (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 8,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: 'rgba(59, 130, 246, 0.3)',
+          }}
+        >
+          <Ionicons
+            name="information-circle"
+            size={16}
+            color="#3B82F6"
+            style={{ marginRight: 8 }}
+          />
+          <Text
+            style={{
+              fontSize: 13,
+              color: '#93C5FD',
+              flex: 1,
+              textAlign: 'center',
+            }}
+          >
+            {feedbackMessage}
           </Text>
         </View>
       )}
