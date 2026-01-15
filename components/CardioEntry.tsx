@@ -74,6 +74,7 @@ interface CardioEntryProps {
   ) => Promise<void>;
   onDeleteSet: (setId: string) => Promise<void>;
   onAddSet: () => void;
+  onClose?: () => void; // Optional callback to close the modal after logging
 }
 
 type CardioMode = 'intervals' | 'continuous';
@@ -85,6 +86,7 @@ export function CardioEntry({
   onSaveSet,
   onDeleteSet,
   onAddSet,
+  onClose,
 }: CardioEntryProps) {
   // Mode: intervals (segment-by-segment) or continuous (single entry for entire run)
   const [mode, setMode] = useState<CardioMode>('continuous');
@@ -95,8 +97,20 @@ export function CardioEntry({
   const [customDistance, setCustomDistance] = useState('');
   const [pace, setPace] = useState('');
   const [isLogging, setIsLogging] = useState(false);
-  const [distanceUnit, setDistanceUnit] = useState<'meters' | 'miles' | 'km'>('meters');
+  // Default: miles for continuous (typical for runs), meters for intervals (400m, 800m, etc.)
+  const [distanceUnit, setDistanceUnit] = useState<'meters' | 'miles' | 'km'>('miles');
   const [paceUnit, setPaceUnit] = useState<'/mi' | '/km' | '/m'>('/mi');
+  
+  // Switch distance unit when mode changes
+  const handleModeChange = (newMode: CardioMode) => {
+    setMode(newMode);
+    // Set sensible defaults for each mode
+    if (newMode === 'continuous') {
+      setDistanceUnit('miles'); // People typically log runs in miles
+    } else {
+      setDistanceUnit('meters'); // Intervals are often in meters (400m, 800m)
+    }
+  };
   
   // Form state - Continuous mode
   const [totalDistance, setTotalDistance] = useState('');
@@ -125,13 +139,13 @@ export function CardioEntry({
       if (totalDistance) {
         const distanceValue = parseFloat(totalDistance);
         if (!isNaN(distanceValue)) {
-          // Convert to meters based on unit
+          // Convert to meters based on unit and round to integer (DB expects integer)
           if (distanceUnit === 'miles') {
-            distanceMeters = milesToMeters(distanceValue);
+            distanceMeters = Math.round(milesToMeters(distanceValue));
           } else if (distanceUnit === 'km') {
-            distanceMeters = kmToMeters(distanceValue);
+            distanceMeters = Math.round(kmToMeters(distanceValue));
           } else {
-            distanceMeters = distanceValue; // Already meters
+            distanceMeters = Math.round(distanceValue); // Already meters
           }
         }
       }
@@ -175,6 +189,15 @@ export function CardioEntry({
 
       setIsLogging(true);
       try {
+        console.log('[CardioEntry] Saving continuous run:', {
+          distanceMeters,
+          paceWithUnit,
+          avgHeartRate,
+          durationSeconds,
+          exerciseId: exercise.id,
+          setOrder: nextSetOrder,
+        });
+        
         await onSaveSet(exercise.id, nextSetOrder, {
           distance_meters: distanceMeters,
           avg_pace: paceWithUnit,
@@ -185,12 +208,22 @@ export function CardioEntry({
           is_pr: false,
         });
 
+        console.log('[CardioEntry] Run saved successfully');
+        
         // Reset form
         setTotalDistance('');
         setAvgPace('');
         setAvgHeartRate('');
         setDurationMinutes('');
+        
+        // Auto-close the modal after successful save
+        if (onClose) {
+          setTimeout(() => {
+            onClose();
+          }, 100);
+        }
       } catch (error) {
+        console.error('[CardioEntry] Error saving run:', error);
         Alert.alert('Error', 'Failed to log workout. Please try again.');
       } finally {
         setIsLogging(false);
@@ -202,17 +235,17 @@ export function CardioEntry({
     let distanceMeters: number | null = null;
     
     if (selectedDistance) {
-      distanceMeters = selectedDistance; // Already in meters
+      distanceMeters = Math.round(selectedDistance); // Already in meters, round for DB
     } else if (customDistance) {
       const customValue = parseFloat(customDistance);
       if (!isNaN(customValue)) {
-        // Convert to meters based on unit
+        // Convert to meters based on unit and round to integer (DB expects integer)
         if (distanceUnit === 'miles') {
-          distanceMeters = milesToMeters(customValue);
+          distanceMeters = Math.round(milesToMeters(customValue));
         } else if (distanceUnit === 'km') {
-          distanceMeters = kmToMeters(customValue);
+          distanceMeters = Math.round(kmToMeters(customValue));
         } else {
-          distanceMeters = customValue; // Already meters
+          distanceMeters = Math.round(customValue); // Already meters
         }
       }
     }
@@ -330,7 +363,7 @@ export function CardioEntry({
         </Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Pressable
-            onPress={() => setMode('continuous')}
+            onPress={() => handleModeChange('continuous')}
             style={{
               flex: 1,
               paddingVertical: 10,
@@ -353,7 +386,7 @@ export function CardioEntry({
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => setMode('intervals')}
+            onPress={() => handleModeChange('intervals')}
             style={{
               flex: 1,
               paddingVertical: 10,
@@ -432,7 +465,7 @@ export function CardioEntry({
               value={totalDistance}
               onChangeText={setTotalDistance}
               keyboardType="decimal-pad"
-              placeholder="0"
+              placeholder="5.0"
               placeholderTextColor={Colors.graphite[500]}
             />
           </View>
@@ -517,7 +550,7 @@ export function CardioEntry({
               value={avgHeartRate}
               onChangeText={setAvgHeartRate}
               keyboardType="number-pad"
-              placeholder="0"
+              placeholder="145"
               placeholderTextColor={Colors.graphite[500]}
             />
           </View>
@@ -546,12 +579,12 @@ export function CardioEntry({
               value={durationMinutes}
               onChangeText={setDurationMinutes}
               keyboardType="decimal-pad"
-              placeholder="0"
+              placeholder="60"
               placeholderTextColor={Colors.graphite[500]}
             />
           </View>
 
-          {/* Log Button */}
+          {/* Save & Done Button */}
           <Pressable
             onPress={handleLogSegment}
             disabled={isLogging}
@@ -560,11 +593,15 @@ export function CardioEntry({
               borderRadius: 12,
               alignItems: 'center',
               marginBottom: 16,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              gap: 8,
               backgroundColor: isLogging ? 'rgba(16, 185, 129, 0.5)' : Colors.emerald[500],
             }}
           >
+            <Ionicons name="checkmark-circle" size={20} color="white" />
             <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
-              {isLogging ? 'Logging...' : 'Log Workout'}
+              {isLogging ? 'Saving...' : 'Save & Done'}
             </Text>
           </Pressable>
         </>
@@ -867,6 +904,28 @@ export function CardioEntry({
             </Pressable>
           )}
         </View>
+      )}
+
+      {/* Done button for intervals mode (continuous mode has Save & Done) */}
+      {mode === 'intervals' && onClose && (
+        <Pressable
+          onPress={onClose}
+          style={{
+            paddingVertical: 16,
+            borderRadius: 12,
+            alignItems: 'center',
+            marginTop: 16,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 8,
+            backgroundColor: Colors.signal[600],
+          }}
+        >
+          <Ionicons name="checkmark-circle" size={20} color="white" />
+          <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+            Done
+          </Text>
+        </Pressable>
       )}
     </View>
   );

@@ -206,6 +206,7 @@ export function ExerciseEntryModal({
                   onSaveSet={onSaveSet}
                   onDeleteSet={onDeleteSet}
                   onAddSet={onAddSet}
+                  onClose={handleRequestClose}
                 />
               ) : (
                 <StrengthEntry
@@ -222,48 +223,50 @@ export function ExerciseEntryModal({
               )}
             </ScrollView>
 
-            {/* Done button */}
-            <SafeAreaView
-              edges={['bottom']}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                borderTopWidth: 1,
-                borderTopColor: 'rgba(255, 255, 255, 0.1)',
-                backgroundColor: 'rgba(18, 18, 18, 0.95)',
-              }}
-            >
-              <Pressable
-                onPress={(e) => {
-                  e?.stopPropagation?.();
-                  // Blur any active inputs to prevent browser warnings
-                  if (Platform.OS === 'web' && typeof document !== 'undefined') {
-                    const activeElement = document.activeElement as HTMLElement;
-                    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-                      activeElement.blur();
-                    }
-                  }
-                  handleRequestClose();
-                }}
+            {/* Done button - only show for strength exercises, cardio has its own buttons */}
+            {!isCardio && (
+              <SafeAreaView
+                edges={['bottom']}
                 style={{
-                  paddingVertical: 16,
-                  borderRadius: 12,
-                  backgroundColor: Colors.signal[600],
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  shadowColor: Colors.signal[500],
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 16,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  borderTopWidth: 1,
+                  borderTopColor: 'rgba(255, 255, 255, 0.1)',
+                  backgroundColor: 'rgba(18, 18, 18, 0.95)',
                 }}
               >
-                <Ionicons name="checkmark-circle" size={20} color="white" style={{ marginRight: 8 }} />
-                <Text style={{ color: 'white', fontWeight: '700', fontSize: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  Done
-                </Text>
-              </Pressable>
-            </SafeAreaView>
+                <Pressable
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    // Blur any active inputs to prevent browser warnings
+                    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+                      const activeElement = document.activeElement as HTMLElement;
+                      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+                        activeElement.blur();
+                      }
+                    }
+                    handleRequestClose();
+                  }}
+                  style={{
+                    paddingVertical: 16,
+                    borderRadius: 12,
+                    backgroundColor: Colors.signal[600],
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    shadowColor: Colors.signal[500],
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                  }}
+                >
+                  <Ionicons name="checkmark-circle" size={20} color="white" style={{ marginRight: 8 }} />
+                  <Text style={{ color: 'white', fontWeight: '700', fontSize: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    Done
+                  </Text>
+                </Pressable>
+              </SafeAreaView>
+            )}
           </SafeAreaView>
         </View>
       </KeyboardAvoidingView>
