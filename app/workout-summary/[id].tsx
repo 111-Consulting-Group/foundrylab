@@ -489,6 +489,8 @@ export default function WorkoutSummaryScreen() {
                   {Array.from(exercisesBySection.entries()).map(([section, exercises], sectionIdx) => (
                     <View key={section}>
                       {exercises.map((ex, exIdx) => {
+                        const isCardio = ex.exercise.modality === 'Cardio';
+                        
                         const uniqueSets = ex.sets.filter((set, index, self) => {
                           if (set.id) {
                             return index === self.findIndex(s => s.id === set.id);
@@ -499,10 +501,34 @@ export default function WorkoutSummaryScreen() {
                           );
                         });
 
-                        const workSets = uniqueSets.filter(s => !s.is_warmup && (s.actual_weight !== null || s.actual_reps !== null));
+                        // Filter work sets - include cardio sets that have data
+                        const workSets = uniqueSets.filter(s => {
+                          if (s.is_warmup) return false;
+                          if (isCardio) {
+                            return s.distance_meters || s.duration_seconds || s.avg_pace;
+                          }
+                          return s.actual_weight !== null || s.actual_reps !== null;
+                        });
 
                         if (workSets.length === 0) return null;
 
+                        // For cardio, use ExerciseBreakdown component which handles it properly
+                        if (isCardio) {
+                          return (
+                            <View key={ex.exercise.id} style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+                              <ExerciseBreakdown
+                                exercise={ex.exercise}
+                                sets={workSets}
+                                targetSets={ex.targetSets}
+                                targetReps={ex.targetReps}
+                                targetRPE={ex.targetRPE}
+                                targetLoad={ex.targetLoad}
+                              />
+                            </View>
+                          );
+                        }
+
+                        // Strength exercise summary
                         const topSet = workSets.reduce((best, current) => {
                           const currentWeight = current.actual_weight || 0;
                           const bestWeight = best.actual_weight || 0;

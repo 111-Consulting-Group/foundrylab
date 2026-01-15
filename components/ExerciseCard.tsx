@@ -213,15 +213,15 @@ export function ExerciseCard({
             <Pressable
               onPress={(e) => {
                 e.stopPropagation();
-                onDelete();
+                setShowMenu(true);
               }}
               style={{
                 padding: 6,
                 borderRadius: 20,
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
               }}
             >
-              <Ionicons name="trash-outline" size={18} color={Colors.regression[400]} />
+              <Ionicons name="ellipsis-horizontal" size={18} color={Colors.graphite[400]} />
             </Pressable>
           )}
           <Ionicons name="chevron-forward" size={20} color={Colors.graphite[500]} />

@@ -2,7 +2,7 @@
 // Wraps either CardioEntry or StrengthEntry based on exercise modality
 
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -58,12 +58,41 @@ export function ExerciseEntryModal({
   const isCardio = exercise.modality === 'Cardio';
   const prescription = formatPrescription(sets, exercise, targetSets, targetReps, targetRPE, targetLoad);
 
+  // Prevent browser warnings when closing modal on web
+  useEffect(() => {
+    if (Platform.OS === 'web' && visible) {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        // Prevent browser warning - everything auto-saves
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }
+  }, [visible]);
+
+  const handleRequestClose = React.useCallback(() => {
+    // Blur any active inputs to prevent browser warnings about unsaved changes
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const activeElement = document.activeElement as HTMLElement;
+      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+        activeElement.blur();
+      }
+    }
+    // Always allow closing without warning - everything auto-saves
+    onClose();
+  }, [onClose]);
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      presentationStyle="fullScreen"
+      onRequestClose={handleRequestClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -140,7 +169,17 @@ export function ExerciseEntryModal({
                   </View>
                 </View>
                 <Pressable
-                  onPress={onClose}
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    // Blur any active inputs to prevent browser warnings
+                    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+                      const activeElement = document.activeElement as HTMLElement;
+                      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+                        activeElement.blur();
+                      }
+                    }
+                    handleRequestClose();
+                  }}
                   style={{
                     padding: 8,
                     borderRadius: 20,
@@ -195,7 +234,17 @@ export function ExerciseEntryModal({
               }}
             >
               <Pressable
-                onPress={onClose}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  // Blur any active inputs to prevent browser warnings
+                  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+                    const activeElement = document.activeElement as HTMLElement;
+                    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+                      activeElement.blur();
+                    }
+                  }
+                  handleRequestClose();
+                }}
                 style={{
                   paddingVertical: 16,
                   borderRadius: 12,

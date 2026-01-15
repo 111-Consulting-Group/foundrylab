@@ -99,11 +99,12 @@ function assignSection(exercise: Exercise, sections: string[]): string {
 }
 
 export default function ActiveWorkoutScreen() {
-  const { id, focus: focusParam, templateId, scheduledDate } = useLocalSearchParams<{ 
+  const { id, focus: focusParam, templateId, scheduledDate, autoOpenPicker } = useLocalSearchParams<{ 
     id: string; 
     focus?: string; 
     templateId?: string;
     scheduledDate?: string;
+    autoOpenPicker?: string;
   }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -137,6 +138,7 @@ export default function ActiveWorkoutScreen() {
   // Local state
   const [trackedExercises, setTrackedExercises] = useState<TrackedExercise[]>([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const hasAutoOpenedPicker = useRef(false);
   const [currentWorkoutId, setCurrentWorkoutId] = useState<string | null>(
     isNewWorkout ? null : id
   );
@@ -464,6 +466,32 @@ export default function ActiveWorkoutScreen() {
     [createNewWorkout, sections]
   );
 
+  // Auto-open exercise picker for quick log (must be after createNewWorkout is defined)
+  useEffect(() => {
+    if (autoOpenPicker === 'true' && isNewWorkout && !hasAutoOpenedPicker.current) {
+      // Create workout first if needed, then open picker
+      const openPicker = async () => {
+        if (!currentWorkoutId) {
+          const workoutId = await createNewWorkout();
+          if (workoutId) {
+            // Wait a moment for UI to settle
+            setTimeout(() => {
+              setShowExercisePicker(true);
+              hasAutoOpenedPicker.current = true;
+            }, 300);
+          }
+        } else {
+          // Workout already exists, just open picker
+          setTimeout(() => {
+            setShowExercisePicker(true);
+            hasAutoOpenedPicker.current = true;
+          }, 300);
+        }
+      };
+      openPicker();
+    }
+  }, [autoOpenPicker, isNewWorkout, currentWorkoutId, createNewWorkout]);
+
   // Add set to an exercise
   const handleAddSet = useCallback((exerciseIndex: number) => {
     setTrackedExercises((prev) => {
@@ -524,15 +552,18 @@ export default function ActiveWorkoutScreen() {
             const updated = [...prev];
             const exerciseIndex = updated.findIndex(ex => ex.exercise.id === exerciseId);
             if (exerciseIndex >= 0) {
+              const exercise = updated[exerciseIndex].exercise;
+              const setWithExercise = {
+                ...(result as any),
+                exercise: (result as any).exercise || exercise, // Preserve exercise relationship
+              };
+              
               const setIndex = updated[exerciseIndex].sets.findIndex(s => s.set_order === setOrder);
               if (setIndex >= 0) {
-                updated[exerciseIndex].sets[setIndex] = {
-                  ...updated[exerciseIndex].sets[setIndex],
-                  ...(result as any),
-                };
+                updated[exerciseIndex].sets[setIndex] = setWithExercise;
               } else {
                 // New set - add it
-                updated[exerciseIndex].sets.push(result as any);
+                updated[exerciseIndex].sets.push(setWithExercise);
               }
             }
             return updated;
@@ -622,7 +653,10 @@ export default function ActiveWorkoutScreen() {
 
   // Complete workout
   const handleFinishWorkout = useCallback(async () => {
+    console.log('Finish button clicked', { currentWorkoutId, elapsedMinutes });
+    
     if (!currentWorkoutId) {
+      console.warn('No workout ID, going back');
       router.back();
       return;
     }
@@ -633,37 +667,75 @@ export default function ActiveWorkoutScreen() {
     );
 
     if (totalSets === 0) {
-      Alert.alert(
-        'No Sets Logged',
-        'You haven\'t logged any sets yet. Are you sure you want to finish?',
-        [
-          { text: 'Keep Training', style: 'cancel' },
-          {
-            text: 'Finish Anyway',
-            style: 'destructive',
-            onPress: async () => {
-              await completeWorkoutMutation.mutateAsync({
-                id: currentWorkoutId,
-                durationMinutes: elapsedMinutes,
-              });
-              endWorkout();
-              router.back();
-            },
-          },
-        ]
-      );
+      const confirmed = Platform.OS === 'web' && typeof window !== 'undefined'
+        ? window.confirm('You haven\'t logged any sets yet. Are you sure you want to finish?')
+        : await new Promise<boolean>((resolve) => {
+            Alert.alert(
+              'No Sets Logged',
+              'You haven\'t logged any sets yet. Are you sure you want to finish?',
+              [
+                { text: 'Keep Training', style: 'cancel', onPress: () => resolve(false) },
+                {
+                  text: 'Finish Anyway',
+                  style: 'destructive',
+                  onPress: () => resolve(true),
+                },
+              ]
+            );
+          });
+      
+      if (!confirmed) return;
+
+      try {
+        console.log('Completing workout with no sets');
+        await completeWorkoutMutation.mutateAsync({
+          id: currentWorkoutId,
+          durationMinutes: elapsedMinutes,
+        });
+        endWorkout();
+        router.replace(`/workout-summary/${currentWorkoutId}`);
+      } catch (error: any) {
+        console.error('Error completing workout:', error);
+        Alert.alert('Error', error?.message || 'Failed to complete workout. Please try again.');
+      }
       return;
     }
 
     try {
+      console.log('Completing workout with sets', { totalSets, elapsedMinutes });
       await completeWorkoutMutation.mutateAsync({
         id: currentWorkoutId,
         durationMinutes: elapsedMinutes,
       });
-      endWorkout();
-      router.replace(`/workout-summary/${currentWorkoutId}`);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to complete workout. Please try again.');
+      
+      // Don't call endWorkout here - the mutation's onSuccess will handle it
+      // Show success message before navigating
+      const confirmed = Platform.OS === 'web' && typeof window !== 'undefined'
+        ? window.confirm(`Workout Completed! ✅\n\nYour workout has been saved successfully. ${totalSets} set${totalSets !== 1 ? 's' : ''} logged.\n\nView Summary?`)
+        : await new Promise<boolean>((resolve) => {
+            Alert.alert(
+              'Workout Completed! ✅',
+              `Your workout has been saved successfully. ${totalSets} set${totalSets !== 1 ? 's' : ''} logged.`,
+              [
+                { text: 'OK', onPress: () => resolve(false) },
+                { text: 'View Summary', onPress: () => resolve(true) },
+              ]
+            );
+          });
+      
+      if (confirmed) {
+        router.replace(`/workout-summary/${currentWorkoutId}`);
+      } else {
+        router.back();
+      }
+    } catch (error: any) {
+      console.error('Error completing workout:', error);
+      const errorMessage = error?.message || 'Failed to complete workout. Please try again.';
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        alert(`Error: ${errorMessage}`);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     }
   }, [currentWorkoutId, trackedExercises, elapsedMinutes, completeWorkoutMutation, endWorkout]);
 
@@ -676,11 +748,11 @@ export default function ActiveWorkoutScreen() {
     );
     
     if (Platform.OS === 'web') {
-      alert(`Progress saved! ${totalSets} sets logged. Come back anytime to continue.`);
+      alert(`Progress saved! ${totalSets} set${totalSets !== 1 ? 's' : ''} logged. Come back anytime to continue.`);
     } else {
       Alert.alert(
-        'Progress Saved',
-        `${totalSets} sets logged. Come back anytime to continue this workout.`,
+        'Progress Saved 💾',
+        `${totalSets} set${totalSets !== 1 ? 's' : ''} logged. Your workout is saved but not completed yet. Come back anytime to finish it.`,
         [{ text: 'OK', onPress: () => router.back() }]
       );
       return;
@@ -834,7 +906,11 @@ export default function ActiveWorkoutScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Pressable
-                onPress={handleDiscard}
+                onPress={() => {
+                  // Simply exit - all sets are already saved to the database
+                  endWorkout();
+                  router.back();
+                }}
                 style={{
                   width: 40,
                   height: 40,
@@ -912,7 +988,7 @@ export default function ActiveWorkoutScreen() {
                 paddingHorizontal: 20,
                 paddingVertical: 11,
                 borderRadius: 12,
-                backgroundColor: Colors.emerald[500],
+                backgroundColor: completeWorkoutMutation.isPending ? 'rgba(16, 185, 129, 0.5)' : Colors.emerald[500],
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 6,
@@ -920,11 +996,22 @@ export default function ActiveWorkoutScreen() {
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.3,
                 shadowRadius: 8,
+                opacity: completeWorkoutMutation.isPending ? 0.7 : 1,
               }}
               onPress={handleFinishWorkout}
+              disabled={completeWorkoutMutation.isPending}
             >
-              <Ionicons name="checkmark-circle" size={18} color="#000" />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#000' }}>Finish</Text>
+              {completeWorkoutMutation.isPending ? (
+                <>
+                  <ActivityIndicator size="small" color="#000" />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#000' }}>Finishing...</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={18} color="#000" />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#000' }}>Finish</Text>
+                </>
+              )}
             </Pressable>
           </View>
         </View>
