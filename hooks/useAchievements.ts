@@ -249,12 +249,42 @@ export function useAwardAchievement() {
 export function useCheckAchievements() {
   const userId = useAppStore((state) => state.userId);
   const awardAchievement = useAwardAchievement();
-  const { data: existingAchievements } = useUserAchievements();
 
   const checkAndAward = async (workoutId?: string) => {
     if (!userId) return [];
 
-    const earnedIds = existingAchievements?.map((a) => a.definition.id) || [];
+    // Fetch existing achievements directly to avoid race conditions
+    // (cached data might not be loaded yet when this is called)
+    const { data: existingAchievementsData } = await supabase
+      .from('user_achievements')
+      .select('achievement_type, achievement_data')
+      .eq('user_id', userId);
+
+    // Build earnedIds from existing achievements by matching type and threshold
+    const earnedIds: string[] = [];
+    for (const stored of existingAchievementsData || []) {
+      // Match streak achievements by threshold
+      if (stored.achievement_type === 'streak' && stored.achievement_data?.days) {
+        const matchingDef = ALL_ACHIEVEMENTS.find(
+          (d) => d.type === 'streak' && d.threshold === stored.achievement_data.days
+        );
+        if (matchingDef) earnedIds.push(matchingDef.id);
+      }
+      // Match consistency achievements
+      if (stored.achievement_type === 'consistency' && stored.achievement_data?.rate) {
+        const matchingDef = ALL_ACHIEVEMENTS.find(
+          (d) => d.type === 'consistency' && d.threshold === stored.achievement_data.rate
+        );
+        if (matchingDef) earnedIds.push(matchingDef.id);
+      }
+      // Match volume achievements
+      if (stored.achievement_type === 'volume_milestone' && stored.achievement_data?.total_lbs) {
+        const matchingDef = ALL_ACHIEVEMENTS.find(
+          (d) => d.type === 'volume_milestone' && d.threshold === stored.achievement_data.total_lbs
+        );
+        if (matchingDef) earnedIds.push(matchingDef.id);
+      }
+    }
     const newAchievements: AchievementDefinition[] = [];
 
     // Fetch current stats
@@ -280,12 +310,13 @@ export function useCheckAchievements() {
     const streakInfo = calculateStreak(workoutDates);
 
     // Check streak achievements
+    // Only award NEW milestones (3, 7, 14, 30, 60, 90 days)
     const streakAchievements = checkStreakAchievements(streakInfo.currentStreak, earnedIds);
     for (const achievement of streakAchievements) {
       try {
         await awardAchievement.mutateAsync({
           achievement,
-          data: { days: achievement.threshold },
+          data: { days: achievement.threshold }, // Use threshold for matching, not current streak
           workoutId,
         });
         newAchievements.push(achievement);

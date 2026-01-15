@@ -198,16 +198,16 @@ export function NewAchievementToast({
       onPress={onDismiss}
       style={{
         position: 'absolute',
-        bottom: 96,
+        top: 60,
         left: 16,
         right: 16,
-        borderRadius: 16,
-        padding: 16,
+        borderRadius: 12,
+        padding: 12,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(30, 30, 30, 0.95)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: achievement.iconColor,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -217,29 +217,26 @@ export function NewAchievementToast({
     >
       <View
         style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
+          width: 40,
+          height: 40,
+          borderRadius: 20,
           alignItems: 'center',
           justifyContent: 'center',
-          marginRight: 16,
+          marginRight: 12,
           backgroundColor: achievement.bgColor,
         }}
       >
-        <Ionicons name={achievement.icon as any} size={28} color={achievement.iconColor} />
+        <Ionicons name={achievement.icon as any} size={20} color={achievement.iconColor} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 12, fontWeight: '500', color: Colors.graphite[400] }}>
+        <Text style={{ fontSize: 11, fontWeight: '500', color: Colors.graphite[400] }}>
           Achievement Unlocked!
         </Text>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.graphite[100] }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.graphite[100] }}>
           {achievement.name}
         </Text>
-        <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>
-          {achievement.description}
-        </Text>
       </View>
-      <Ionicons name="close" size={20} color={Colors.graphite[400]} />
+      <Ionicons name="close" size={18} color={Colors.graphite[400]} />
     </Pressable>
   );
 }
