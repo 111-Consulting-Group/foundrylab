@@ -110,12 +110,9 @@ export default function RootLayout() {
 
         // Listen for auth changes
         const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log('[Auth] State change:', event, session?.user?.id || 'no user');
-          
           if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
             // Handle sign out or token refresh
             if (!session?.user) {
-              console.log('[Auth] User signed out, clearing state');
               setUserId(null);
               setUserProfile(null);
             }
@@ -123,7 +120,6 @@ export default function RootLayout() {
           
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             if (session?.user) {
-              console.log('[Auth] User signed in/refreshed:', session.user.id);
               setUserId(session.user.id);
               
               // Fetch user profile

@@ -56,7 +56,8 @@ export function useStoredPatterns() {
         .from('detected_patterns')
         .select('*')
         .eq('user_id', userId)
-        .order('confidence', { ascending: false });
+        .order('confidence', { ascending: false })
+        .limit(100); // Limit to prevent large data fetches
 
       if (error) throw error;
       return (data || []) as StoredPattern[];

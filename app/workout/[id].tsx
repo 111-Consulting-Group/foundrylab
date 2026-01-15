@@ -536,24 +536,18 @@ export default function ActiveWorkoutScreen() {
       setOrder: number,
       setData: Omit<WorkoutSetInsert, 'workout_id' | 'exercise_id' | 'set_order'>
     ) => {
-      console.log('[handleSaveSet] Called with:', { exerciseId, setOrder, hasWorkoutId: !!currentWorkoutId });
-      
       if (!currentWorkoutId) {
-        console.error('[handleSaveSet] No workout ID available');
         Alert.alert('Error', 'No active workout. Please try again.');
         return;
       }
 
       try {
-        console.log('[handleSaveSet] Calling addSetMutation...');
         const result = await addSetMutation.mutateAsync({
           workout_id: currentWorkoutId,
           exercise_id: exerciseId,
           set_order: setOrder,
           ...setData,
         });
-        
-        console.log('[handleSaveSet] Mutation succeeded:', { hasResult: !!result, resultId: (result as any)?.id });
         
         // Update local state with the saved set
         if (result && (result as any).id) {
@@ -579,12 +573,6 @@ export default function ActiveWorkoutScreen() {
           });
         }
       } catch (error: any) {
-        console.error('[handleSaveSet] Error:', error);
-        console.error('[handleSaveSet] Error details:', {
-          message: error?.message,
-          code: error?.code,
-          status: error?.status,
-        });
         Alert.alert('Error', `Failed to save set: ${error?.message || 'Unknown error'}. Please try again.`);
       }
     },
@@ -668,10 +656,7 @@ export default function ActiveWorkoutScreen() {
 
   // Complete workout
   const handleFinishWorkout = useCallback(async () => {
-    console.log('Finish button clicked', { currentWorkoutId, elapsedMinutes });
-    
     if (!currentWorkoutId) {
-      console.warn('No workout ID, going back');
       router.back();
       return;
     }
@@ -702,7 +687,6 @@ export default function ActiveWorkoutScreen() {
       if (!confirmed) return;
 
       try {
-        console.log('Completing workout with no sets');
         await completeWorkoutMutation.mutateAsync({
           id: currentWorkoutId,
           durationMinutes: elapsedMinutes,
@@ -717,7 +701,6 @@ export default function ActiveWorkoutScreen() {
     }
 
     try {
-      console.log('Completing workout with sets', { totalSets, elapsedMinutes });
       await completeWorkoutMutation.mutateAsync({
         id: currentWorkoutId,
         durationMinutes: elapsedMinutes,

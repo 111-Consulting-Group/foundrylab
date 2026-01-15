@@ -213,7 +213,8 @@ export function useFeed(limit: number = 20) {
         .in('user_id', uniqueUserIds)
         .not('date_completed', 'is', null)
         .gte('date_completed', thirtyDaysAgo.toISOString())
-        .order('date_completed', { ascending: false });
+        .order('date_completed', { ascending: false })
+        .limit(500); // Limit to prevent large data fetches
 
       const streaksByUser = new Map<string, StreakInfo>();
       const workoutDatesByUser = new Map<string, string[]>();

@@ -277,15 +277,15 @@ export function usePushWorkouts() {
 }
 
 // Fetch workout history with sets for stats calculation
-export function useWorkoutHistory(limit: number = 20) {
+export function useWorkoutHistory(limit: number = 20, dateRange?: { start: string; end: string }) {
   const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: workoutKeys.history(limit, userId),
+    queryKey: [...workoutKeys.history(limit, userId), dateRange?.start, dateRange?.end],
     queryFn: async (): Promise<WorkoutWithSets[]> => {
       if (!userId) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('workouts')
         .select(`
           *,
@@ -296,8 +296,21 @@ export function useWorkoutHistory(limit: number = 20) {
         `)
         .eq('user_id', userId)
         .not('date_completed', 'is', null)
-        .order('date_completed', { ascending: false })
-        .limit(limit);
+        .order('date_completed', { ascending: false });
+      
+      // Apply date range filter if provided (more efficient than client-side filtering)
+      if (dateRange) {
+        query = query
+          .gte('date_completed', dateRange.start)
+          .lte('date_completed', dateRange.end);
+      }
+      
+      // Only apply limit if no date range (date range should return all in range)
+      if (!dateRange) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as WorkoutWithSets[];

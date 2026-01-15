@@ -39,11 +39,6 @@ import type {
 // Constants
 // ============================================================================
 
-// WARNING: This API key is exposed in client-side code.
-// TODO: Move to a backend proxy (Supabase Edge Function) before production.
-// The proxy should validate user authentication and rate-limit requests.
-const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-
 // Input validation constants
 const MAX_MESSAGE_LENGTH = 2000;
 const MIN_MESSAGE_LENGTH = 1;
@@ -403,33 +398,41 @@ export function useCoach(options: UseCoachOptions = {}) {
           content: m.content,
         }));
 
-        // Call OpenAI API
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o',
-            messages: [
-              { role: 'system', content: buildSystemPrompt(context) },
-              ...historyMessages,
-              { role: 'user', content: sanitizedMessage },
-            ],
-            temperature: 0.7,
-            max_tokens: 1000,
-          }),
-          signal: abortControllerRef.current.signal,
-        });
+        // Get auth session for Edge Function
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('Please log in to use the coach');
+        }
+
+        // Call AI Coach Edge Function (secure - API key is server-side)
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-coach`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              messages: [
+                ...historyMessages,
+                { role: 'user', content: sanitizedMessage },
+              ],
+              systemPrompt: buildSystemPrompt(context),
+              temperature: 0.7,
+              maxTokens: 1000,
+            }),
+            signal: abortControllerRef.current.signal,
+          }
+        );
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error?.message || 'Failed to get coach response');
+          throw new Error(errorData.error || 'Failed to get coach response');
         }
 
         const data = await response.json();
-        const assistantContent = data.choices[0]?.message?.content || 'I apologize, I had trouble responding. Please try again.';
+        const assistantContent = data.message || 'I apologize, I had trouble responding. Please try again.';
 
         // Parse response for actions
         const parsed = parseCoachResponse(assistantContent);

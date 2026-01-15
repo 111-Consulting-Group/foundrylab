@@ -41,23 +41,36 @@ export function useExercisePRs(exerciseId: string) {
 }
 
 // Fetch recent PRs across all exercises
-export function useRecentPRs(limit: number = 10) {
+export function useRecentPRs(limit: number = 10, dateRange?: { start: string; end: string }) {
   const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: prKeys.recent(limit),
+    queryKey: [...prKeys.recent(limit), dateRange?.start, dateRange?.end],
     queryFn: async () => {
       if (!userId) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('personal_records')
         .select(`
           *,
           exercise:exercises(name, modality)
         `)
         .eq('user_id', userId)
-        .order('achieved_at', { ascending: false })
-        .limit(limit);
+        .order('achieved_at', { ascending: false });
+      
+      // Apply date range filter if provided (more efficient than client-side filtering)
+      if (dateRange) {
+        query = query
+          .gte('achieved_at', dateRange.start)
+          .lte('achieved_at', dateRange.end);
+      }
+      
+      // Only apply limit if no date range
+      if (!dateRange) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;

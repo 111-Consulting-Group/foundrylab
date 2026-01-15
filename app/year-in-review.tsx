@@ -11,38 +11,27 @@ import { useTrainingBlocks } from '@/hooks/useTrainingBlocks';
 
 export default function YearInReviewScreen() {
 
-  // Fetch all data for the year
-  const { data: allWorkouts = [], isLoading: workoutsLoading } = useWorkoutHistory(1000);
-  const { data: allPRs = [] } = useRecentPRs(1000);
+  // Calculate date range for the current year
+  const thisYear = new Date().getFullYear();
+  const yearDateRange = useMemo(() => ({
+    start: `${thisYear}-01-01T00:00:00`,
+    end: `${thisYear}-12-31T23:59:59`,
+  }), [thisYear]);
+
+  // Fetch data with server-side year filtering (more efficient than fetching everything)
+  const { data: yearWorkouts = [], isLoading: workoutsLoading } = useWorkoutHistory(0, yearDateRange);
+  const { data: yearPRs = [] } = useRecentPRs(0, yearDateRange);
   const { data: allBlocks = [] } = useTrainingBlocks();
 
-  // Filter to this year
-  const thisYear = new Date().getFullYear();
-  const yearStart = new Date(thisYear, 0, 1);
-  const yearEnd = new Date(thisYear, 11, 31, 23, 59, 59);
-
-  const yearWorkouts = useMemo(() => {
-    return allWorkouts.filter((w) => {
-      if (!w.date_completed) return false;
-      const date = new Date(w.date_completed);
-      return date >= yearStart && date <= yearEnd;
-    });
-  }, [allWorkouts, yearStart, yearEnd]);
-
-  const yearPRs = useMemo(() => {
-    return allPRs.filter((pr) => {
-      const date = new Date(pr.achieved_at);
-      return date >= yearStart && date <= yearEnd;
-    });
-  }, [allPRs, yearStart, yearEnd]);
-
+  // Filter blocks client-side (smaller dataset)
   const completedBlocks = useMemo(() => {
-    // Simplified - would need to check block completion logic
+    const yearStart = new Date(thisYear, 0, 1);
+    const yearEnd = new Date(thisYear, 11, 31, 23, 59, 59);
     return allBlocks.filter((block) => {
       const startDate = new Date(block.start_date);
       return startDate >= yearStart && startDate <= yearEnd;
     });
-  }, [allBlocks, yearStart, yearEnd]);
+  }, [allBlocks, thisYear]);
 
   // Calculate stats
   const stats = useMemo(() => {

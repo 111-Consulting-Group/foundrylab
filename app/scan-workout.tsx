@@ -155,8 +155,6 @@ export default function ScanWorkoutScreen() {
         throw new Error('No access token found. Please log in again.');
       }
 
-      console.log('Session found, user:', session.user?.email, 'token length:', session.access_token?.length);
-
       // Add timeout wrapper (60 seconds)
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Request timed out. The analysis is taking longer than expected. Please try again.')), 60000);
