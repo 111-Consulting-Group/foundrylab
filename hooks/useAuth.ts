@@ -328,21 +328,32 @@ export function useLogout() {
       console.log('✅ User logged out successfully');
       return true;
     },
-    onSuccess: async () => {
-      console.log('🚀 Logout mutation succeeded, navigating to login');
-      // Small delay to ensure state is fully cleared and persisted storage is updated
-      await new Promise(resolve => setTimeout(resolve, 200));
+    onSuccess: () => {
+      console.log('🚀 Logout mutation succeeded');
       
-      // Navigate directly to login instead of relying on index redirect
-      // This ensures we don't hit a race condition with persisted state rehydration
+      // Navigate immediately - don't wait for async operations
+      // On web, use window.location for a full page reload to ensure clean state
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         console.log('Using window.location.href for web navigation');
         window.location.href = '/login';
       } else {
-        console.log('Using router.replace for native navigation - going directly to login');
-        // Navigate directly to login to avoid race condition with persisted state
+        console.log('Navigating to /login directly on mobile');
+        // Navigate directly to login - don't rely on redirects
         router.replace('/login');
       }
+      
+      // Clear MMKV storage in background (non-blocking)
+      import('react-native-mmkv').then(({ MMKV }) => {
+        try {
+          const storage = new MMKV();
+          storage.delete('foundry-lab-storage');
+          console.log('✅ Cleared MMKV storage');
+        } catch (err) {
+          console.error('⚠️ Could not clear MMKV storage:', err);
+        }
+      }).catch((err) => {
+        console.error('⚠️ Could not import MMKV:', err);
+      });
     },
     onError: (error: any) => {
       console.error('❌ Logout mutation error:', error);

@@ -187,27 +187,27 @@ export function CardioEntry({
         }
       }
 
+      console.log('[CardioEntry] Starting save...');
       setIsLogging(true);
+      
+      const setData = {
+        distance_meters: distanceMeters,
+        avg_pace: paceWithUnit,
+        avg_hr: avgHeartRate ? parseInt(avgHeartRate, 10) : null,
+        duration_seconds: durationSeconds,
+        segment_type: 'work' as const,
+        is_warmup: false,
+        is_pr: false,
+      };
+      
+      console.log('[CardioEntry] Saving continuous run:', {
+        exerciseId: exercise.id,
+        setOrder: nextSetOrder,
+        setData,
+      });
+      
       try {
-        console.log('[CardioEntry] Saving continuous run:', {
-          distanceMeters,
-          paceWithUnit,
-          avgHeartRate,
-          durationSeconds,
-          exerciseId: exercise.id,
-          setOrder: nextSetOrder,
-        });
-        
-        await onSaveSet(exercise.id, nextSetOrder, {
-          distance_meters: distanceMeters,
-          avg_pace: paceWithUnit,
-          avg_hr: avgHeartRate ? parseInt(avgHeartRate, 10) : null,
-          duration_seconds: durationSeconds,
-          segment_type: 'work',
-          is_warmup: false,
-          is_pr: false,
-        });
-
+        await onSaveSet(exercise.id, nextSetOrder, setData);
         console.log('[CardioEntry] Run saved successfully');
         
         // Reset form
@@ -222,11 +222,20 @@ export function CardioEntry({
             onClose();
           }, 100);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('[CardioEntry] Error saving run:', error);
-        Alert.alert('Error', 'Failed to log workout. Please try again.');
+        console.error('[CardioEntry] Error details:', {
+          message: error?.message,
+          code: error?.code,
+          status: error?.status,
+        });
+        Alert.alert(
+          'Error', 
+          `Failed to log workout: ${error?.message || 'Unknown error'}. Please try again.`
+        );
       } finally {
         setIsLogging(false);
+        console.log('[CardioEntry] Save operation complete');
       }
       return;
     }

@@ -60,18 +60,42 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
         'Content-Type': 'application/json',
         'Prefer': 'return=representation',
       },
-      // #region agent log
-      fetch: (url, options = {}) => {
+      // Custom fetch wrapper for error handling
+      fetch: async (url, options = {}) => {
         const urlStr = typeof url === 'string' ? url : url.toString();
-        fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supabase.ts:64',message:'Supabase HTTP request',data:{url:urlStr,method:options?.method||'GET',hasHeaders:!!options?.headers},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
-        return fetch(url, options).then(response => {
-          if (response.status === 406) {
-            fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supabase.ts:68',message:'Supabase 406 error detected',data:{url:urlStr,status:406,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
+        
+        try {
+          const response = await fetch(url, options);
+          
+          // Handle auth errors (400/401) - likely refresh token issues
+          // Only for token refresh endpoints to avoid recursive issues
+          if ((response.status === 400 || response.status === 401) && urlStr.includes('/auth/v1/token')) {
+            const clonedResponse = response.clone();
+            try {
+              const errorData = await clonedResponse.json();
+              const errorMessage = errorData?.message || errorData?.error_description || '';
+              
+              if (
+                errorMessage.includes('Refresh Token') ||
+                errorMessage.includes('refresh_token') ||
+                errorMessage.includes('Invalid Refresh Token')
+              ) {
+                console.error('[Supabase] Refresh token error detected:', errorMessage);
+                // Don't call signOut here - it causes recursive issues
+                // Instead, emit a custom event or let the caller handle it
+                // The onAuthStateChange listener will handle session cleanup
+              }
+            } catch (parseError) {
+              console.error('[Supabase] Auth error but couldn\'t parse response');
+            }
           }
+          
           return response;
-        });
+        } catch (fetchError) {
+          console.error('[Supabase] Fetch error:', fetchError);
+          throw fetchError;
+        }
       },
-      // #endregion
     },
     db: {
       schema: 'public',

@@ -536,15 +536,24 @@ export default function ActiveWorkoutScreen() {
       setOrder: number,
       setData: Omit<WorkoutSetInsert, 'workout_id' | 'exercise_id' | 'set_order'>
     ) => {
-      if (!currentWorkoutId) return;
+      console.log('[handleSaveSet] Called with:', { exerciseId, setOrder, hasWorkoutId: !!currentWorkoutId });
+      
+      if (!currentWorkoutId) {
+        console.error('[handleSaveSet] No workout ID available');
+        Alert.alert('Error', 'No active workout. Please try again.');
+        return;
+      }
 
       try {
+        console.log('[handleSaveSet] Calling addSetMutation...');
         const result = await addSetMutation.mutateAsync({
           workout_id: currentWorkoutId,
           exercise_id: exerciseId,
           set_order: setOrder,
           ...setData,
         });
+        
+        console.log('[handleSaveSet] Mutation succeeded:', { hasResult: !!result, resultId: (result as any)?.id });
         
         // Update local state with the saved set
         if (result && (result as any).id) {
@@ -569,8 +578,14 @@ export default function ActiveWorkoutScreen() {
             return updated;
           });
         }
-      } catch (error) {
-        Alert.alert('Error', 'Failed to save set. Please try again.');
+      } catch (error: any) {
+        console.error('[handleSaveSet] Error:', error);
+        console.error('[handleSaveSet] Error details:', {
+          message: error?.message,
+          code: error?.code,
+          status: error?.status,
+        });
+        Alert.alert('Error', `Failed to save set: ${error?.message || 'Unknown error'}. Please try again.`);
       }
     },
     [currentWorkoutId, addSetMutation]

@@ -59,14 +59,8 @@ export function useActiveTrainingBlock() {
   return useQuery({
     queryKey: trainingBlockKeys.active(),
     queryFn: async (): Promise<TrainingBlock | null> => {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useTrainingBlocks.ts:62',message:'useActiveTrainingBlock: query start',data:{userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       if (!userId) return null;
 
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useTrainingBlocks.ts:65',message:'useActiveTrainingBlock: executing query',data:{table:'training_blocks',userId,filter:'is_active=true'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       const { data, error } = await supabase
         .from('training_blocks')
         .select('*')
@@ -74,9 +68,6 @@ export function useActiveTrainingBlock() {
         .eq('is_active', true)
         .maybeSingle();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useTrainingBlocks.ts:72',message:'useActiveTrainingBlock: query result',data:{hasData:!!data,hasError:!!error,errorCode:error?.code,errorMessage:error?.message,errorStatus:error?.status,errorDetails:error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       if (error && error.code !== 'PGRST116') throw error;
       return data as TrainingBlock | null;
     },

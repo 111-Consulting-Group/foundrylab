@@ -85,14 +85,8 @@ export function useTodaysWorkout() {
   return useQuery({
     queryKey: workoutKeys.today(),
     queryFn: async (): Promise<WorkoutWithSets | null> => {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:87',message:'useTodaysWorkout: query start',data:{userId,today},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       if (!userId) return null;
 
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:90',message:'useTodaysWorkout: executing query',data:{table:'workouts',userId,scheduledDate:today},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       const { data, error } = await supabase
         .from('workouts')
         .select(`
@@ -107,9 +101,6 @@ export function useTodaysWorkout() {
         .is('date_completed', null)
         .maybeSingle();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:105',message:'useTodaysWorkout: query result',data:{hasData:!!data,hasError:!!error,errorCode:error?.code,errorMessage:error?.message,errorStatus:error?.status,errorDetails:error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       if (error && error.code !== 'PGRST116') throw error;
       return data as WorkoutWithSets | null;
     },
@@ -128,14 +119,8 @@ export function useNextWorkout() {
     queryFn: async (): Promise<WorkoutWithSets | null> => {
       if (!userId) return null;
 
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:122',message:'useNextWorkout: query start',data:{userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       // Get the next incomplete workout ordered by week/day (program order, not date)
       // First get active block ID
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:125',message:'useNextWorkout: fetching active block',data:{userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       const { data: activeBlock, error: blockError } = await supabase
         .from('training_blocks')
         .select('id')
@@ -143,16 +128,10 @@ export function useNextWorkout() {
         .eq('is_active', true)
         .maybeSingle();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:132',message:'useNextWorkout: active block result',data:{hasActiveBlock:!!activeBlock,activeBlockId:activeBlock?.id,hasBlockError:!!blockError,blockErrorCode:blockError?.code,blockErrorStatus:blockError?.status,blockErrorMessage:blockError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       if (!activeBlock) {
         return null;
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:136',message:'useNextWorkout: fetching workouts',data:{userId,blockId:activeBlock.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       const { data, error } = await supabase
         .from('workouts')
         .select(`
@@ -175,9 +154,6 @@ export function useNextWorkout() {
         .limit(1)
         .maybeSingle();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:158',message:'useNextWorkout: workouts query result',data:{hasData:!!data,hasError:!!error,errorCode:error?.code,errorMessage:error?.message,errorStatus:error?.status,errorDetails:error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       if (error && error.code !== 'PGRST116') throw error;
       return data as WorkoutWithSets | null;
     },
@@ -648,7 +624,18 @@ export function useAddWorkoutSet() {
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useAddWorkoutSet] Error inserting set:', error);
+        console.error('[useAddWorkoutSet] Set data:', set);
+        // Check if it's an auth error
+        if (error.status === 400 || error.status === 401) {
+          const errorMessage = error.message || '';
+          if (errorMessage.includes('Refresh Token') || errorMessage.includes('refresh_token')) {
+            console.error('[useAddWorkoutSet] Auth error - refresh token issue');
+          }
+        }
+        throw error;
+      }
       return data as WorkoutSet & { exercise: unknown };
     },
     onSuccess: (data) => {
