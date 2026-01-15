@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { useUpdatePassword } from '@/hooks/useAuth';
 import { getPasswordStrength, validatePassword } from '@/lib/validation';
 import { Colors } from '@/constants/Colors';
+import { supabase } from '@/lib/supabase';
 
 export default function ResetPasswordScreen() {
   const [password, setPassword] = useState('');
@@ -58,7 +59,7 @@ export default function ResetPasswordScreen() {
       case 'good':
         return Colors.signal[400];
       case 'strong':
-        return Colors.progress[500];
+        return Colors.emerald[500];
       default:
         return Colors.graphite[500];
     }

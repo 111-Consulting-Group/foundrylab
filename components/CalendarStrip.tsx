@@ -14,6 +14,9 @@ interface CalendarStripProps {
 type DayStatus = 'completed' | 'planned' | 'missed' | 'none';
 
 export function CalendarStrip({ selectedDate, onSelectDate, workouts, rescheduleMode }: CalendarStripProps) {
+  // App forces dark mode throughout
+  const isDark = true;
+
   // Generate array of 7 days (Sun-Sat)
   const weekDays = useMemo(() => {
     const today = new Date();
