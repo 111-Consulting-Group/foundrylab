@@ -10,6 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,6 +21,7 @@ import { Colors } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
 import { workoutKeys } from '@/hooks/useWorkouts';
+import { useCreatePendingExercise, useMuscleGroups } from '@/hooks/useExercises';
 
 // Types matching edge function response
 interface ParsedSet {
@@ -35,6 +38,7 @@ interface ParsedExercise {
   matchedName?: string;
   sets: ParsedSet[];
   notes?: string;
+  suggestions?: { id: string; name: string; similarity: number }[];
   suggestion?: {
     weight: number;
     lastWeight: number;
@@ -70,6 +74,14 @@ export default function ScanWorkoutScreen() {
   const [isParsing, setIsParsing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creatingForExercise, setCreatingForExercise] = useState<ParsedExercise | null>(null);
+  const [newExerciseName, setNewExerciseName] = useState('');
+  const [newExerciseMuscleGroup, setNewExerciseMuscleGroup] = useState('');
+  const [newExerciseEquipment, setNewExerciseEquipment] = useState('');
+
+  const createPendingExercise = useCreatePendingExercise();
+  const { data: muscleGroups = [] } = useMuscleGroups();
 
   const pickImage = useCallback(async (useCamera: boolean) => {
     try {
@@ -177,6 +189,70 @@ export default function ScanWorkoutScreen() {
     } finally {
       setIsParsing(false);
     }
+  };
+
+  const handleSelectSuggestion = (exerciseIndex: number, suggestionId: string, suggestionName: string) => {
+    if (!parsedWorkout) return;
+    
+    const updatedExercises = [...parsedWorkout.exercises];
+    updatedExercises[exerciseIndex] = {
+      ...updatedExercises[exerciseIndex],
+      exercise_id: suggestionId,
+      matchedName: suggestionName,
+      suggestions: undefined, // Clear suggestions after selection
+    };
+    
+    setParsedWorkout({ ...parsedWorkout, exercises: updatedExercises });
+  };
+
+  const handleCreateExercise = async () => {
+    if (!creatingForExercise || !newExerciseName.trim() || !newExerciseMuscleGroup) {
+      Alert.alert('Missing Info', 'Please enter exercise name and select a muscle group.');
+      return;
+    }
+
+    try {
+      const newExercise = await createPendingExercise.mutateAsync({
+        name: newExerciseName.trim(),
+        muscle_group: newExerciseMuscleGroup,
+        equipment: newExerciseEquipment || null,
+      });
+
+      // Update the parsed workout with the new exercise ID
+      if (parsedWorkout) {
+        const exerciseIndex = parsedWorkout.exercises.findIndex(
+          (e) => e.name === creatingForExercise.name && e.originalName === creatingForExercise.originalName
+        );
+        
+        if (exerciseIndex !== -1) {
+          const updatedExercises = [...parsedWorkout.exercises];
+          updatedExercises[exerciseIndex] = {
+            ...updatedExercises[exerciseIndex],
+            exercise_id: newExercise.id,
+            matchedName: newExercise.name,
+            suggestions: undefined,
+          };
+          setParsedWorkout({ ...parsedWorkout, exercises: updatedExercises });
+        }
+      }
+
+      setShowCreateModal(false);
+      setCreatingForExercise(null);
+      setNewExerciseName('');
+      setNewExerciseMuscleGroup('');
+      setNewExerciseEquipment('');
+    } catch (err: any) {
+      console.error('Error creating exercise:', err);
+      Alert.alert('Error', err.message || 'Failed to create exercise');
+    }
+  };
+
+  const openCreateModal = (exercise: ParsedExercise) => {
+    setCreatingForExercise(exercise);
+    setNewExerciseName(exercise.name);
+    setNewExerciseMuscleGroup('');
+    setNewExerciseEquipment('');
+    setShowCreateModal(true);
   };
 
   const createWorkoutFromParsed = async () => {
@@ -528,6 +604,69 @@ export default function ScanWorkoutScreen() {
                 <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>{exercise.suggestion.reasoning}</Text>
               </View>
             )}
+
+            {/* Suggestions for unmatched exercises */}
+            {!exercise.exercise_id && exercise.suggestions && exercise.suggestions.length > 0 && (
+              <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.signal[400], marginBottom: 8 }}>
+                  Did you mean:
+                </Text>
+                {exercise.suggestions.map((suggestion, idx) => (
+                  <Pressable
+                    key={suggestion.id}
+                    onPress={() => handleSelectSuggestion(index, suggestion.id, suggestion.name)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      marginBottom: idx < exercise.suggestions!.length - 1 ? 8 : 0,
+                      borderRadius: 8,
+                      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, color: Colors.graphite[100], flex: 1 }}>
+                      {suggestion.name}
+                    </Text>
+                    <Pressable
+                      onPress={() => handleSelectSuggestion(index, suggestion.id, suggestion.name)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 6,
+                        backgroundColor: Colors.signal[600],
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: 'white' }}>Use This</Text>
+                    </Pressable>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {/* Create new exercise button for unmatched exercises */}
+            {!exercise.exercise_id && (
+              <Pressable
+                onPress={() => openCreateModal(exercise)}
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(16, 185, 129, 0.3)',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={18} color={Colors.emerald[400]} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.emerald[400], marginLeft: 8 }}>
+                  Create "{exercise.name}"
+                </Text>
+              </Pressable>
+            )}
           </View>
         ))}
 
@@ -539,7 +678,7 @@ export default function ScanWorkoutScreen() {
               <Text style={{ fontSize: 14, fontWeight: '600', color: '#FBBF24', marginLeft: 8 }}>Some exercises not matched</Text>
             </View>
             <Text style={{ fontSize: 13, color: Colors.graphite[400] }}>
-              Exercises without a match won't be logged. You can add them manually later.
+              Select a suggestion or create a new exercise to log these movements.
             </Text>
           </View>
         )}
@@ -606,6 +745,160 @@ export default function ScanWorkoutScreen() {
     );
   };
 
+  const renderCreateExerciseModal = () => (
+    <Modal
+      visible={showCreateModal}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => {
+        setShowCreateModal(false);
+        setCreatingForExercise(null);
+      }}
+    >
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+        <View style={{ flex: 1, padding: 16 }}>
+          {/* Header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.graphite[50] }}>Create Exercise</Text>
+            <Pressable
+              onPress={() => {
+                setShowCreateModal(false);
+                setCreatingForExercise(null);
+              }}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              <Ionicons name="close" size={24} color={Colors.graphite[50]} />
+            </Pressable>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Exercise Name */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[200], marginBottom: 8 }}>
+                Exercise Name *
+              </Text>
+              <TextInput
+                value={newExerciseName}
+                onChangeText={setNewExerciseName}
+                placeholder="e.g., Standing Side Crunch"
+                placeholderTextColor={Colors.graphite[500]}
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: 12,
+                  padding: 16,
+                  color: Colors.graphite[50],
+                  fontSize: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              />
+            </View>
+
+            {/* Muscle Group */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[200], marginBottom: 8 }}>
+                Muscle Group *
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {muscleGroups.map((group) => (
+                    <Pressable
+                      key={group}
+                      onPress={() => setNewExerciseMuscleGroup(group)}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 8,
+                        backgroundColor: newExerciseMuscleGroup === group
+                          ? Colors.signal[600]
+                          : 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        borderColor: newExerciseMuscleGroup === group
+                          ? Colors.signal[500]
+                          : 'rgba(255, 255, 255, 0.1)',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: '600',
+                          color: newExerciseMuscleGroup === group ? 'white' : Colors.graphite[200],
+                        }}
+                      >
+                        {group}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            {/* Equipment (Optional) */}
+            <View style={{ marginBottom: 32 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[200], marginBottom: 8 }}>
+                Equipment (Optional)
+              </Text>
+              <TextInput
+                value={newExerciseEquipment}
+                onChangeText={setNewExerciseEquipment}
+                placeholder="e.g., Kettlebell, Dumbbells, Bodyweight"
+                placeholderTextColor={Colors.graphite[500]}
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: 12,
+                  padding: 16,
+                  color: Colors.graphite[50],
+                  fontSize: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              />
+            </View>
+
+            {/* Create Button */}
+            <Pressable
+              onPress={handleCreateExercise}
+              disabled={createPendingExercise.isPending || !newExerciseName.trim() || !newExerciseMuscleGroup}
+              style={{
+                backgroundColor:
+                  createPendingExercise.isPending || !newExerciseName.trim() || !newExerciseMuscleGroup
+                    ? 'rgba(16, 185, 129, 0.5)'
+                    : Colors.emerald[600],
+                paddingVertical: 16,
+                borderRadius: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {createPendingExercise.isPending ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={22} color="white" />
+                  <Text style={{ color: 'white', fontWeight: '700', fontSize: 16, marginLeft: 8 }}>
+                    Create Exercise
+                  </Text>
+                </>
+              )}
+            </Pressable>
+
+            <Text style={{ fontSize: 12, color: Colors.graphite[500], textAlign: 'center', marginTop: 16 }}>
+              This exercise will be available immediately and reviewed by admins
+            </Text>
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
       {/* Ambient Background Glows */}
@@ -658,6 +951,7 @@ export default function ScanWorkoutScreen() {
         {mode === 'parsing' && renderParsingMode()}
         {mode === 'review' && renderReviewMode()}
       </SafeAreaView>
+      {renderCreateExerciseModal()}
     </View>
   );
 }

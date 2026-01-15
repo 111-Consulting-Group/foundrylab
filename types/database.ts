@@ -37,6 +37,10 @@ export interface Database {
           instructions: string | null;
           is_custom: boolean;
           created_by: string | null;
+          status: 'approved' | 'pending' | 'rejected';
+          aliases: string[];
+          merged_into: string | null;
+          usage_count: number;
           created_at: string;
           updated_at: string;
         };
@@ -50,6 +54,10 @@ export interface Database {
           instructions?: string | null;
           is_custom?: boolean;
           created_by?: string | null;
+          status?: 'approved' | 'pending' | 'rejected';
+          aliases?: string[];
+          merged_into?: string | null;
+          usage_count?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -63,6 +71,10 @@ export interface Database {
           instructions?: string | null;
           is_custom?: boolean;
           created_by?: string | null;
+          status?: 'approved' | 'pending' | 'rejected';
+          aliases?: string[];
+          merged_into?: string | null;
+          usage_count?: number;
           created_at?: string;
           updated_at?: string;
         };

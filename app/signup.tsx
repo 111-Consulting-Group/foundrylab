@@ -47,7 +47,7 @@ export default function SignupScreen() {
       case 'good':
         return Colors.signal[400];
       case 'strong':
-        return Colors.progress[500];
+        return Colors.emerald[500];
       default:
         return Colors.graphite[500];
     }

@@ -185,35 +185,75 @@ serve(async (req) => {
       throw new Error('Failed to parse workout data from image');
     }
 
+    // Helper function to calculate string similarity (simple Levenshtein-like)
+    function calculateSimilarity(str1: string, str2: string): number {
+      const s1 = str1.toLowerCase();
+      const s2 = str2.toLowerCase();
+      
+      // Exact match
+      if (s1 === s2) return 1.0;
+      
+      // One contains the other
+      if (s1.includes(s2) || s2.includes(s1)) return 0.8;
+      
+      // Calculate common words
+      const words1 = s1.split(/\s+/);
+      const words2 = s2.split(/\s+/);
+      const commonWords = words1.filter(w => words2.includes(w));
+      if (commonWords.length > 0) {
+        return Math.min(0.6, 0.3 + (commonWords.length / Math.max(words1.length, words2.length)) * 0.3);
+      }
+      
+      return 0.0;
+    }
+
     // If user_id provided, try to match exercises to database
-    let matchedExercises: { parsed: string; matched: { id: string; name: string } | null }[] = [];
+    let matchedExercises: { parsed: string; matched: { id: string; name: string } | null; suggestions?: { id: string; name: string; similarity: number }[] }[] = [];
     
     if (user_id) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      // Get all available exercises
+      // Get all available exercises (including approved and user's pending/custom)
       const { data: exercises } = await supabase
         .from('exercises')
-        .select('id, name')
-        .or(`is_custom.eq.false,created_by.eq.${user_id}`);
+        .select('id, name, aliases, status, created_by')
+        .or(`status.eq.approved,created_by.eq.${user_id}`);
 
       if (exercises) {
+        // Filter to only approved exercises or user's own exercises
+        const availableExercises = exercises.filter(
+          (e) => e.status === 'approved' || e.created_by === user_id
+        );
+
         // Try to match parsed exercise names to database
         matchedExercises = parsedWorkout.exercises.map((ex) => {
           const normalizedName = ex.name.toLowerCase().trim();
           
-          // Exact match first
-          let match = exercises.find(
-            (e) => e.name.toLowerCase() === normalizedName
+          // Exact match first (name or aliases)
+          let match = availableExercises.find(
+            (e) => {
+              const nameMatch = e.name.toLowerCase() === normalizedName;
+              const aliasMatch = e.aliases && Array.isArray(e.aliases) && 
+                e.aliases.some((alias: string) => alias.toLowerCase() === normalizedName);
+              return nameMatch || aliasMatch;
+            }
           );
           
-          // Fuzzy match - check if database exercise contains parsed name
+          // Fuzzy match - check if database exercise contains parsed name (including aliases)
           if (!match) {
-            match = exercises.find(
-              (e) => e.name.toLowerCase().includes(normalizedName) ||
-                     normalizedName.includes(e.name.toLowerCase())
+            match = availableExercises.find(
+              (e) => {
+                const nameContains = e.name.toLowerCase().includes(normalizedName) ||
+                                     normalizedName.includes(e.name.toLowerCase());
+                const aliasContains = e.aliases && Array.isArray(e.aliases) &&
+                  e.aliases.some((alias: string) => 
+                    alias.toLowerCase().includes(normalizedName) ||
+                    normalizedName.includes(alias.toLowerCase())
+                  );
+                return nameContains || aliasContains;
+              }
             );
           }
 
@@ -233,26 +273,64 @@ serve(async (req) => {
 
             for (const [standard, alts] of Object.entries(variations)) {
               if (alts.includes(normalizedName) || normalizedName.includes(standard)) {
-                match = exercises.find(
-                  (e) => e.name.toLowerCase() === standard ||
-                         e.name.toLowerCase().includes(standard)
+                match = availableExercises.find(
+                  (e) => {
+                    const nameMatch = e.name.toLowerCase() === standard ||
+                                     e.name.toLowerCase().includes(standard);
+                    const aliasMatch = e.aliases && Array.isArray(e.aliases) &&
+                      e.aliases.some((alias: string) => 
+                        alias.toLowerCase() === standard ||
+                        alias.toLowerCase().includes(standard)
+                      );
+                    return nameMatch || aliasMatch;
+                  }
                 );
                 if (match) break;
               }
             }
           }
 
+          // If no match, calculate similarity scores for top suggestions
+          let suggestions: { id: string; name: string; similarity: number }[] = [];
+          if (!match) {
+            const scored = availableExercises.map((e) => {
+              // Check similarity against name
+              let maxSimilarity = calculateSimilarity(normalizedName, e.name);
+              
+              // Check similarity against aliases
+              if (e.aliases && Array.isArray(e.aliases)) {
+                for (const alias of e.aliases) {
+                  const aliasSimilarity = calculateSimilarity(normalizedName, alias);
+                  maxSimilarity = Math.max(maxSimilarity, aliasSimilarity);
+                }
+              }
+              
+              return {
+                id: e.id,
+                name: e.name,
+                similarity: maxSimilarity,
+              };
+            })
+            .filter((s) => s.similarity > 0.2) // Only include reasonable matches
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, 3); // Top 3 suggestions
+            
+            suggestions = scored;
+          }
+
           return {
             parsed: ex.name,
             matched: match ? { id: match.id, name: match.name } : null,
+            suggestions: suggestions.length > 0 ? suggestions : undefined,
           };
         });
 
-        // Attach matched IDs to parsed exercises
+        // Attach matched IDs and suggestions to parsed exercises
         parsedWorkout.exercises = parsedWorkout.exercises.map((ex, i) => ({
           ...ex,
           exercise_id: matchedExercises[i]?.matched?.id || null,
           matchedName: matchedExercises[i]?.matched?.name || null,
+          suggestions: matchedExercises[i]?.suggestions || undefined,
         }));
       }
 

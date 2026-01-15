@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
+import { useAppStore } from '@/stores/useAppStore';
 import type { Exercise, ExerciseInsert, ExerciseModality } from '@/types/database';
 
 // Query keys
@@ -95,6 +96,42 @@ export function useCreateExercise() {
       const { data, error } = await supabase
         .from('exercises')
         .insert({ ...exercise, is_custom: true } as ExerciseInsert)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Exercise;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: exerciseKeys.all });
+    },
+  });
+}
+
+// Create pending exercise (for unmatched exercises from scan)
+export function useCreatePendingExercise() {
+  const queryClient = useQueryClient();
+  const userId = useAppStore((state) => state.userId);
+
+  return useMutation({
+    mutationFn: async (exercise: {
+      name: string;
+      muscle_group: string;
+      equipment?: string | null;
+      modality?: ExerciseModality;
+    }): Promise<Exercise> => {
+      if (!userId) throw new Error('User must be logged in to create exercises');
+
+      const { data, error } = await supabase
+        .from('exercises')
+        .insert({
+          ...exercise,
+          is_custom: true,
+          created_by: userId,
+          status: 'pending',
+          modality: exercise.modality || 'Strength',
+          primary_metric: 'Weight',
+        } as ExerciseInsert)
         .select()
         .single();
 
