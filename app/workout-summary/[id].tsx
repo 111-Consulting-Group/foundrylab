@@ -519,7 +519,6 @@ export default function WorkoutSummaryScreen() {
                               <ExerciseBreakdown
                                 exercise={ex.exercise}
                                 sets={workSets}
-                                targetSets={ex.targetSets}
                                 targetReps={ex.targetReps}
                                 targetRPE={ex.targetRPE}
                                 targetLoad={ex.targetLoad}

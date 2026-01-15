@@ -11,7 +11,7 @@ import { View, Text, Pressable } from 'react-native';
 
 import { ConfidenceBadge } from '@/components/ConfidenceBadge';
 import { Colors } from '@/constants/Colors';
-import type { NextTimeSuggestion, PerformanceTrend } from '@/types/database';
+import type { NextTimeSuggestion, NextTimeAlert, PerformanceTrend } from '@/types/database';
 
 interface NextTimeCardProps {
   suggestion: NextTimeSuggestion;
@@ -162,7 +162,7 @@ function StatItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AlertBadge({ alert }: { alert: NextTimeSuggestion['alerts'][0] }) {
+function AlertBadge({ alert }: { alert: NextTimeAlert }) {
   const isWarning = alert.type === 'regression' || alert.type === 'missed_session';
 
   return (

@@ -346,7 +346,7 @@ export function formatPrescription(
     
     // Check for distance-based prescription
     // Use distance from work sets only (warmup has different distance like 1mi vs 400m)
-    const workDistances = workSets.map(s => s.distance_meters).filter(Boolean);
+    const workDistances = workSets.map(s => s.distance_meters).filter((d): d is number => d !== null && d !== undefined);
     
     if (workDistances.length > 0) {
       // Find the most common distance among work sets (this is the target interval distance)
@@ -418,9 +418,9 @@ export function formatPrescription(
   const rpe = targetRPE ?? sets[0]?.target_rpe;
   const load = targetLoad ?? sets[0]?.target_load;
   
-  // CRITICAL: Use targetSets if provided, otherwise fall back to target_sets from first set
+  // CRITICAL: Use targetSets if provided, otherwise fall back to sets length
   // Do NOT use sets.length as it includes already-logged sets during workout
-  const setCount = targetSets ?? sets[0]?.target_sets ?? sets.length;
+  const setCount = targetSets ?? sets.length;
   
   // Build prescription parts
   const parts: string[] = [];

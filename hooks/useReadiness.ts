@@ -300,20 +300,23 @@ export function getAdjustmentMultipliers(adjustment: ReadinessAdjustment): {
 
 /**
  * Get color scheme for readiness score
+ * Returns both Tailwind class names (bg, text) and hex values (bgHex, textHex) for inline styles
  */
 export function getReadinessColor(score: number): {
   bg: string;
   text: string;
+  bgHex: string;
+  textHex: string;
   label: string;
 } {
   if (score >= 80) {
-    return { bg: 'bg-progress-500', text: 'text-progress-500', label: 'Excellent' };
+    return { bg: 'bg-emerald-500', text: 'text-emerald-500', bgHex: '#10B981', textHex: '#10B981', label: 'Excellent' };
   } else if (score >= 60) {
-    return { bg: 'bg-signal-500', text: 'text-signal-500', label: 'Good' };
+    return { bg: 'bg-signal-500', text: 'text-signal-500', bgHex: '#3B82F6', textHex: '#3B82F6', label: 'Good' };
   } else if (score >= 40) {
-    return { bg: 'bg-warning-500', text: 'text-warning-500', label: 'Moderate' };
+    return { bg: 'bg-oxide-500', text: 'text-oxide-500', bgHex: '#F59E0B', textHex: '#F59E0B', label: 'Moderate' };
   } else {
-    return { bg: 'bg-oxide-500', text: 'text-oxide-500', label: 'Low' };
+    return { bg: 'bg-regression-500', text: 'text-regression-500', bgHex: '#EF4444', textHex: '#EF4444', label: 'Low' };
   }
 }
 

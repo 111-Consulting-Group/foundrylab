@@ -52,6 +52,17 @@ export const Colors = {
     500: '#F59E0B',
     400: '#FBBF24',
   },
+  // Aliases to match Tailwind config
+  progress: {
+    600: '#059669', // Same as emerald
+    500: '#10B981',
+    400: '#34D399',
+  },
+  warning: {
+    600: '#D97706', // Same as oxide
+    500: '#F59E0B',
+    400: '#FBBF24',
+  },
   // Glass effects - for translucent overlays
   glass: {
     white: {

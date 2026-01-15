@@ -10,6 +10,7 @@ import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 
 import { NextTimeCard, NextTimeListItem } from '@/components/NextTimeCard';
+import { useColorScheme } from '@/components/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import type { NextTimeSuggestion, PerformanceTrend } from '@/types/database';
 

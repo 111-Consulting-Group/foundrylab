@@ -53,7 +53,7 @@ export function ExerciseBreakdown({
   const prescription = formatPrescription(
     allWorkSets, // Use all work sets (planned) for target calculation
     exercise,
-    targetSets ?? firstSet?.target_sets ?? undefined,
+    targetSets ?? allWorkSets.length ?? undefined, // Use set count as fallback
     targetReps ?? firstSet?.target_reps ?? undefined, 
     targetRPE ?? firstSet?.target_rpe ?? undefined, 
     targetLoad ?? firstSet?.target_load ?? undefined

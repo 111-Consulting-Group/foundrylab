@@ -983,14 +983,26 @@ export interface ChatMessage {
   suggestedAction?: SuggestedAction;
 }
 
+// Enriched PR type with joined exercise data for coach context
+export interface PersonalRecordWithExercise extends PersonalRecord {
+  exercise_name?: string;
+  weight?: number;
+  reps?: number;
+}
+
+// Enriched Goal type with joined exercise data
+export interface GoalWithExercise extends Goal {
+  exercise_name?: string;
+}
+
 export interface CoachContext {
   profile: TrainingProfile | null;
   currentBlock: TrainingBlock | null;
   todayReadiness: DailyReadiness | null;
   recentWorkouts: Workout[];
   upcomingWorkout: WorkoutWithSets | null;
-  recentPRs: PersonalRecord[];
-  goals: Goal[];
+  recentPRs: PersonalRecordWithExercise[];
+  goals: GoalWithExercise[];
 }
 
 // ============================================================================

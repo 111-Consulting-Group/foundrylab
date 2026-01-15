@@ -181,7 +181,7 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
               borderRadius: 56,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: readinessColors.bgColor || Colors.signal[500],
+              backgroundColor: readinessColors.bgHex || Colors.signal[500],
             }}
           >
             <Text style={{ fontSize: 36, fontWeight: '700', color: '#ffffff' }}>{analysis.score}</Text>
@@ -272,7 +272,7 @@ export const ReadinessCheckIn = React.memo(function ReadinessCheckIn({
               paddingVertical: 16,
               paddingHorizontal: 24,
               borderRadius: 12,
-              backgroundColor: readinessColors.bgColor || Colors.signal[500],
+              backgroundColor: readinessColors.bgHex || Colors.signal[500],
             }}
           >
             <Text style={{ textAlign: 'center', color: '#ffffff', fontWeight: '600', fontSize: 18 }}>
@@ -428,7 +428,7 @@ export const ReadinessIndicator = React.memo(function ReadinessIndicator({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
-        backgroundColor: `${colors.bgColor || Colors.signal[500]}33`,
+        backgroundColor: `${colors.bgHex || Colors.signal[500]}33`,
       }}
     >
       <View
@@ -437,10 +437,10 @@ export const ReadinessIndicator = React.memo(function ReadinessIndicator({
           height: 8,
           borderRadius: 4,
           marginRight: 8,
-          backgroundColor: colors.bgColor || Colors.signal[500],
+          backgroundColor: colors.bgHex || Colors.signal[500],
         }}
       />
-      <Text style={{ fontSize: 14, fontWeight: '500', color: colors.textColor || Colors.graphite[200] }}>
+      <Text style={{ fontSize: 14, fontWeight: '500', color: colors.textHex || Colors.graphite[200] }}>
         {colors.label} ({score})
       </Text>
     </Container>

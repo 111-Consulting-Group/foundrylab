@@ -161,7 +161,7 @@ const BlockBar = React.memo(function BlockBar({
         top: 4,
       }}
       className={`rounded-lg px-2 py-1 ${isSelected ? 'ring-2 ring-signal-500' : ''}`}
-      accessibleRole="button"
+      accessibilityRole="button"
     >
       <View
         className="absolute inset-0 rounded-lg"
