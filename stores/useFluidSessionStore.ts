@@ -1,9 +1,13 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { MMKV } from 'react-native-mmkv';
+import { Alert } from 'react-native';
+import { supabase } from '@/lib/supabase';
 import type {
   Exercise,
   WorkoutSet,
+  WorkoutInsert,
+  WorkoutSetInsert,
   DailyReadiness,
   MovementMemory,
   WorkoutContext,
@@ -198,6 +202,7 @@ interface FluidSessionState {
   endSession: () => void;
   resetSession: () => void;
   clearPersistedSession: () => void;
+  finalizeSession: () => Promise<{ success: boolean; workoutId?: string; error?: string }>;
 
   // Selectors
   getCurrentExercise: () => FluidExercise | null;
@@ -1391,6 +1396,144 @@ export const useFluidSessionStore = create<FluidSessionState>()(
     });
     // Clear the MMKV storage explicitly
     fluidSessionStorage.clearAll();
+  },
+
+  // -------------------------------------------------------------------------
+  // FINALIZE SESSION - Save to Supabase
+  // -------------------------------------------------------------------------
+  finalizeSession: async (): Promise<{ success: boolean; workoutId?: string; error?: string }> => {
+    const state = get();
+    const { sessionQueue, sessionStartTime, workoutContext, workoutId: existingWorkoutId } = state;
+
+    // Check if there's anything to save
+    const completedSets = sessionQueue.flatMap((ex) =>
+      ex.sets
+        .filter((s) => s.uiStatus === 'completed')
+        .map((s) => ({ ...s, exerciseId: ex.base.id }))
+    );
+
+    if (completedSets.length === 0) {
+      Alert.alert(
+        'No Sets Completed',
+        'You haven\'t completed any sets yet. Complete at least one set before finalizing.',
+        [{ text: 'OK' }]
+      );
+      return { success: false, error: 'No completed sets to save' };
+    }
+
+    try {
+      // Get the current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Calculate workout duration in minutes
+      const durationMinutes = sessionStartTime
+        ? Math.round((Date.now() - new Date(sessionStartTime).getTime()) / 60000)
+        : null;
+
+      // Determine the primary focus from exercises
+      const primaryExercise = sessionQueue[0]?.base.name || 'General';
+      const focus = sessionQueue.length > 0
+        ? `${primaryExercise}${sessionQueue.length > 1 ? ` + ${sessionQueue.length - 1} more` : ''}`
+        : 'Fluid Session';
+
+      let finalWorkoutId: string | undefined = existingWorkoutId || undefined;
+
+      // If we don't have an existing workout ID, create a new workout record
+      if (!finalWorkoutId) {
+        const workoutInsert = {
+          user_id: user.id,
+          focus,
+          context: workoutContext,
+          duration_minutes: durationMinutes,
+          date_completed: new Date().toISOString(),
+          notes: state.morningContext
+            ? `Morning Signal: ${state.morningContext.signal.toUpperCase()} - ${state.morningContext.appliedAdjustments.reasoning}`
+            : null,
+        };
+
+        // Use type assertion to work around strict Supabase typing before DB types generation
+        const { data: workout, error: workoutError } = await supabase
+          .from('workouts')
+          .insert(workoutInsert as never)
+          .select('id')
+          .single();
+
+        if (workoutError || !workout) {
+          throw new Error(workoutError?.message || 'Failed to create workout record');
+        }
+
+        finalWorkoutId = (workout as { id: string }).id;
+      } else {
+        // Update existing workout with completion data
+        const { error: updateError } = await supabase
+          .from('workouts')
+          .update({
+            duration_minutes: durationMinutes,
+            date_completed: new Date().toISOString(),
+          } as never)
+          .eq('id', finalWorkoutId);
+
+        if (updateError) {
+          console.warn('Failed to update workout duration:', updateError);
+          // Don't throw - we can still save the sets
+        }
+      }
+
+      // Map completed sets to insert objects
+      const setInserts = completedSets.map((s) => ({
+        workout_id: finalWorkoutId!,
+        exercise_id: s.exerciseId,
+        set_order: s.set_order,
+        target_reps: s.target_reps,
+        target_rpe: s.target_rpe,
+        target_load: s.target_load,
+        actual_weight: s.actual_weight,
+        actual_reps: s.actual_reps,
+        actual_rpe: s.actual_rpe,
+        tempo: s.tempo,
+        notes: s.agentReasoning || s.notes,
+        is_warmup: s.is_warmup,
+        is_pr: s.is_pr,
+        segment_type: s.segment_type,
+      }));
+
+      // Insert all completed sets
+      const { error: setsError } = await supabase
+        .from('workout_sets')
+        .insert(setInserts as never);
+
+      if (setsError) {
+        throw new Error(setsError.message || 'Failed to save workout sets');
+      }
+
+      // Success! Clear the session
+      get().clearPersistedSession();
+
+      // Show success message
+      Alert.alert(
+        'Workout Saved!',
+        `${completedSets.length} set${completedSets.length !== 1 ? 's' : ''} saved successfully.`,
+        [{ text: 'Great!' }]
+      );
+
+      return { success: true, workoutId: finalWorkoutId };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Failed to finalize session:', error);
+
+      // Show error and keep session intact for retry
+      Alert.alert(
+        'Save Failed',
+        `Could not save your workout: ${errorMessage}\n\nYour session data is preserved. Please try again.`,
+        [{ text: 'OK' }]
+      );
+
+      return { success: false, error: errorMessage };
+    }
   },
 
   // -------------------------------------------------------------------------
