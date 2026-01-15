@@ -37,7 +37,7 @@ export default function TabLayout() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [hasSession, setHasSession] = useState(false);
 
-  // Check Supabase session on mount
+  // Check Supabase session on mount and when userId changes
   useEffect(() => {
     async function checkSession() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -45,7 +45,16 @@ export default function TabLayout() {
       setIsCheckingAuth(false);
     }
     checkSession();
-  }, []);
+    
+    // Also listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setHasSession(!!session);
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [userId]); // Re-check when userId changes
 
   // Show nothing while checking
   if (isCheckingAuth) {

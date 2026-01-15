@@ -60,42 +60,8 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
         'Content-Type': 'application/json',
         'Prefer': 'return=representation',
       },
-      // Custom fetch wrapper for error handling
-      fetch: async (url, options = {}) => {
-        const urlStr = typeof url === 'string' ? url : url.toString();
-        
-        try {
-          const response = await fetch(url, options);
-          
-          // Handle auth errors (400/401) - likely refresh token issues
-          // Only for token refresh endpoints to avoid recursive issues
-          if ((response.status === 400 || response.status === 401) && urlStr.includes('/auth/v1/token')) {
-            const clonedResponse = response.clone();
-            try {
-              const errorData = await clonedResponse.json();
-              const errorMessage = errorData?.message || errorData?.error_description || '';
-              
-              if (
-                errorMessage.includes('Refresh Token') ||
-                errorMessage.includes('refresh_token') ||
-                errorMessage.includes('Invalid Refresh Token')
-              ) {
-                console.error('[Supabase] Refresh token error detected:', errorMessage);
-                // Don't call signOut here - it causes recursive issues
-                // Instead, emit a custom event or let the caller handle it
-                // The onAuthStateChange listener will handle session cleanup
-              }
-            } catch (parseError) {
-              console.error('[Supabase] Auth error but couldn\'t parse response');
-            }
-          }
-          
-          return response;
-        } catch (fetchError) {
-          console.error('[Supabase] Fetch error:', fetchError);
-          throw fetchError;
-        }
-      },
+      // Note: Removed custom fetch wrapper - it was causing issues on mobile
+      // Auth error handling is done via onAuthStateChange in _layout.tsx
     },
     db: {
       schema: 'public',

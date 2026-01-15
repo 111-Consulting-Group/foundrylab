@@ -8,11 +8,31 @@ export default function Index() {
   const [hasSession, setHasSession] = useState<boolean | null>(null);
 
   // Check actual Supabase session to ensure auth state is accurate
+  // Re-check whenever userId changes (e.g., on logout)
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setHasSession(!!session?.user);
+    let isMounted = true;
+    
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (isMounted) {
+        setHasSession(!!session?.user);
+      }
+    };
+    
+    checkSession();
+    
+    // Also listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (isMounted) {
+        setHasSession(!!session?.user);
+      }
     });
-  }, []);
+    
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [userId]); // Re-check when userId changes
 
   // If we're still checking session, don't redirect yet
   if (hasSession === null) {

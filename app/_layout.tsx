@@ -57,7 +57,14 @@ export default function RootLayout() {
       queries: {
         staleTime: 1000 * 60 * 5, // 5 minutes
         gcTime: 1000 * 60 * 30, // 30 minutes
-        retry: 2,
+        retry: (failureCount, error: any) => {
+          // Don't retry on auth errors (400/401)
+          if (error?.status === 400 || error?.status === 401) {
+            return false;
+          }
+          // Retry up to 2 times for other errors
+          return failureCount < 2;
+        },
         refetchOnWindowFocus: false,
       },
     },
@@ -103,23 +110,46 @@ export default function RootLayout() {
 
         // Listen for auth changes
         const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (session?.user) {
-            setUserId(session.user.id);
-            
-            // Fetch user profile
-            const { data: profile } = await supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-            
-            if (profile) {
-              setUserProfile(profile);
+          console.log('[Auth] State change:', event, session?.user?.id || 'no user');
+          
+          if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+            // Handle sign out or token refresh
+            if (!session?.user) {
+              console.log('[Auth] User signed out, clearing state');
+              setUserId(null);
+              setUserProfile(null);
             }
-          } else {
-            // User signed out - clear state
-            setUserId(null);
-            setUserProfile(null);
+          }
+          
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            if (session?.user) {
+              console.log('[Auth] User signed in/refreshed:', session.user.id);
+              setUserId(session.user.id);
+              
+              // Fetch user profile
+              try {
+                const { data: profile, error: profileError } = await supabase
+                  .from('user_profiles')
+                  .select('*')
+                  .eq('id', session.user.id)
+                  .single();
+                
+                if (profileError) {
+                  console.error('[Auth] Error fetching profile:', profileError);
+                } else if (profile) {
+                  setUserProfile(profile);
+                }
+              } catch (err) {
+                console.error('[Auth] Exception fetching profile:', err);
+              }
+            }
+          }
+          
+          // Handle session errors
+          if (event === 'USER_UPDATED') {
+            if (session?.user) {
+              setUserId(session.user.id);
+            }
           }
         });
 
