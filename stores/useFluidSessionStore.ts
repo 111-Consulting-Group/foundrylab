@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { MMKV } from 'react-native-mmkv';
 import type {
   Exercise,
   WorkoutSet,
@@ -6,6 +8,25 @@ import type {
   MovementMemory,
   WorkoutContext,
 } from '@/types/database';
+
+// ============================================================================
+// MMKV STORAGE ADAPTER
+// ============================================================================
+
+const fluidSessionStorage = new MMKV({ id: 'fluid-session-storage' });
+
+const zustandMMKVStorage = {
+  getItem: (name: string): string | null => {
+    const value = fluidSessionStorage.getString(name);
+    return value ?? null;
+  },
+  setItem: (name: string, value: string): void => {
+    fluidSessionStorage.set(name, value);
+  },
+  removeItem: (name: string): void => {
+    fluidSessionStorage.delete(name);
+  },
+};
 
 // ============================================================================
 // FLUID SESSION TYPES
@@ -176,6 +197,7 @@ interface FluidSessionState {
   clearFutureAdjustment: (adjustmentId: string) => void;
   endSession: () => void;
   resetSession: () => void;
+  clearPersistedSession: () => void;
 
   // Selectors
   getCurrentExercise: () => FluidExercise | null;
@@ -451,11 +473,13 @@ function analyzeSetPerformance(
 }
 
 // ============================================================================
-// STORE IMPLEMENTATION
+// STORE IMPLEMENTATION (with MMKV Persistence)
 // ============================================================================
 
-export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
-  // Initial state
+export const useFluidSessionStore = create<FluidSessionState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
   isActive: false,
   sessionStartTime: null,
   sessionQueue: [],
@@ -1348,6 +1372,27 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
       morningContext: null,
     }),
 
+  clearPersistedSession: () => {
+    // Reset state AND clear persisted storage
+    set({
+      isActive: false,
+      sessionStartTime: null,
+      sessionQueue: [],
+      activeExerciseIndex: 0,
+      activeSetIndex: 0,
+      agentMessage: null,
+      agentDecisions: [],
+      readinessContext: null,
+      workoutContext: 'building',
+      workoutId: null,
+      currentBlockStatus: null,
+      futureAdjustments: [],
+      morningContext: null,
+    });
+    // Clear the MMKV storage explicitly
+    fluidSessionStorage.clearAll();
+  },
+
   // -------------------------------------------------------------------------
   // SELECTORS
   // -------------------------------------------------------------------------
@@ -1435,7 +1480,43 @@ export const useFluidSessionStore = create<FluidSessionState>((set, get) => ({
       agentMessage: 'Exercise removed from session.',
     });
   },
-}));
+    }),
+    {
+      name: 'fluid-session-storage',
+      storage: createJSONStorage(() => zustandMMKVStorage),
+      partialize: (state) => ({
+        // Only persist session-critical state for resume capability
+        isActive: state.isActive,
+        sessionStartTime: state.sessionStartTime,
+        sessionQueue: state.sessionQueue,
+        activeExerciseIndex: state.activeExerciseIndex,
+        activeSetIndex: state.activeSetIndex,
+        agentMessage: state.agentMessage,
+        readinessContext: state.readinessContext,
+        workoutContext: state.workoutContext,
+        workoutId: state.workoutId,
+        morningContext: state.morningContext,
+        // Do NOT persist:
+        // - agentDecisions (can be rebuilt from session data)
+        // - onSetCompleted (callback, not serializable)
+        // - currentBlockStatus (fetched fresh)
+        // - futureAdjustments (fetched fresh)
+      }),
+      // Handle Date serialization for sessionStartTime and morningContext.timestamp
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Rehydrate Date objects that were serialized as strings
+          if (state.sessionStartTime && typeof state.sessionStartTime === 'string') {
+            state.sessionStartTime = new Date(state.sessionStartTime);
+          }
+          if (state.morningContext?.timestamp && typeof state.morningContext.timestamp === 'string') {
+            state.morningContext.timestamp = new Date(state.morningContext.timestamp);
+          }
+        }
+      },
+    }
+  )
+);
 
 // ============================================================================
 // SELECTOR HOOKS
