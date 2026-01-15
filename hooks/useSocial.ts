@@ -74,6 +74,9 @@ export function useFeed(limit: number = 20) {
       
       // Include current user's posts too
       const userIdsToShow = [...followingIds, userId];
+      
+      console.log('[Feed] Following IDs:', followingIds);
+      console.log('[Feed] Total user IDs to show:', userIdsToShow.length);
 
       // Get posts from followed users - fetch workouts with minimal nested data
       const { data: posts, error: postsError } = await supabase
@@ -99,6 +102,8 @@ export function useFeed(limit: number = 20) {
         console.error('Error fetching posts:', postsError);
         throw postsError;
       }
+      
+      console.log('[Feed] Found', posts?.length || 0, 'posts');
 
       if (!posts || posts.length === 0) {
         return [];
@@ -281,7 +286,9 @@ export function useFollow() {
       // Invalidate feed and follow status queries
       queryClient.invalidateQueries({ queryKey: socialKeys.feed() });
       queryClient.invalidateQueries({ queryKey: ['followStatus', userId, variables.followingId] });
-      queryClient.invalidateQueries({ queryKey: socialKeys.following(userId) });
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: socialKeys.following(userId) });
+      }
     },
   });
 }
@@ -352,6 +359,44 @@ interface SearchUser {
   id: string;
   display_name: string | null;
   email: string | null;
+}
+
+/**
+ * Get list of users you are following
+ */
+export function useFollowing() {
+  const userId = useAppStore((state) => state.userId);
+
+  return useQuery({
+    queryKey: socialKeys.following(userId || ''),
+    queryFn: async (): Promise<SearchUser[]> => {
+      if (!userId) return [];
+
+      // Get users this user follows
+      const { data: follows, error: followsError } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId);
+
+      if (followsError) throw followsError;
+
+      const followingIds = follows?.map((f) => f.following_id) || [];
+      
+      if (followingIds.length === 0) return [];
+
+      // Get user profiles for followed users
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, display_name, email')
+        .in('id', followingIds);
+
+      if (profilesError) throw profilesError;
+      return (profiles || []) as SearchUser[];
+    },
+    enabled: !!userId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  });
 }
 
 /**

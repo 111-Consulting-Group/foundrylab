@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StreakBadge, PRCountBadge, BlockContextBadge, AdherenceBadge } from '@/components/FeedBadges';
 import { Colors } from '@/constants/Colors';
-import { useFeed, useLikePost, useSearchUsers } from '@/hooks/useSocial';
+import { useFeed, useLikePost, useSearchUsers, useFollowing } from '@/hooks/useSocial';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
 import { summarizeWorkoutExercises, formatExerciseForFeed, getModalityIcon, type ExerciseSummary } from '@/lib/feedUtils';
 import { generateExerciseSummary } from '@/lib/workoutSummary';
@@ -16,12 +16,13 @@ import { LabCard, LabButton } from '@/components/ui/LabPrimitives';
 import { DeltaTag } from '@/components/ui/DeltaTag';
 
 export default function FeedScreen() {
-  // Reduce initial load in dev, can increase later
-  const { data: feed = [], isLoading, refetch } = useFeed(10);
+  // Fetch more posts to ensure feed has enough content
+  const { data: feed = [], isLoading, refetch } = useFeed(20);
   const likePostMutation = useLikePost();
   const [showDiscover, setShowDiscover] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { data: searchResults = [], isLoading: isSearching } = useSearchUsers(searchQuery);
+  const { data: following = [], isLoading: followingLoading } = useFollowing();
 
   const handleLike = async (postId: string, isLiked: boolean) => {
     await likePostMutation.mutateAsync({ postId, like: !isLiked });
@@ -130,6 +131,46 @@ export default function FeedScreen() {
                 onPress={() => setShowDiscover(true)}
               />
             </View>
+
+            {/* Friends Section */}
+            {following.length > 0 && (
+              <View style={{ marginBottom: 24 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: Colors.graphite[300] }}>
+                  Friends ({following.length})
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, paddingHorizontal: 16 }}>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    {following.map((user) => (
+                      <Pressable
+                        key={user.id}
+                        onPress={() => router.push(`/profile/${user.id}`)}
+                        style={{
+                          alignItems: 'center',
+                          padding: 12,
+                          borderRadius: 16,
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                          minWidth: 80,
+                        }}
+                      >
+                        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.signal[500], alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 18 }}>
+                            {user.display_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
+                          </Text>
+                        </View>
+                        <Text 
+                          style={{ fontSize: 12, fontWeight: '600', color: Colors.graphite[200], textAlign: 'center' }}
+                          numberOfLines={1}
+                        >
+                          {user.display_name || user.email?.split('@')[0] || 'User'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
 
             {isLoading && feed.length === 0 ? (
               <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>

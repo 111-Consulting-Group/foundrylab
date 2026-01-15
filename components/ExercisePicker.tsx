@@ -254,7 +254,7 @@ export function ExercisePicker({
                     Select Exercise
                   </Text>
                   <Text style={{ fontSize: 12, color: Colors.graphite[500], marginTop: 2 }}>
-                    {displayedExercises.length} exercises available
+                    {displayedExercises.length} exercises available • Strength, Cardio & Hybrid
                   </Text>
                 </View>
               </View>

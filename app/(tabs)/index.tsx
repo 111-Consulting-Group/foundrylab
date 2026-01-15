@@ -236,7 +236,7 @@ export default function DashboardScreen() {
                   <Text style={{ fontSize: 13, color: Colors.graphite[500], textAlign: 'center', marginBottom: 16 }}>
                     No scheduled session. Scan a workout or log manually.
                   </Text>
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
                     <LabButton
                       label="Scan Workout"
                       icon={<Ionicons name="camera-outline" size={14} color="white" />}
@@ -247,7 +247,8 @@ export default function DashboardScreen() {
                       label="Quick Log"
                       variant="outline"
                       size="sm"
-                      onPress={() => router.push('/workout/new')}
+                      icon={<Ionicons name="add-circle-outline" size={14} color={Colors.graphite[50]} />}
+                      onPress={() => router.push('/workout/new?autoOpenPicker=true')}
                     />
                   </View>
                 </View>

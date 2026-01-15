@@ -1,9 +1,9 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0';
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, prefer',
 };
 
 // Types for parsed workout data
@@ -85,18 +85,28 @@ Important:
 - Handle ascending/pyramid sets with different weights`;
 
 serve(async (req) => {
+  console.log('[parse-workout-image] Request received:', req.method);
+  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
+    console.log('[parse-workout-image] Handling CORS preflight');
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
+    console.log('[parse-workout-image] Checking for OPENAI_API_KEY...');
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
+      console.error('[parse-workout-image] OPENAI_API_KEY not found in environment');
       throw new Error('OPENAI_API_KEY not configured');
     }
+    console.log('[parse-workout-image] OPENAI_API_KEY found (length:', OPENAI_API_KEY.length, ')');
 
-    const { image_base64, image_url, user_id } = await req.json();
+    console.log('[parse-workout-image] Parsing request body...');
+    const body = await req.json();
+    const { image_base64, image_url, user_id } = body;
+    console.log('[parse-workout-image] Request parsed - has image_base64:', !!image_base64, ', has image_url:', !!image_url, ', user_id:', user_id);
+    console.log('[parse-workout-image] Image base64 length:', image_base64?.length || 0);
 
     if (!image_base64 && !image_url) {
       return new Response(
@@ -123,6 +133,7 @@ serve(async (req) => {
         };
 
     // Call OpenAI Vision API
+    console.log('[parse-workout-image] Calling OpenAI Vision API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -149,14 +160,18 @@ serve(async (req) => {
       }),
     });
 
+    console.log('[parse-workout-image] OpenAI response status:', response.status);
+    
     if (!response.ok) {
       const error = await response.json();
-      console.error('OpenAI API error:', error);
+      console.error('[parse-workout-image] OpenAI API error:', JSON.stringify(error));
       throw new Error(error.error?.message || 'Failed to parse image');
     }
 
+    console.log('[parse-workout-image] Parsing OpenAI response...');
     const data = await response.json();
     const content = data.choices[0]?.message?.content;
+    console.log('[parse-workout-image] Got content, length:', content?.length || 0);
 
     if (!content) {
       throw new Error('No content in OpenAI response');
@@ -296,6 +311,7 @@ serve(async (req) => {
       }
     }
 
+    console.log('[parse-workout-image] Success! Returning parsed workout with', parsedWorkout.exercises?.length || 0, 'exercises');
     return new Response(
       JSON.stringify({
         success: true,
@@ -305,9 +321,11 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error parsing workout image:', error);
+    console.error('[parse-workout-image] Error:', error);
+    console.error('[parse-workout-image] Error message:', error.message);
+    console.error('[parse-workout-image] Error stack:', error.stack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Unknown error occurred' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

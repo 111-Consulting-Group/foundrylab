@@ -60,6 +60,18 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
         'Content-Type': 'application/json',
         'Prefer': 'return=representation',
       },
+      // #region agent log
+      fetch: (url, options = {}) => {
+        const urlStr = typeof url === 'string' ? url : url.toString();
+        fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supabase.ts:64',message:'Supabase HTTP request',data:{url:urlStr,method:options?.method||'GET',hasHeaders:!!options?.headers},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
+        return fetch(url, options).then(response => {
+          if (response.status === 406) {
+            fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supabase.ts:68',message:'Supabase 406 error detected',data:{url:urlStr,status:406,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
+          }
+          return response;
+        });
+      },
+      // #endregion
     },
     db: {
       schema: 'public',

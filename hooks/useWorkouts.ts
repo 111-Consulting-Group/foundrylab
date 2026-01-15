@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { parseWorkoutWithSets } from '@/lib/validation/schemas';
 import { useAppStore } from '@/stores/useAppStore';
+import { trainingBlockKeys } from '@/hooks/useTrainingBlocks';
 import type {
   Workout,
   WorkoutInsert,
@@ -20,7 +21,7 @@ export const workoutKeys = {
     [...workoutKeys.lists(), filters] as const,
   details: () => [...workoutKeys.all, 'detail'] as const,
   detail: (id: string) => [...workoutKeys.details(), id] as const,
-  history: (limit?: number) => [...workoutKeys.all, 'history', limit] as const,
+  history: (limit?: number, userId?: string) => [...workoutKeys.all, 'history', userId, limit] as const,
   incomplete: () => [...workoutKeys.all, 'incomplete'] as const,
   today: () => [...workoutKeys.all, 'today'] as const,
   next: () => [...workoutKeys.all, 'next'] as const,
@@ -84,8 +85,14 @@ export function useTodaysWorkout() {
   return useQuery({
     queryKey: workoutKeys.today(),
     queryFn: async (): Promise<WorkoutWithSets | null> => {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:87',message:'useTodaysWorkout: query start',data:{userId,today},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       if (!userId) return null;
 
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:90',message:'useTodaysWorkout: executing query',data:{table:'workouts',userId,scheduledDate:today},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       const { data, error } = await supabase
         .from('workouts')
         .select(`
@@ -98,8 +105,11 @@ export function useTodaysWorkout() {
         .eq('user_id', userId)
         .eq('scheduled_date', today)
         .is('date_completed', null)
-        .single();
+        .maybeSingle();
 
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:105',message:'useTodaysWorkout: query result',data:{hasData:!!data,hasError:!!error,errorCode:error?.code,errorMessage:error?.message,errorStatus:error?.status,errorDetails:error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       if (error && error.code !== 'PGRST116') throw error;
       return data as WorkoutWithSets | null;
     },
@@ -118,7 +128,31 @@ export function useNextWorkout() {
     queryFn: async (): Promise<WorkoutWithSets | null> => {
       if (!userId) return null;
 
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:122',message:'useNextWorkout: query start',data:{userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       // Get the next incomplete workout ordered by week/day (program order, not date)
+      // First get active block ID
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:125',message:'useNextWorkout: fetching active block',data:{userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      const { data: activeBlock, error: blockError } = await supabase
+        .from('training_blocks')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:132',message:'useNextWorkout: active block result',data:{hasActiveBlock:!!activeBlock,activeBlockId:activeBlock?.id,hasBlockError:!!blockError,blockErrorCode:blockError?.code,blockErrorStatus:blockError?.status,blockErrorMessage:blockError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      if (!activeBlock) {
+        return null;
+      }
+
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:136',message:'useNextWorkout: fetching workouts',data:{userId,blockId:activeBlock.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       const { data, error } = await supabase
         .from('workouts')
         .select(`
@@ -127,20 +161,23 @@ export function useNextWorkout() {
             *,
             exercise:exercises(*)
           ),
-          block:training_blocks!inner(
+          block:training_blocks(
             id,
             name,
             is_active
           )
         `)
         .eq('user_id', userId)
-        .eq('block.is_active', true)
+        .eq('block_id', activeBlock.id)
         .is('date_completed', null)
         .order('week_number', { ascending: true })
         .order('day_number', { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
 
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d1d789ce-94bc-4990-97f7-67ef9c008f4f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWorkouts.ts:158',message:'useNextWorkout: workouts query result',data:{hasData:!!data,hasError:!!error,errorCode:error?.code,errorMessage:error?.message,errorStatus:error?.status,errorDetails:error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       if (error && error.code !== 'PGRST116') throw error;
       return data as WorkoutWithSets | null;
     },
@@ -159,6 +196,18 @@ export function useUpcomingWorkouts(limit: number = 5) {
     queryFn: async (): Promise<WorkoutWithSets[]> => {
       if (!userId) return [];
 
+      // First get active block ID
+      const { data: activeBlock } = await supabase
+        .from('training_blocks')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (!activeBlock) {
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('workouts')
         .select(`
@@ -167,14 +216,14 @@ export function useUpcomingWorkouts(limit: number = 5) {
             *,
             exercise:exercises(*)
           ),
-          block:training_blocks!inner(
+          block:training_blocks(
             id,
             name,
             is_active
           )
         `)
         .eq('user_id', userId)
-        .eq('block.is_active', true)
+        .eq('block_id', activeBlock.id)
         .is('date_completed', null)
         .order('week_number', { ascending: true })
         .order('day_number', { ascending: true })
@@ -256,7 +305,7 @@ export function useWorkoutHistory(limit: number = 20) {
   const userId = useAppStore((state) => state.userId);
 
   return useQuery({
-    queryKey: workoutKeys.history(limit),
+    queryKey: workoutKeys.history(limit, userId),
     queryFn: async (): Promise<WorkoutWithSets[]> => {
       if (!userId) return [];
 
@@ -396,6 +445,9 @@ export function useUncompleteWorkout() {
       });
       if (data.block_id) {
         queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: data.block_id }) });
+        // Also invalidate the training block detail to update program screen
+        queryClient.invalidateQueries({ queryKey: trainingBlockKeys.detail(data.block_id) });
+        queryClient.invalidateQueries({ queryKey: ['blockProgress', data.block_id] });
       }
     },
     onError: (error) => {
@@ -564,11 +616,18 @@ export function useCompleteWorkout() {
       queryClient.invalidateQueries({ queryKey: workoutKeys.incomplete() });
       queryClient.invalidateQueries({ queryKey: workoutKeys.next() });
       queryClient.invalidateQueries({ queryKey: workoutKeys.upcoming() });
-      queryClient.invalidateQueries({ queryKey: workoutKeys.history() });
+      // Invalidate all history queries (with any limit/userId combination)
+      queryClient.invalidateQueries({ 
+        queryKey: [...workoutKeys.all, 'history'],
+        exact: false 
+      });
       // Invalidate feed since workout was automatically shared
       queryClient.invalidateQueries({ queryKey: ['social', 'feed'] });
       if (data.block_id) {
         queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: data.block_id }) });
+        // Also invalidate the training block detail to update program screen
+        queryClient.invalidateQueries({ queryKey: trainingBlockKeys.detail(data.block_id) });
+        queryClient.invalidateQueries({ queryKey: ['blockProgress', data.block_id] });
       }
     },
   });
@@ -598,9 +657,10 @@ export function useAddWorkoutSet() {
   });
 }
 
-// Update a workout set
+// Update a workout set and check for PRs
 export function useUpdateWorkoutSet() {
   const queryClient = useQueryClient();
+  const userId = useAppStore((state) => state.userId);
 
   return useMutation({
     mutationFn: async ({ id, workoutId, ...updates }: Partial<WorkoutSet> & { id: string; workoutId: string }) => {
@@ -615,10 +675,83 @@ export function useUpdateWorkoutSet() {
         .single();
 
       if (error) throw error;
-      return { ...(data as WorkoutSet), workoutId };
+      
+      const set = data as WorkoutSet;
+      
+      // Check for PRs if actual_weight and actual_reps are set
+      if (userId && set.exercise_id && set.actual_weight && set.actual_reps) {
+        const weight = set.actual_weight;
+        const reps = set.actual_reps;
+        const e1rm = Math.round(weight * (1 + reps / 30)); // Epley formula
+        
+        // Check if this is a new e1rm PR
+        const { data: existingE1rmPR } = await supabase
+          .from('personal_records')
+          .select('value')
+          .eq('user_id', userId)
+          .eq('exercise_id', set.exercise_id)
+          .eq('record_type', 'e1rm')
+          .order('value', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        const existingE1rm = (existingE1rmPR as { value: number } | null)?.value;
+        if (!existingE1rm || e1rm > existingE1rm) {
+          // Record new e1rm PR
+          await supabase
+            .from('personal_records')
+            .insert({
+              user_id: userId,
+              exercise_id: set.exercise_id,
+              workout_set_id: id,
+              record_type: 'e1rm',
+              value: e1rm,
+              unit: 'lbs',
+              achieved_at: new Date().toISOString(),
+            });
+          
+          // Mark set as PR
+          await supabase
+            .from('workout_sets')
+            .update({ is_pr: true })
+            .eq('id', id);
+        }
+        
+        // Check if this is a new weight PR
+        const { data: existingWeightPR } = await supabase
+          .from('personal_records')
+          .select('value')
+          .eq('user_id', userId)
+          .eq('exercise_id', set.exercise_id)
+          .eq('record_type', 'weight')
+          .order('value', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        const existingWeight = (existingWeightPR as { value: number } | null)?.value;
+        if (!existingWeight || weight > existingWeight) {
+          // Record new weight PR
+          await supabase
+            .from('personal_records')
+            .insert({
+              user_id: userId,
+              exercise_id: set.exercise_id,
+              workout_set_id: id,
+              record_type: 'weight',
+              value: weight,
+              unit: 'lbs',
+              achieved_at: new Date().toISOString(),
+            });
+        }
+      }
+      
+      return { ...set, workoutId };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: workoutKeys.detail(data.workoutId) });
+      // Also invalidate PR queries in case we recorded a new PR
+      queryClient.invalidateQueries({ queryKey: ['mainLiftPRs'] });
+      queryClient.invalidateQueries({ queryKey: ['personalRecords'] });
     },
   });
 }

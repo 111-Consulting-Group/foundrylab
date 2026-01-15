@@ -12,11 +12,13 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
+import { workoutKeys } from '@/hooks/useWorkouts';
 
 // Types matching edge function response
 interface ParsedSet {
@@ -60,6 +62,7 @@ type ScanMode = 'capture' | 'parsing' | 'review';
 
 export default function ScanWorkoutScreen() {
   const { userId } = useAppStore();
+  const queryClient = useQueryClient();
 
   const [mode, setMode] = useState<ScanMode>('capture');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -119,15 +122,42 @@ export default function ScanWorkoutScreen() {
     setError(null);
 
     try {
+      // Check if user is logged in
+      if (!userId) {
+        throw new Error('Please log in to scan workouts.');
+      }
+
+      // Get current session for auth
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error('Authentication error. Please log in again.');
+      }
+      
+      if (!session) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
+      if (!session.access_token) {
+        throw new Error('No access token found. Please log in again.');
+      }
+
+      console.log('Session found, user:', session.user?.email, 'token length:', session.access_token?.length);
+
       // Add timeout wrapper (60 seconds)
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Request timed out. The analysis is taking longer than expected. Please try again.')), 60000);
       });
 
+      // Explicitly pass the authorization header to ensure auth works
       const functionPromise = supabase.functions.invoke('parse-workout-image', {
         body: {
           image_base64: base64,
           user_id: userId,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
@@ -204,6 +234,10 @@ export default function ScanWorkoutScreen() {
         const { error: setsError } = await supabase.from('workout_sets').insert(setsToInsert);
         if (setsError) throw setsError;
       }
+
+      // Invalidate workout history cache so dashboard shows the new workout
+      queryClient.invalidateQueries({ queryKey: workoutKeys.history() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
 
       if (parsedWorkout.mode === 'log') {
         router.replace(`/workout-summary/${workout.id}`);

@@ -71,6 +71,30 @@ export default function ProfileScreen() {
     enabled: !!id,
   });
 
+  // Fetch user's completed workouts
+  const { data: userWorkouts = [], isLoading: workoutsLoading } = useQuery({
+    queryKey: ['userWorkouts', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('workouts')
+        .select(`
+          *,
+          workout_sets(
+            *,
+            exercise:exercises(id, name, modality)
+          )
+        `)
+        .eq('user_id', id)
+        .not('date_completed', 'is', null)
+        .order('date_completed', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
   // Fetch stats (simplified - would need more queries for real stats)
   const stats = {
     consistencyStreak: 0, // Would calculate from workout history
@@ -246,6 +270,82 @@ export default function ProfileScreen() {
                 <Text style={{ fontSize: 10, color: Colors.graphite[400] }}>Adherence Rate</Text>
               </View>
             </View>
+          </View>
+
+          {/* Workouts Section */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: Colors.graphite[50] }}>
+              Recent Workouts
+            </Text>
+            {workoutsLoading ? (
+              <View style={{ alignItems: 'center', padding: 24 }}>
+                <ActivityIndicator size="small" color={Colors.signal[500]} />
+              </View>
+            ) : userWorkouts.length === 0 ? (
+              <View
+                style={{
+                  padding: 24,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <Ionicons name="barbell-outline" size={48} color={Colors.graphite[600]} />
+                <Text style={{ marginTop: 12, fontWeight: '600', color: Colors.graphite[300] }}>
+                  No Workouts Yet
+                </Text>
+                <Text style={{ marginTop: 4, fontSize: 12, textAlign: 'center', color: Colors.graphite[500] }}>
+                  {isOwnProfile ? 'Complete your first workout to see it here' : 'This user hasn\'t completed any workouts yet'}
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {userWorkouts.map((workout: any) => (
+                  <Pressable
+                    key={workout.id}
+                    onPress={() => router.push(`/workout-summary/${workout.id}`)}
+                    style={{
+                      padding: 16,
+                      borderRadius: 16,
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.graphite[50] }}>
+                        {workout.focus || 'Workout'}
+                      </Text>
+                      {workout.date_completed && (
+                        <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
+                          {new Date(workout.date_completed).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                      {workout.workout_sets && workout.workout_sets.length > 0 && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="barbell-outline" size={14} color={Colors.graphite[500]} />
+                          <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
+                            {workout.workout_sets.length} sets
+                          </Text>
+                        </View>
+                      )}
+                      {workout.duration_minutes && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="time-outline" size={14} color={Colors.graphite[500]} />
+                          <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
+                            {workout.duration_minutes} min
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>

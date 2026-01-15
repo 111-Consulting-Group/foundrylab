@@ -30,15 +30,22 @@ export function WeeklyInsights({ workouts }: WeeklyInsightsProps) {
       return date >= startOfWeek;
     });
 
-    // Count exercise exposures
+    // Count exercise exposures (by workout, not by set)
     const exerciseCounts = new Map<string, number>();
     const exerciseNames = new Map<string, string>();
 
     thisWeekWorkouts.forEach((workout) => {
+      // Track which exercises were done in this workout (to avoid double-counting)
+      const exercisesInWorkout = new Set<string>();
+      
       workout.workout_sets?.forEach((set) => {
-        if (set.exercise && !set.is_warmup) {
-          exerciseCounts.set(set.exercise_id, (exerciseCounts.get(set.exercise_id) || 0) + 1);
-          exerciseNames.set(set.exercise_id, set.exercise.name);
+        if (set.exercise && !set.is_warmup && set.exercise_id) {
+          // Only count each exercise once per workout
+          if (!exercisesInWorkout.has(set.exercise_id)) {
+            exercisesInWorkout.add(set.exercise_id);
+            exerciseCounts.set(set.exercise_id, (exerciseCounts.get(set.exercise_id) || 0) + 1);
+            exerciseNames.set(set.exercise_id, set.exercise.name);
+          }
         }
       });
     });

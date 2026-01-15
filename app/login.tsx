@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { useState, useRef } from 'react';
+import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, ScrollView, type TextInput as TextInputType } from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
@@ -12,26 +12,34 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const passwordInputRef = useRef<TextInputType>(null);
   const router = useRouter();
   const setUserId = useAppStore((state) => state.setUserId);
   const setUserProfile = useAppStore((state) => state.setUserProfile);
 
   async function handleLogin() {
+    // Clear any previous errors
+    setError(null);
+
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+      const errorMsg = 'Please enter both email and password';
+      setError(errorMsg);
+      Alert.alert('Error', errorMsg);
       return;
     }
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
-      if (error) {
-        console.error('Login error details:', error);
-        const message = getAuthErrorMessage(error);
+      if (signInError) {
+        console.error('Login error details:', signInError);
+        const message = getAuthErrorMessage(signInError);
+        setError(message);
         Alert.alert('Sign In Error', message);
         setLoading(false);
         return;
@@ -53,12 +61,15 @@ export default function LoginScreen() {
         await new Promise(resolve => setTimeout(resolve, 100));
         router.replace('/(tabs)');
       } else {
-        Alert.alert('Error', 'Login failed - no user data returned');
+        const errorMsg = 'Login failed - no user data returned';
+        setError(errorMsg);
+        Alert.alert('Error', errorMsg);
         setLoading(false);
       }
     } catch (err: any) {
       console.error('Login error:', err);
       const message = getAuthErrorMessage(err);
+      setError(message);
       Alert.alert('Error', message);
       setLoading(false);
     }
@@ -166,10 +177,16 @@ export default function LoginScreen() {
                 placeholder="Enter your email"
                 placeholderTextColor={Colors.graphite[600]}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (error) setError(null);
+                }}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoComplete="email"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
+                blurOnSubmit={false}
               />
             </View>
           </View>
@@ -192,6 +209,7 @@ export default function LoginScreen() {
             >
               <Ionicons name="lock-closed-outline" size={20} color={Colors.graphite[500]} />
               <TextInput
+                ref={passwordInputRef}
                 style={{
                   flex: 1,
                   paddingVertical: 16,
@@ -202,10 +220,15 @@ export default function LoginScreen() {
                 placeholder="Enter your password"
                 placeholderTextColor={Colors.graphite[600]}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (error) setError(null);
+                }}
                 secureTextEntry
                 autoCapitalize="none"
                 autoComplete="password"
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
               />
             </View>
           </View>
@@ -218,6 +241,27 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
           </Link>
+
+          {/* Error Message */}
+          {error && (
+            <View
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(239, 68, 68, 0.3)',
+                borderRadius: 12,
+                padding: 12,
+                marginBottom: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons name="alert-circle" size={20} color={Colors.regression[400]} style={{ marginRight: 8 }} />
+              <Text style={{ flex: 1, fontSize: 14, color: Colors.regression[400] }}>
+                {error}
+              </Text>
+            </View>
+          )}
 
           {/* Sign In Button */}
           <Pressable

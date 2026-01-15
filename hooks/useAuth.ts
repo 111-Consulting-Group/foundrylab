@@ -300,23 +300,22 @@ export function useLogout() {
     mutationFn: async () => {
       console.log('🔄 Logging out user...');
       
-      // Clear app state first (this will trigger UI updates)
+      // Sign out from Supabase first (this will trigger onAuthStateChange)
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        console.error('❌ Supabase signOut error:', signOutError);
+      } else {
+        console.log('✅ Supabase signOut successful');
+      }
+      
+      // Clear app state (this will trigger UI updates and clear persisted storage)
       console.log('🧹 Clearing app state...');
       setUserId(null);
       setUserProfile(null);
       queryClient.clear();
       
-      // Sign out from Supabase (this will trigger onAuthStateChange which also sets userId to null)
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) {
-        console.error('❌ Supabase signOut error:', signOutError);
-        // Continue anyway - we've already cleared local state
-      } else {
-        console.log('✅ Supabase signOut successful');
-      }
-      
-      // Wait a moment for auth state change to propagate
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Wait for state to propagate and persisted storage to clear
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Verify session is cleared
       const { data: { session } } = await supabase.auth.getSession();
@@ -331,17 +330,18 @@ export function useLogout() {
     },
     onSuccess: async () => {
       console.log('🚀 Logout mutation succeeded, navigating to login');
-      // Small delay to ensure state is fully cleared
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Small delay to ensure state is fully cleared and persisted storage is updated
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Navigate to root index, which will check userId and redirect to /login if null
+      // Navigate directly to login instead of relying on index redirect
+      // This ensures we don't hit a race condition with persisted state rehydration
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         console.log('Using window.location.href for web navigation');
-        window.location.href = '/';
+        window.location.href = '/login';
       } else {
-        console.log('Using router.replace for native navigation');
-        // Navigate to root - index.tsx will check userId and redirect to /login
-        router.replace('/');
+        console.log('Using router.replace for native navigation - going directly to login');
+        // Navigate directly to login to avoid race condition with persisted state
+        router.replace('/login');
       }
     },
     onError: (error: any) => {
