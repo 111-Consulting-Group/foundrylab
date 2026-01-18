@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/LabPrimitives';
 import { DeltaTag } from '@/components/ui/DeltaTag';
 import { MovementMemoryCard } from '@/components/MovementMemoryCard';
+import { MuscleGroupBreakdown } from '@/components/MuscleGroupBreakdown';
+import { ContinueRotationCard } from '@/components/ContinueRotationCard';
 import { FoundryLabLogo } from '@/components/FoundryLabLogo';
 import { Colors } from '@/constants/Colors';
 
@@ -33,6 +35,8 @@ import { useNextTimeSuggestion } from '@/hooks/useMovementMemory';
 import { useDailyWorkoutSuggestion, useQuickWorkoutOptions } from '@/hooks/useDailyWorkout';
 import { summarizeWorkoutExercises, formatExerciseForFeed } from '@/lib/feedUtils';
 import { generateExerciseSummary } from '@/lib/workoutSummary';
+import { useWeekSummary } from '@/hooks/useWeekSummary';
+import { useNextInRotation } from '@/hooks/useRotationAwareness';
 
 export default function DashboardScreen() {
   const logoutMutation = useLogout();
@@ -43,6 +47,12 @@ export default function DashboardScreen() {
   const { data: activeBlock } = useActiveTrainingBlock();
   const { data: history = [], isLoading: loadingHistory, refetch: refetchHistory } = useWorkoutHistory(1);
   const { data: mainLifts = [], isLoading: loadingLifts } = useMainLiftPRs();
+
+  // Week summary for muscle group breakdown
+  const { data: weekSummary } = useWeekSummary();
+
+  // Rotation awareness (for Primary user: pattern-based training)
+  const { data: rotationSuggestion, isLoading: loadingRotation } = useNextInRotation();
 
   // Daily workout suggestion (for Journey 3: Guided users)
   const { data: dailySuggestion, isLoading: loadingSuggestion } = useDailyWorkoutSuggestion();
@@ -299,89 +309,72 @@ export default function DashboardScreen() {
                   onPress={() => router.push(`/workout/${activeSession.id}`)}
                 />
               </GlassCard>
-            ) : (
+            ) : rotationSuggestion ? (
+              /* Priority 2: Pattern-based rotation (Primary User Journey) */
+              <ContinueRotationCard />
+            ) : dailySuggestion ? (
+              /* Priority 3: AI-generated suggestion (Journey 3: Guided) */
               <GlassCard>
                 <View style={{ paddingVertical: 8 }}>
-                  {/* AI Suggested Workout */}
-                  {dailySuggestion && (
-                    <>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                        <Ionicons name="sparkles" size={18} color={Colors.signal[400]} />
-                        <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: Colors.signal[400] }}>
-                          Recommended for You
-                        </Text>
-                      </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <Ionicons name="sparkles" size={18} color={Colors.signal[400]} />
+                    <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: Colors.signal[400] }}>
+                      Recommended for You
+                    </Text>
+                  </View>
 
-                      <View style={{ marginBottom: 16 }}>
-                        <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50], marginBottom: 4 }}>
-                          {dailySuggestion.focus}
-                        </Text>
-                        <Text style={{ fontSize: 13, color: Colors.graphite[400], marginBottom: 8 }}>
-                          {dailySuggestion.reason}
-                        </Text>
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50], marginBottom: 4 }}>
+                      {dailySuggestion.focus}
+                    </Text>
+                    <Text style={{ fontSize: 13, color: Colors.graphite[400], marginBottom: 8 }}>
+                      {dailySuggestion.reason}
+                    </Text>
 
-                        {/* Exercise preview */}
-                        <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 8, padding: 10 }}>
-                          {dailySuggestion.exercises.slice(0, 3).map((ex, i) => (
-                            <View key={ex.exercise.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: i < 2 ? 6 : 0 }}>
-                              <Text style={{ fontSize: 13, color: Colors.graphite[300] }} numberOfLines={1}>
-                                {ex.exercise.name}
-                              </Text>
-                              <Text style={{ fontSize: 12, fontFamily: 'monospace', color: Colors.graphite[500] }}>
-                                {ex.sets}×{ex.targetReps}
-                              </Text>
-                            </View>
-                          ))}
-                          {dailySuggestion.exercises.length > 3 && (
-                            <Text style={{ fontSize: 11, color: Colors.graphite[500], marginTop: 4 }}>
-                              +{dailySuggestion.exercises.length - 3} more exercises
-                            </Text>
-                          )}
+                    {/* Exercise preview */}
+                    <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 8, padding: 10 }}>
+                      {dailySuggestion.exercises.slice(0, 3).map((ex, i) => (
+                        <View key={ex.exercise.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: i < 2 ? 6 : 0 }}>
+                          <Text style={{ fontSize: 13, color: Colors.graphite[300] }} numberOfLines={1}>
+                            {ex.exercise.name}
+                          </Text>
+                          <Text style={{ fontSize: 12, fontFamily: 'monospace', color: Colors.graphite[500] }}>
+                            {ex.sets}×{ex.targetReps}
+                          </Text>
                         </View>
+                      ))}
+                      {dailySuggestion.exercises.length > 3 && (
+                        <Text style={{ fontSize: 11, color: Colors.graphite[500], marginTop: 4 }}>
+                          +{dailySuggestion.exercises.length - 3} more exercises
+                        </Text>
+                      )}
+                    </View>
 
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                          <View style={{ flex: 1 }}>
-                            <StatPill label="Est." value={dailySuggestion.estimatedDuration} unit="min" />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <StatPill label="Exercises" value={dailySuggestion.exercises.length} />
-                          </View>
-                        </View>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                      <View style={{ flex: 1 }}>
+                        <StatPill label="Est." value={dailySuggestion.estimatedDuration} unit="min" />
                       </View>
+                      <View style={{ flex: 1 }}>
+                        <StatPill label="Exercises" value={dailySuggestion.exercises.length} />
+                      </View>
+                    </View>
+                  </View>
 
-                      <LabButton
-                        label="Start This Workout"
-                        icon={<Ionicons name="play" size={16} color="white" />}
-                        onPress={handleCreateFromSuggestion}
-                        loading={isCreatingWorkout}
-                      />
+                  <LabButton
+                    label="Start This Workout"
+                    icon={<Ionicons name="play" size={16} color="white" />}
+                    onPress={handleCreateFromSuggestion}
+                    loading={isCreatingWorkout}
+                  />
 
-                      <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginVertical: 16 }} />
-                    </>
-                  )}
+                  <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginVertical: 16 }} />
 
                   {/* Alternative options */}
                   <View style={{ alignItems: 'center' }}>
-                    {!dailySuggestion && (
-                      <>
-                        <FoundryLabLogo size={48} style={{ marginBottom: 12 }} />
-                        <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.graphite[200], marginBottom: 4 }}>
-                          Ready to Train?
-                        </Text>
-                      </>
-                    )}
                     <Text style={{ fontSize: 12, color: Colors.graphite[500], textAlign: 'center', marginBottom: 12 }}>
-                      {dailySuggestion ? 'Or choose a different option:' : 'Scan a workout, log manually, or let us suggest one.'}
+                      Or choose a different option:
                     </Text>
                     <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                      {!dailySuggestion && (
-                        <LabButton
-                          label="Generate Workout"
-                          icon={<Ionicons name="sparkles-outline" size={14} color="white" />}
-                          size="sm"
-                          onPress={() => setShowGeneratorModal(true)}
-                        />
-                      )}
                       <LabButton
                         label="Scan"
                         variant="outline"
@@ -397,6 +390,41 @@ export default function DashboardScreen() {
                         onPress={() => router.push('/workout/new?autoOpenPicker=true')}
                       />
                     </View>
+                  </View>
+                </View>
+              </GlassCard>
+            ) : (
+              /* Priority 4: New user / No pattern yet */
+              <GlassCard>
+                <View style={{ paddingVertical: 8, alignItems: 'center' }}>
+                  <FoundryLabLogo size={48} style={{ marginBottom: 12 }} />
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.graphite[200], marginBottom: 4 }}>
+                    Ready to Train?
+                  </Text>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[500], textAlign: 'center', marginBottom: 12 }}>
+                    Scan a workout, log manually, or let us suggest one.
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <LabButton
+                      label="Generate Workout"
+                      icon={<Ionicons name="sparkles-outline" size={14} color="white" />}
+                      size="sm"
+                      onPress={() => setShowGeneratorModal(true)}
+                    />
+                    <LabButton
+                      label="Scan"
+                      variant="outline"
+                      size="sm"
+                      icon={<Ionicons name="camera-outline" size={14} color={Colors.graphite[50]} />}
+                      onPress={() => router.push('/scan-workout')}
+                    />
+                    <LabButton
+                      label="Quick Log"
+                      variant="outline"
+                      size="sm"
+                      icon={<Ionicons name="add-circle-outline" size={14} color={Colors.graphite[50]} />}
+                      onPress={() => router.push('/workout/new?autoOpenPicker=true')}
+                    />
                   </View>
                 </View>
               </GlassCard>
@@ -488,6 +516,29 @@ export default function DashboardScreen() {
                   </View>
                 </GlassCard>
               </Pressable>
+            </View>
+          )}
+
+          {/* Weekly Volume by Muscle Group */}
+          {weekSummary && weekSummary.muscleGroups.length > 0 && (
+            <View style={{ marginBottom: 24 }}>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                  color: Colors.graphite[300],
+                  marginBottom: 8,
+                }}
+              >
+                Weekly Volume
+              </Text>
+              <MuscleGroupBreakdown
+                muscleGroups={weekSummary.muscleGroups}
+                compact={true}
+                showTitle={false}
+              />
             </View>
           )}
 
