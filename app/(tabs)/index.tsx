@@ -15,7 +15,6 @@ import {
   SectionLabel,
   LiveIndicator,
 } from '@/components/ui/LabPrimitives';
-import { DeltaTag } from '@/components/ui/DeltaTag';
 import { MovementMemoryCard } from '@/components/MovementMemoryCard';
 import { MuscleGroupBreakdown } from '@/components/MuscleGroupBreakdown';
 import { ContinueRotationCard } from '@/components/ContinueRotationCard';
@@ -42,7 +41,6 @@ import { useNextTimeSuggestion } from '@/hooks/useMovementMemory';
 import { useDailyWorkoutSuggestion, useQuickWorkoutOptions } from '@/hooks/useDailyWorkout';
 import { useReadinessAwareWorkout, useShouldPromptReadiness } from '@/hooks/useReadinessAwareWorkout';
 import { useTodaysReadiness, getReadinessColor } from '@/hooks/useReadiness';
-import { summarizeWorkoutExercises, formatExerciseForFeed } from '@/lib/feedUtils';
 import { generateExerciseSummary } from '@/lib/workoutSummary';
 import { useWeekSummary } from '@/hooks/useWeekSummary';
 import { useNextInRotation } from '@/hooks/useRotationAwareness';
