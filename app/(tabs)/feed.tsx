@@ -6,10 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentSection } from '@/components/CommentSection';
 import { StreakBadge, PRCountBadge, BlockContextBadge, AdherenceBadge } from '@/components/FeedBadges';
+import { FeedPRBanner } from '@/components/FeedPRBanner';
 import { LikersModal } from '@/components/LikersModal';
 import { NotificationBell } from '@/components/NotificationBell';
+import { ReactionButton } from '@/components/ReactionPicker';
 import { Colors } from '@/constants/Colors';
-import { useFeed, useLikePost, useSearchUsers, useFollowing } from '@/hooks/useSocial';
+import { useFeed, useLikePost, useSearchUsers, useFollowing, useReactToPost } from '@/hooks/useSocial';
+import type { ReactionType } from '@/types/database';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
 import { summarizeWorkoutExercises, formatExerciseForFeed, getModalityIcon, type ExerciseSummary } from '@/lib/feedUtils';
 import { generateExerciseSummary } from '@/lib/workoutSummary';
@@ -22,6 +25,7 @@ export default function FeedScreen() {
   // Fetch more posts to ensure feed has enough content
   const { data: feed = [], isLoading, refetch } = useFeed(20);
   const likePostMutation = useLikePost();
+  const reactToPostMutation = useReactToPost();
   const [showDiscover, setShowDiscover] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { data: searchResults = [], isLoading: isSearching } = useSearchUsers(searchQuery);
@@ -34,6 +38,10 @@ export default function FeedScreen() {
   const handleLike = async (postId: string, isLiked: boolean) => {
     await likePostMutation.mutateAsync({ postId, like: !isLiked });
   };
+
+  const handleReaction = useCallback(async (postId: string, reactionType: ReactionType | null) => {
+    await reactToPostMutation.mutateAsync({ postId, reactionType });
+  }, [reactToPostMutation]);
 
   const toggleComments = useCallback((postId: string) => {
     setExpandedComments(prev => {
@@ -251,6 +259,9 @@ export default function FeedScreen() {
                           </View>
                         </View>
 
+                        {/* PR Banner - Show when there are PRs */}
+                        {prCount > 0 && <FeedPRBanner prCount={prCount} />}
+
                         {/* Body: Key Lifts Highlights */}
                         <View style={{ gap: 8, marginBottom: 12 }}>
                           <>
@@ -284,32 +295,19 @@ export default function FeedScreen() {
                         {/* Footer: Actions */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                            {/* Like Button */}
-                            <Pressable
-                              style={{ flexDirection: 'row', alignItems: 'center' }}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                handleLike(post.id, post.is_liked || false);
+                            {/* Reaction Button */}
+                            <ReactionButton
+                              postId={post.id}
+                              reactionCounts={post.reaction_counts || {}}
+                              userReaction={post.user_reaction || null}
+                              onReact={handleReaction}
+                              totalCount={post.like_count || 0}
+                              onShowLikers={() => {
+                                if ((post.like_count || 0) > 0) {
+                                  setLikersModalPostId(post.id);
+                                }
                               }}
-                            >
-                              <Ionicons
-                                name={post.is_liked ? 'heart' : 'heart-outline'}
-                                size={20}
-                                color={post.is_liked ? '#ef4444' : Colors.graphite[500]}
-                              />
-                              <Pressable
-                                onPress={(e) => {
-                                  e.stopPropagation();
-                                  if ((post.like_count || 0) > 0) {
-                                    setLikersModalPostId(post.id);
-                                  }
-                                }}
-                              >
-                                <Text style={{ marginLeft: 4, fontSize: 12, fontWeight: '700', color: Colors.graphite[400] }}>
-                                  {post.like_count || 0}
-                                </Text>
-                              </Pressable>
-                            </Pressable>
+                            />
 
                             {/* Comment Button */}
                             <Pressable

@@ -26,6 +26,12 @@ export type AchievementType = 'pr' | 'streak' | 'block_complete' | 'consistency'
 // Social Feed Enhancement types
 export type NotificationType = 'like' | 'comment' | 'comment_reply' | 'follow' | 'mention' | 'pr_achieved' | 'streak_milestone';
 
+// Reaction types for social feed
+export type ReactionType = 'heart' | 'fire' | 'strong' | 'clap' | 'mindblown';
+
+// Reaction counts stored as JSONB
+export type ReactionCounts = Partial<Record<ReactionType, number>>;
+
 // Core database types matching Supabase schema
 export interface Database {
   public: {
@@ -378,6 +384,7 @@ export interface Database {
           image_url: string | null;
           comment_count: number;
           like_count: number;
+          reaction_counts: ReactionCounts;
           created_at: string;
         };
         Insert: {
@@ -389,6 +396,7 @@ export interface Database {
           image_url?: string | null;
           comment_count?: number;
           like_count?: number;
+          reaction_counts?: ReactionCounts;
           created_at?: string;
         };
         Update: {
@@ -400,6 +408,7 @@ export interface Database {
           image_url?: string | null;
           comment_count?: number;
           like_count?: number;
+          reaction_counts?: ReactionCounts;
           created_at?: string;
         };
       };
@@ -420,6 +429,29 @@ export interface Database {
           id?: string;
           post_id?: string;
           user_id?: string;
+          created_at?: string;
+        };
+      };
+      post_reactions: {
+        Row: {
+          id: string;
+          post_id: string;
+          user_id: string;
+          reaction_type: ReactionType;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          user_id: string;
+          reaction_type: ReactionType;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          post_id?: string;
+          user_id?: string;
+          reaction_type?: ReactionType;
           created_at?: string;
         };
       };
@@ -723,6 +755,7 @@ export interface Database {
       pattern_type: PatternType;
       achievement_type: AchievementType;
       notification_type: NotificationType;
+      reaction_type: ReactionType;
     };
   };
 }
@@ -777,6 +810,10 @@ export type PostCommentUpdate = Database['public']['Tables']['post_comments']['U
 export type PostLike = Database['public']['Tables']['post_likes']['Row'];
 export type PostLikeInsert = Database['public']['Tables']['post_likes']['Insert'];
 export type PostLikeUpdate = Database['public']['Tables']['post_likes']['Update'];
+
+export type PostReaction = Database['public']['Tables']['post_reactions']['Row'];
+export type PostReactionInsert = Database['public']['Tables']['post_reactions']['Insert'];
+export type PostReactionUpdate = Database['public']['Tables']['post_reactions']['Update'];
 
 export type Notification = Database['public']['Tables']['notifications']['Row'];
 export type NotificationInsert = Database['public']['Tables']['notifications']['Insert'];

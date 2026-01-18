@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
 import { calculateStreak, type StreakInfo } from '@/lib/streakUtils';
-import type { WorkoutWithSets, PostCommentWithUser, NotificationWithActor, UserProfile } from '@/types/database';
+import type { WorkoutWithSets, PostCommentWithUser, NotificationWithActor, UserProfile, ReactionType, ReactionCounts } from '@/types/database';
 
 // Query keys
 export const socialKeys = {
@@ -18,6 +18,7 @@ export const socialKeys = {
   following: (userId: string) => [...socialKeys.all, 'following', userId] as const,
   likes: (postId: string) => [...socialKeys.all, 'likes', postId] as const,
   likers: (postId: string) => [...socialKeys.all, 'likers', postId] as const,
+  reactions: (postId: string) => [...socialKeys.all, 'reactions', postId] as const,
   userSearch: (query: string) => [...socialKeys.all, 'userSearch', query] as const,
   comments: (postId: string) => [...socialKeys.all, 'comments', postId] as const,
   notifications: () => [...socialKeys.all, 'notifications'] as const,
@@ -45,6 +46,7 @@ interface WorkoutPost {
   image_url: string | null;
   comment_count: number;
   like_count: number;
+  reaction_counts: ReactionCounts;
   created_at: string;
   workout?: WorkoutWithSets;
   user?: {
@@ -55,6 +57,7 @@ interface WorkoutPost {
   user_goals?: UserGoal[];
   user_streak?: StreakInfo;
   is_liked?: boolean;
+  user_reaction?: ReactionType | null;
 }
 
 /**
@@ -125,6 +128,7 @@ export function useFeed(limit: number = 20) {
         { data: userProfiles },
         { data: sets },
         { data: likes },
+        { data: reactions },
         { data: goals },
       ] = await Promise.all([
         // Fetch user profiles
@@ -132,7 +136,7 @@ export function useFeed(limit: number = 20) {
           .from('user_profiles')
           .select('id, display_name, email')
           .in('id', uniqueUserIds),
-        
+
         // Fetch workout sets - only for workouts in feed, exclude warmup sets
         workoutIds.length > 0
           ? supabase
@@ -146,11 +150,17 @@ export function useFeed(limit: number = 20) {
               .order('workout_id, set_order')
               .limit(200) // Limit total sets to avoid huge queries
           : Promise.resolve({ data: null, error: null }),
-        
-        // Fetch likes
+
+        // Fetch likes (legacy - for backwards compatibility)
         supabase
           .from('post_likes')
           .select('post_id, user_id')
+          .in('post_id', postIds),
+
+        // Fetch reactions (new reaction system)
+        supabase
+          .from('post_reactions')
+          .select('post_id, user_id, reaction_type')
           .in('post_id', postIds),
         
         // Fetch active goals (simplified - only for users in feed)
@@ -208,6 +218,21 @@ export function useFeed(limit: number = 20) {
         goalsByUser.set(goal.user_id, userGoals);
       });
 
+      // Process reactions
+      const reactionCountsByPost = new Map<string, ReactionCounts>();
+      const userReactions = new Map<string, ReactionType>();
+      reactions?.forEach((reaction: any) => {
+        // Build reaction counts
+        const counts = reactionCountsByPost.get(reaction.post_id) || {};
+        counts[reaction.reaction_type as ReactionType] = (counts[reaction.reaction_type as ReactionType] || 0) + 1;
+        reactionCountsByPost.set(reaction.post_id, counts);
+
+        // Track current user's reaction
+        if (reaction.user_id === userId) {
+          userReactions.set(reaction.post_id, reaction.reaction_type as ReactionType);
+        }
+      });
+
       // Calculate streaks - OPTIMIZED: Only fetch last 30 days of workouts per user
       // This is much faster than fetching 500 workouts
       const thirtyDaysAgo = new Date();
@@ -241,16 +266,22 @@ export function useFeed(limit: number = 20) {
       return posts.map((post: any) => {
         // Attach user profile
         post.user = profilesByUserId.get(post.user_id) || null;
-        
+
         // Attach workout sets if workout exists
         if (post.workout) {
           post.workout.workout_sets = setsByWorkout.get(post.workout_id) || [];
         }
 
+        // Calculate total reactions for like_count (backwards compatible)
+        const postReactionCounts = reactionCountsByPost.get(post.id) || {};
+        const totalReactions = Object.values(postReactionCounts).reduce((sum: number, count) => sum + (count || 0), 0);
+
         return {
           ...post,
-          like_count: likeCounts.get(post.id) || 0,
-          is_liked: userLikes.has(post.id),
+          like_count: totalReactions || likeCounts.get(post.id) || 0,
+          is_liked: userLikes.has(post.id) || userReactions.has(post.id),
+          reaction_counts: postReactionCounts,
+          user_reaction: userReactions.get(post.id) || null,
           user_goals: goalsByUser.get(post.user_id) || [],
           user_streak: streaksByUser.get(post.user_id) || undefined,
         } as WorkoutPost;
@@ -805,6 +836,127 @@ export function usePostLikers(postId: string) {
 
       if (profilesError) throw profilesError;
       return (profiles || []) as SearchUser[];
+    },
+    enabled: !!postId,
+    staleTime: 30 * 1000,
+  });
+}
+
+// ============================================================================
+// REACTIONS HOOKS
+// ============================================================================
+
+/**
+ * Get user's reaction for a post
+ */
+export function useUserReaction(postId: string) {
+  const userId = useAppStore((state) => state.userId);
+
+  return useQuery({
+    queryKey: socialKeys.reactions(postId),
+    queryFn: async (): Promise<ReactionType | null> => {
+      if (!userId || !postId) return null;
+
+      const { data, error } = await supabase
+        .from('post_reactions')
+        .select('reaction_type')
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
+      return data?.reaction_type as ReactionType | null;
+    },
+    enabled: !!userId && !!postId,
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Add or update a reaction on a post
+ */
+export function useReactToPost() {
+  const userId = useAppStore((state) => state.userId);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      postId,
+      reactionType,
+    }: {
+      postId: string;
+      reactionType: ReactionType | null;
+    }): Promise<void> => {
+      if (!userId) throw new Error('Not authenticated');
+
+      if (reactionType === null) {
+        // Remove reaction
+        const { error } = await supabase
+          .from('post_reactions')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      } else {
+        // Upsert reaction (insert or update)
+        const { error } = await supabase
+          .from('post_reactions')
+          .upsert(
+            {
+              post_id: postId,
+              user_id: userId,
+              reaction_type: reactionType,
+            },
+            {
+              onConflict: 'post_id,user_id',
+            }
+          );
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: socialKeys.reactions(variables.postId) });
+      queryClient.invalidateQueries({ queryKey: socialKeys.feed() });
+      queryClient.invalidateQueries({ queryKey: socialKeys.likers(variables.postId) });
+    },
+  });
+}
+
+/**
+ * Get all users who reacted to a post (with reaction types)
+ */
+export function usePostReactors(postId: string) {
+  return useQuery({
+    queryKey: [...socialKeys.reactions(postId), 'users'] as const,
+    queryFn: async (): Promise<Array<SearchUser & { reaction_type: ReactionType }>> => {
+      if (!postId) return [];
+
+      const { data: reactions, error } = await supabase
+        .from('post_reactions')
+        .select('user_id, reaction_type')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (!reactions || reactions.length === 0) return [];
+
+      const userIds = reactions.map(r => r.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, display_name, email')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileMap = new Map<string, SearchUser>();
+      profiles?.forEach(p => profileMap.set(p.id, p as SearchUser));
+
+      return reactions.map(r => ({
+        ...profileMap.get(r.user_id)!,
+        reaction_type: r.reaction_type as ReactionType,
+      })).filter(r => r.id);
     },
     enabled: !!postId,
     staleTime: 30 * 1000,
