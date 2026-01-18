@@ -160,7 +160,7 @@ Guidelines:
 - Exercises: ${exercises.slice(0, 5).join(', ')}${exercises.length > 5 ? ` (+${exercises.length - 5} more)` : ''}`);
   }
 
-  // Add recent workout history
+  // Add recent workout history with pattern analysis
   if (context.recentWorkouts.length > 0) {
     const recentList = context.recentWorkouts.slice(0, 5).map((w) => {
       const status = w.date_completed ? 'Completed' : 'Scheduled';
@@ -168,6 +168,16 @@ Guidelines:
       return `- ${w.focus} (${status}${date ? `, ${formatDate(date)}` : ''})`;
     });
     sections.push(`Recent Workouts:\n${recentList.join('\n')}`);
+
+    // Analyze training pattern from recent workouts
+    const trainingPattern = analyzeTrainingPattern(context.recentWorkouts);
+    if (trainingPattern) {
+      sections.push(`Training Pattern Analysis:
+- Detected Split: ${trainingPattern.detectedSplit}
+- Average workouts/week: ${trainingPattern.avgPerWeek.toFixed(1)}
+- Next in rotation: ${trainingPattern.nextInRotation || 'Unknown'}
+- Pattern confidence: ${trainingPattern.confidence}`);
+    }
   }
 
   // Add PR context
@@ -319,6 +329,82 @@ export function getQuickSuggestions(context: CoachContext): QuickSuggestion[] {
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+interface TrainingPatternAnalysis {
+  detectedSplit: string;
+  avgPerWeek: number;
+  nextInRotation: string | null;
+  confidence: string;
+}
+
+/**
+ * Analyze recent workouts to detect training patterns
+ */
+function analyzeTrainingPattern(workouts: Workout[]): TrainingPatternAnalysis | null {
+  const completed = workouts.filter((w) => w.date_completed);
+  if (completed.length < 3) return null;
+
+  // Extract focus types
+  const focuses = completed.map((w) => w.focus?.toLowerCase() || '').filter(Boolean);
+
+  // Detect common patterns
+  const hasPush = focuses.some((f) => f.includes('push'));
+  const hasPull = focuses.some((f) => f.includes('pull'));
+  const hasLegs = focuses.some((f) => f.includes('leg') || f.includes('lower'));
+  const hasUpper = focuses.some((f) => f.includes('upper'));
+  const hasLower = focuses.some((f) => f.includes('lower'));
+
+  let detectedSplit = 'Unknown';
+  let confidence = 'Low';
+
+  if (hasPush && hasPull && hasLegs) {
+    detectedSplit = 'Push/Pull/Legs';
+    confidence = 'High';
+  } else if (hasUpper && hasLower) {
+    detectedSplit = 'Upper/Lower';
+    confidence = 'High';
+  } else if (hasPush && hasPull) {
+    detectedSplit = 'Push/Pull';
+    confidence = 'Medium';
+  } else {
+    // Check for full body or other patterns
+    const fullBody = focuses.filter((f) => f.includes('full')).length;
+    if (fullBody >= 2) {
+      detectedSplit = 'Full Body';
+      confidence = 'Medium';
+    }
+  }
+
+  // Calculate average workouts per week
+  const dates = completed.map((w) => new Date(w.date_completed!));
+  if (dates.length >= 2) {
+    const earliest = Math.min(...dates.map((d) => d.getTime()));
+    const latest = Math.max(...dates.map((d) => d.getTime()));
+    const weeks = Math.max(1, (latest - earliest) / (1000 * 60 * 60 * 24 * 7));
+    const avgPerWeek = completed.length / weeks;
+
+    // Determine next in rotation based on pattern
+    let nextInRotation: string | null = null;
+    const lastFocus = focuses[0]?.toLowerCase() || '';
+
+    if (detectedSplit === 'Push/Pull/Legs') {
+      if (lastFocus.includes('push')) nextInRotation = 'Pull';
+      else if (lastFocus.includes('pull')) nextInRotation = 'Legs';
+      else nextInRotation = 'Push';
+    } else if (detectedSplit === 'Upper/Lower') {
+      nextInRotation = lastFocus.includes('upper') ? 'Lower Body' : 'Upper Body';
+    }
+
+    return {
+      detectedSplit,
+      avgPerWeek,
+      nextInRotation,
+      confidence,
+    };
+  }
+
+  return null;
+}
 
 function calculateCurrentWeek(block: TrainingBlock): number {
   if (!block.start_date) return 1;

@@ -580,6 +580,52 @@ export function StrengthEntry({
               </Pressable>
             )}
 
+            {/* Quick Repeat Last Set Button - for freestylers who want to log same as previous */}
+            {!editingSetId && !targetLoad && loggedSets.length > 0 && (() => {
+              const lastLogged = [...loggedSets].sort((a, b) => (b.set_order || 0) - (a.set_order || 0))[0];
+              if (!lastLogged || lastLogged.actual_weight === null || lastLogged.actual_reps === null) return null;
+              return (
+                <Pressable
+                  onPress={async () => {
+                    setIsLogging(true);
+                    try {
+                      const setOrder = currentSet?.set_order || (currentSetIndex < sortedSets.length ? sortedSets[currentSetIndex]?.set_order : sortedSets.length + 1);
+                      await onSaveSet(exercise.id, setOrder, {
+                        actual_weight: lastLogged.actual_weight,
+                        actual_reps: lastLogged.actual_reps,
+                        actual_rpe: lastLogged.actual_rpe || rpe,
+                        is_warmup: false,
+                        is_pr: false,
+                        segment_type: 'work',
+                      });
+                    } catch (error) {
+                      Alert.alert('Error', 'Failed to log set. Please try again.');
+                    } finally {
+                      setIsLogging(false);
+                    }
+                  }}
+                  disabled={isLogging}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 14,
+                    paddingHorizontal: 16,
+                    marginBottom: 12,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: Colors.emerald[500],
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  }}
+                >
+                  <Ionicons name="repeat" size={20} color={Colors.emerald[500]} />
+                  <Text style={{ marginLeft: 8, fontWeight: '700', fontSize: 14, color: Colors.emerald[500] }}>
+                    Same Again ({lastLogged.actual_weight} × {lastLogged.actual_reps}{lastLogged.actual_rpe ? ` @${lastLogged.actual_rpe}` : ''})
+                  </Text>
+                </Pressable>
+              );
+            })()}
+
             {/* Action Buttons */}
             <View className="flex-row gap-3">
               {editingSetId && (

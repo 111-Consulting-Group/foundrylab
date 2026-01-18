@@ -16,6 +16,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import { useWorkoutHistory } from './useWorkouts';
 import { useActiveTrainingBlock } from './useTrainingBlocks';
 import { useExercises } from './useExercises';
+import { useDetectedPatterns } from './usePatternDetection';
 import type { Exercise, WorkoutWithSets } from '@/types/database';
 
 // ============================================================================
@@ -241,23 +242,162 @@ function selectExercisesForFocus(
 // Main Hook
 // ============================================================================
 
+/**
+ * Map training split names to muscle groups
+ */
+function splitToMuscleGroups(splitName: string): string[] {
+  const lower = splitName.toLowerCase();
+
+  if (lower.includes('push')) {
+    return ['Chest', 'Shoulders', 'Triceps'];
+  }
+  if (lower.includes('pull')) {
+    return ['Back', 'Biceps'];
+  }
+  if (lower.includes('leg') || lower.includes('lower')) {
+    return ['Quadriceps', 'Hamstrings', 'Glutes', 'Calves'];
+  }
+  if (lower.includes('upper')) {
+    return ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps'];
+  }
+  if (lower.includes('full')) {
+    return ['Chest', 'Back', 'Quadriceps', 'Core'];
+  }
+  if (lower.includes('chest')) {
+    return ['Chest', 'Triceps'];
+  }
+  if (lower.includes('back')) {
+    return ['Back', 'Biceps'];
+  }
+  if (lower.includes('shoulder') || lower.includes('arm')) {
+    return ['Shoulders', 'Biceps', 'Triceps'];
+  }
+
+  // Default to full body if we can't determine
+  return ['Chest', 'Back', 'Quadriceps', 'Core'];
+}
+
+/**
+ * Get the next focus in a detected training rotation
+ */
+function getNextInRotation(
+  splits: string[],
+  workoutHistory: WorkoutWithSets[]
+): { nextFocus: string; reason: string; daysSince: number | null } | null {
+  if (splits.length === 0) return null;
+
+  // Build map of when each split was last trained
+  const lastByType = new Map<string, { date: string; daysSince: number }>();
+
+  for (const workout of workoutHistory) {
+    if (!workout.date_completed || !workout.focus) continue;
+    const workoutFocus = workout.focus.toLowerCase();
+
+    for (const split of splits) {
+      const splitLower = split.toLowerCase();
+      if (workoutFocus.includes(splitLower) && !lastByType.has(split)) {
+        const daysSince = differenceInDays(new Date(), new Date(workout.date_completed));
+        lastByType.set(split, { date: workout.date_completed, daysSince });
+        break;
+      }
+    }
+  }
+
+  // Find the split that was trained longest ago (and is recovered)
+  let nextFocus: string | null = null;
+  let maxDays = -1;
+  let reason = '';
+
+  for (const split of splits) {
+    const lastData = lastByType.get(split);
+
+    if (!lastData) {
+      nextFocus = split;
+      reason = `You haven't logged a ${split} session yet`;
+      return { nextFocus, reason, daysSince: null };
+    }
+
+    if (lastData.daysSince >= 2 && lastData.daysSince > maxDays) {
+      maxDays = lastData.daysSince;
+      nextFocus = split;
+      reason = `Last ${split} was ${lastData.daysSince} days ago`;
+    }
+  }
+
+  if (!nextFocus) {
+    // All trained recently, pick the one trained longest ago
+    let oldestDays = -1;
+    for (const split of splits) {
+      const lastData = lastByType.get(split);
+      if (lastData && lastData.daysSince > oldestDays) {
+        oldestDays = lastData.daysSince;
+        nextFocus = split;
+        reason = `${split} was your least recent session`;
+      }
+    }
+  }
+
+  if (!nextFocus) {
+    nextFocus = splits[0];
+    reason = 'Starting fresh with your rotation';
+  }
+
+  return {
+    nextFocus,
+    reason,
+    daysSince: lastByType.get(nextFocus)?.daysSince ?? null,
+  };
+}
+
 export function useDailyWorkoutSuggestion() {
   const userId = useAppStore((state) => state.userId);
   const { data: workoutHistory = [] } = useWorkoutHistory(10);
   const { data: exercises = [] } = useExercises();
   const { data: activeBlock } = useActiveTrainingBlock();
+  const { data: patterns = [] } = useDetectedPatterns();
 
   return useQuery({
-    queryKey: ['dailyWorkoutSuggestion', userId, workoutHistory.length],
+    queryKey: ['dailyWorkoutSuggestion', userId, workoutHistory.length, patterns?.length],
     queryFn: async (): Promise<DailyWorkoutSuggestion | null> => {
       if (!userId) return null;
 
-      // Analyze muscle group recovery
-      const recoveryData = analyzeMuscleGroupRecovery(workoutHistory);
+      // Check for detected training split pattern
+      const splitPattern = patterns?.find((p) => p.type === 'training_split');
+      const hasRotation = splitPattern && splitPattern.confidence >= 0.5;
 
-      // Generate workout focus based on recovery
-      const { focus, description, reason, muscleGroups } =
-        generateWorkoutFocus(recoveryData);
+      let focus: string;
+      let description: string;
+      let reason: string;
+      let muscleGroups: string[];
+
+      if (hasRotation) {
+        // Use rotation awareness - follows the user's established pattern
+        const splits = (splitPattern.data.splits as string[]) || [];
+        const rotationInfo = getNextInRotation(splits, workoutHistory);
+
+        if (rotationInfo) {
+          focus = rotationInfo.nextFocus;
+          description = `${rotationInfo.nextFocus} day based on your ${splitPattern.name || 'training split'}`;
+          reason = rotationInfo.reason;
+          muscleGroups = splitToMuscleGroups(rotationInfo.nextFocus);
+        } else {
+          // Fallback to recovery-based
+          const recoveryData = analyzeMuscleGroupRecovery(workoutHistory);
+          const recoveryFocus = generateWorkoutFocus(recoveryData);
+          focus = recoveryFocus.focus;
+          description = recoveryFocus.description;
+          reason = recoveryFocus.reason;
+          muscleGroups = recoveryFocus.muscleGroups;
+        }
+      } else {
+        // No rotation detected - use recovery-based suggestion
+        const recoveryData = analyzeMuscleGroupRecovery(workoutHistory);
+        const recoveryFocus = generateWorkoutFocus(recoveryData);
+        focus = recoveryFocus.focus;
+        description = recoveryFocus.description;
+        reason = recoveryFocus.reason;
+        muscleGroups = recoveryFocus.muscleGroups;
+      }
 
       // Select exercises for the focus
       const suggestedExercises = selectExercisesForFocus(

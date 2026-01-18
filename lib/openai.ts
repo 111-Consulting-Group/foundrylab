@@ -58,12 +58,21 @@ export interface UserPR {
   e1rm: number | null;
 }
 
+export interface TrainingHistorySummary {
+  detectedSplit?: string; // e.g., "Push/Pull/Legs"
+  avgWorkoutsPerWeek?: number;
+  avgExercisesPerWorkout?: number;
+  frequentExercises?: string[]; // Top exercises they use
+  recentFocuses?: string[]; // Last few workout focuses
+}
+
 export interface GenerateBlockParams {
   prompt: string;
   exercises: Exercise[];
   durationWeeks?: number;
   userPRs?: UserPR[];
   activeGoals?: { exerciseName: string; targetValue: number; currentValue: number | null }[];
+  trainingHistory?: TrainingHistorySummary;
 }
 
 export async function generateTrainingBlock({
@@ -72,6 +81,7 @@ export async function generateTrainingBlock({
   durationWeeks = 4,
   userPRs = [],
   activeGoals = [],
+  trainingHistory,
 }: GenerateBlockParams): Promise<AIGeneratedBlock> {
   if (!OPENAI_API_KEY) {
     throw new Error('OpenAI API key not configured');
@@ -106,14 +116,40 @@ export async function generateTrainingBlock({
     goalsSection = `\n\nUser's Active Training Goals (prioritize exercises related to these goals):\n${goalList}`;
   }
 
+  // Format training history for context
+  let historySection = '';
+  if (trainingHistory) {
+    const parts: string[] = [];
+
+    if (trainingHistory.detectedSplit) {
+      parts.push(`- Current training split: ${trainingHistory.detectedSplit}`);
+    }
+    if (trainingHistory.avgWorkoutsPerWeek) {
+      parts.push(`- Average workouts per week: ${trainingHistory.avgWorkoutsPerWeek.toFixed(1)}`);
+    }
+    if (trainingHistory.avgExercisesPerWorkout) {
+      parts.push(`- Average exercises per session: ${trainingHistory.avgExercisesPerWorkout.toFixed(1)}`);
+    }
+    if (trainingHistory.frequentExercises && trainingHistory.frequentExercises.length > 0) {
+      parts.push(`- Frequently used exercises: ${trainingHistory.frequentExercises.slice(0, 5).join(', ')}`);
+    }
+    if (trainingHistory.recentFocuses && trainingHistory.recentFocuses.length > 0) {
+      parts.push(`- Recent workout focuses: ${trainingHistory.recentFocuses.slice(0, 5).join(' → ')}`);
+    }
+
+    if (parts.length > 0) {
+      historySection = `\n\nUser's Training History (build on their existing patterns when relevant):\n${parts.join('\n')}`;
+    }
+  }
+
   const userMessage = `Generate a ${durationWeeks}-week training block for the following goal:
 
 "${prompt}"
 
 Available exercises:
-${exerciseList}${prSection}${goalsSection}
+${exerciseList}${prSection}${goalsSection}${historySection}
 
-Remember to use ONLY exercises from this list. If PRs are provided, calculate working weights as percentages of e1RM (typically 70-85% for working sets).`;
+Remember to use ONLY exercises from this list. If PRs are provided, calculate working weights as percentages of e1RM (typically 70-85% for working sets). Consider the user's training history when designing the program structure.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
