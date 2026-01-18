@@ -1,16 +1,26 @@
-[?25l[?2004h
-                                                                                                        
-  >  1. iidsnmsvvjqeafmkgvqz [name: War_Room_Prod_Test(1), org: inqcoptixykmduhajmaj, region: us-east-2]
-    2. zzqpgkdfrcrlimvqdglj [name: War_Room_Prod/Test(2), org: inqcoptixykmduhajmaj, region: us-east-2] 
-    3. sugewjaiokcxeeicccwn [name: JackedandFast, org: qqxvbuldtjwgkewehpfr, region: us-west-2]         
-    4. zutllqkvzizgwgjkvstw [name: superbuilder6000, org: qqxvbuldtjwgkewehpfr, region: us-west-2]      
-                                                                                                        
-                                                                                                        
-                                                                                                        
-                                                                                                        
-                                                                                                        
-                                                                                                        
-                                                                                                        
-                                                                                                        
-    ↑/k up • ↓/j down • / filter • q quit • ? more                                                      
-                                                                                                        
+/**
+ * Supabase Database Types
+ *
+ * This file should be regenerated using:
+ * npx supabase gen types typescript --project-id <your-project-id> > types/supabase.ts
+ *
+ * For now, using placeholder types to allow builds to succeed.
+ */
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export interface Database {
+  public: {
+    Tables: Record<string, unknown>;
+    Views: Record<string, unknown>;
+    Functions: Record<string, unknown>;
+    Enums: Record<string, unknown>;
+    CompositeTypes: Record<string, unknown>;
+  };
+}
