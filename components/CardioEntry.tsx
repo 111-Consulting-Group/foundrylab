@@ -3,19 +3,86 @@
 // Segment picker, distance presets, pace input, logged intervals list
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, Alert, Platform } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
 import { formatDistance, formatPace, getCompletionStatus, type SetWithExercise } from '@/lib/workoutSummary';
-import { useCardioMemory } from '@/hooks/useMovementMemory';
+import { useCardioMemory, useAnyCardioHistory } from '@/hooks/useMovementMemory';
 import type { Exercise, WorkoutSetInsert, SegmentType, PrimaryMetric } from '@/types/database';
+
+// ============================================================================
+// Prescription Parsing
+// ============================================================================
+
+interface ParsedPrescription {
+  isIntervals: boolean;
+  intervalCount: number | null;
+  targetDistanceMeters: number | null;
+  targetPace: string | null;
+  targetDuration: number | null; // in minutes
+}
+
+/**
+ * Parse exercise name to extract interval prescription
+ * Examples:
+ * - "Intervals: 10×200m @ mile pace" -> { isIntervals: true, intervalCount: 10, targetDistanceMeters: 200, targetPace: "mile pace" }
+ * - "6 x 400m @ 5K pace" -> { isIntervals: true, intervalCount: 6, targetDistanceMeters: 400, targetPace: "5K pace" }
+ * - "Easy Run" -> { isIntervals: false, ... }
+ */
+function parsePrescription(exerciseName: string): ParsedPrescription {
+  const name = exerciseName.toLowerCase();
+  const result: ParsedPrescription = {
+    isIntervals: false,
+    intervalCount: null,
+    targetDistanceMeters: null,
+    targetPace: null,
+    targetDuration: null,
+  };
+
+  // Check if it's an interval workout
+  if (name.includes('interval') || name.includes('repeat') || /\d+\s*[x×]\s*\d+/.test(name)) {
+    result.isIntervals = true;
+  }
+
+  // Parse pattern: "10×200m" or "10x200m" or "10 x 200m"
+  const intervalMatch = exerciseName.match(/(\d+)\s*[x×]\s*(\d+)\s*(m|mi|km|k)?/i);
+  if (intervalMatch) {
+    result.isIntervals = true;
+    result.intervalCount = parseInt(intervalMatch[1], 10);
+    let distance = parseInt(intervalMatch[2], 10);
+    const unit = (intervalMatch[3] || 'm').toLowerCase();
+
+    // Convert to meters
+    if (unit === 'mi') {
+      distance = Math.round(distance * 1609.34);
+    } else if (unit === 'km' || unit === 'k') {
+      distance = distance * 1000;
+    }
+    // Otherwise assume meters
+    result.targetDistanceMeters = distance;
+  }
+
+  // Parse pace: "@ mile pace" or "@ 5K pace" or "@ 10K pace"
+  const paceMatch = exerciseName.match(/@\s*(.+?pace)/i);
+  if (paceMatch) {
+    result.targetPace = paceMatch[1].trim();
+  } else {
+    // Also check for standalone pace references without @
+    const standalonePaceMatch = exerciseName.match(/(mile\s+pace|5k\s+pace|10k\s+pace|tempo\s+pace|marathon\s+pace)/i);
+    if (standalonePaceMatch) {
+      result.targetPace = standalonePaceMatch[1].trim();
+    }
+  }
+
+  return result;
+}
 
 // ============================================================================
 // Activity Type Detection
 // ============================================================================
 
-type CardioActivityType = 'run' | 'bike' | 'row' | 'swim' | 'other';
+type CardioActivityType = 'run' | 'bike' | 'row' | 'swim' | 'loaded' | 'other';
 
 interface ActivityConfig {
   type: CardioActivityType;
@@ -26,6 +93,7 @@ interface ActivityConfig {
   color: string;
   usesWatts: boolean;
   usesPace: boolean;
+  usesWeight: boolean; // For loaded exercises like sleds, carries
   defaultDistanceUnit: 'meters' | 'miles' | 'km';
   defaultPaceUnit: '/mi' | '/km' | '/m' | '/500m';
 }
@@ -40,6 +108,7 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: Colors.emerald[500],
     usesWatts: false,
     usesPace: true,
+    usesWeight: false,
     defaultDistanceUnit: 'miles',
     defaultPaceUnit: '/mi',
   },
@@ -52,6 +121,7 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: '#F59E0B',
     usesWatts: true,
     usesPace: false,
+    usesWeight: false,
     defaultDistanceUnit: 'miles',
     defaultPaceUnit: '/mi',
   },
@@ -64,6 +134,7 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: '#3B82F6',
     usesWatts: true,
     usesPace: true,
+    usesWeight: false,
     defaultDistanceUnit: 'meters',
     defaultPaceUnit: '/500m',
   },
@@ -76,8 +147,22 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: '#06B6D4',
     usesWatts: false,
     usesPace: true,
+    usesWeight: false,
     defaultDistanceUnit: 'meters',
     defaultPaceUnit: '/m',
+  },
+  loaded: {
+    type: 'loaded',
+    label: 'Loaded Carry',
+    continuousLabel: 'Distance',
+    intervalLabel: 'Sets',
+    icon: 'barbell-outline',
+    color: '#8B5CF6', // Purple for loaded exercises
+    usesWatts: false,
+    usesPace: false, // Time-based, not pace
+    usesWeight: true, // Key differentiator
+    defaultDistanceUnit: 'meters',
+    defaultPaceUnit: '/mi',
   },
   other: {
     type: 'other',
@@ -88,6 +173,7 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: Colors.emerald[500],
     usesWatts: false,
     usesPace: true,
+    usesWeight: false,
     defaultDistanceUnit: 'miles',
     defaultPaceUnit: '/mi',
   },
@@ -96,15 +182,28 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
 function detectActivityType(exercise: Exercise): CardioActivityType {
   const name = exercise.name.toLowerCase();
 
+  // Check for loaded carries/sleds FIRST (before running, since some may contain "walk")
+  const loadedPatterns = [
+    'sled', 'prowler', 'farmers carry', 'farmer carry', 'farmers walk', 'farmer walk',
+    'yoke', 'sandbag carry', 'keg carry', 'stone carry', 'loaded carry',
+    'carry', 'drag', 'push', 'pull sled'
+  ];
+  // Make sure it's not something like "lateral raise" that contains "ral"
+  if (loadedPatterns.some(p => name.includes(p))) {
+    return 'loaded';
+  }
+
   // Check for biking
   if (name.includes('bike') || name.includes('cycling') || name.includes('bicycle') ||
       name.includes('spin') || name.includes('peloton')) {
     return 'bike';
   }
 
-  // Check for rowing
-  if (name.includes('row') || name.includes('erg') || name.includes('concept2') ||
-      name.includes('c2')) {
+  // Check for rowing - but not "dumbbell row", "barbell row", etc.
+  const rowExclusions = ['dumbbell', 'barbell', 'cable', 'machine', 'seated', 'bent', 'pendlay', 'upright', 't-bar'];
+  const isRowExcluded = rowExclusions.some(ex => name.includes(ex));
+  if (!isRowExcluded && (name.includes('row') || name.includes('erg') || name.includes('concept2') ||
+      name.includes('c2'))) {
     return 'row';
   }
 
@@ -210,25 +309,71 @@ export function CardioEntry({
   const activityType = useMemo(() => detectActivityType(exercise), [exercise]);
   const activityConfig = ACTIVITY_CONFIGS[activityType];
 
+  // Parse prescription from exercise name (e.g., "Intervals: 10×200m @ mile pace")
+  const prescription = useMemo(() => parsePrescription(exercise.name), [exercise.name]);
+
   // Fetch last session data for this exercise
   const { data: lastSession, isLoading: lastSessionLoading } = useCardioMemory(exercise.id, workoutId);
 
+  // Check if user has ANY cardio history (not just this exercise)
+  const { hasHistory: hasAnyCardioHistory, isLoading: loadingAnyCardioHistory } = useAnyCardioHistory();
+
   // Mode: intervals (segment-by-segment) or continuous (single entry for entire run)
-  const [mode, setMode] = useState<CardioMode>('continuous');
+  // Initialize based on prescription if available
+  const [mode, setMode] = useState<CardioMode>(() =>
+    prescription.isIntervals ? 'intervals' : 'continuous'
+  );
 
   // Form state - Intervals mode
   const [segmentType, setSegmentType] = useState<SegmentType>('work');
-  const [selectedDistance, setSelectedDistance] = useState<number | null>(400);
+  // Initialize distance from prescription if available
+  const [selectedDistance, setSelectedDistance] = useState<number | null>(() =>
+    prescription.targetDistanceMeters || 400
+  );
   const [customDistance, setCustomDistance] = useState('');
   const [pace, setPace] = useState('');
   const [isLogging, setIsLogging] = useState(false);
-  // Default based on activity type
-  const [distanceUnit, setDistanceUnit] = useState<'meters' | 'miles' | 'km'>(activityConfig.defaultDistanceUnit);
+  // Default based on activity type, but use meters for intervals with known distance
+  const [distanceUnit, setDistanceUnit] = useState<'meters' | 'miles' | 'km'>(() => {
+    if (prescription.targetDistanceMeters && prescription.targetDistanceMeters < 1609) {
+      return 'meters'; // Use meters for short intervals
+    }
+    return activityConfig.defaultDistanceUnit;
+  });
   const [paceUnit, setPaceUnit] = useState<'/mi' | '/km' | '/m' | '/500m'>(activityConfig.defaultPaceUnit);
+
+  // Batch interval logging state
+  const [batchMode, setBatchMode] = useState<boolean>(() =>
+    prescription.isIntervals && prescription.intervalCount !== null && prescription.intervalCount > 1
+  );
+  const [intervalPaces, setIntervalPaces] = useState<string[]>(() => {
+    const count = prescription.intervalCount || 0;
+    return new Array(count).fill('');
+  });
+
+  // Update form when prescription changes (e.g., when switching exercises)
+  useEffect(() => {
+    if (prescription.isIntervals) {
+      setMode('intervals');
+      if (prescription.targetDistanceMeters) {
+        setSelectedDistance(prescription.targetDistanceMeters);
+        if (prescription.targetDistanceMeters < 1609) {
+          setDistanceUnit('meters');
+        }
+      }
+      if (prescription.intervalCount && prescription.intervalCount > 1) {
+        setBatchMode(true);
+        setIntervalPaces(new Array(prescription.intervalCount).fill(''));
+      }
+    }
+  }, [prescription]);
 
   // Watts mode state (for bikes/rowers)
   const [avgWatts, setAvgWatts] = useState('');
   const [cadence, setCadence] = useState('');
+
+  // Weight state (for loaded exercises like sleds, carries)
+  const [loadWeight, setLoadWeight] = useState('');
 
   // Switch distance unit when mode changes
   const handleModeChange = (newMode: CardioMode) => {
@@ -335,6 +480,11 @@ export function CardioEntry({
       console.log('[CardioEntry] Starting save...');
       setIsLogging(true);
 
+      // Parse weight for loaded exercises
+      const weightValue = activityConfig.usesWeight && loadWeight
+        ? parseFloat(loadWeight) || null
+        : null;
+
       const setData = {
         distance_meters: distanceMeters,
         avg_pace: paceOrWatts,
@@ -343,6 +493,8 @@ export function CardioEntry({
         segment_type: 'work' as const,
         is_warmup: false,
         is_pr: false,
+        // Include weight for loaded exercises (sleds, carries, etc.)
+        ...(weightValue && { actual_weight: weightValue }),
       };
 
       console.log('[CardioEntry] Saving continuous session:', {
@@ -414,6 +566,11 @@ export function CardioEntry({
     // Format pace with unit
     const paceWithUnit = pace ? `${pace}${paceUnit}` : null;
 
+    // Parse weight for loaded exercises
+    const weightValue = activityConfig.usesWeight && loadWeight
+      ? parseFloat(loadWeight) || null
+      : null;
+
     setIsLogging(true);
     try {
       await onSaveSet(exercise.id, nextSetOrder, {
@@ -422,6 +579,8 @@ export function CardioEntry({
         segment_type: segmentType,
         is_warmup: segmentType === 'warmup',
         is_pr: false,
+        // Include weight for loaded exercises (sleds, carries, etc.)
+        ...(weightValue && { actual_weight: weightValue }),
       });
 
       // Reset form for next entry (keep segment type)
@@ -437,7 +596,7 @@ export function CardioEntry({
     } finally {
       setIsLogging(false);
     }
-  }, [mode, exercise.id, nextSetOrder, selectedDistance, customDistance, pace, paceUnit, distanceUnit, segmentType, totalDistance, avgPace, avgWatts, avgHeartRate, durationMinutes, onSaveSet, activityConfig, activityType, onClose]);
+  }, [mode, exercise.id, nextSetOrder, selectedDistance, customDistance, pace, paceUnit, distanceUnit, segmentType, totalDistance, avgPace, avgWatts, avgHeartRate, durationMinutes, onSaveSet, activityConfig, activityType, onClose, loadWeight]);
 
   // Handle duplicate (copy last segment)
   const handleDuplicate = useCallback(async () => {
@@ -601,8 +760,8 @@ export function CardioEntry({
         </View>
       )}
 
-      {/* First time prompt */}
-      {!lastSession && !lastSessionLoading && loggedSegments.length === 0 && (
+      {/* First time prompt - only show if NO cardio history anywhere */}
+      {!hasAnyCardioHistory && !loadingAnyCardioHistory && !lastSessionLoading && loggedSegments.length === 0 && (
         <View style={{
           marginBottom: 16,
           padding: 12,
@@ -614,11 +773,33 @@ export function CardioEntry({
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons name="sparkles" size={18} color={Colors.signal[400]} />
             <Text style={{ marginLeft: 8, fontSize: 13, fontWeight: '500', color: Colors.signal[400] }}>
-              First time logging {activityConfig.label.toLowerCase()}!
+              First time logging cardio!
             </Text>
           </View>
           <Text style={{ marginTop: 6, fontSize: 12, color: Colors.graphite[400] }}>
             After a few sessions, we'll show your history and suggest targets based on your progress.
+          </Text>
+        </View>
+      )}
+
+      {/* New exercise prompt - show when user has cardio history but not for this specific exercise */}
+      {hasAnyCardioHistory && !lastSession && !lastSessionLoading && loggedSegments.length === 0 && (
+        <View style={{
+          marginBottom: 16,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: 'rgba(255, 255, 255, 0.03)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="footsteps-outline" size={18} color={Colors.graphite[400]} />
+            <Text style={{ marginLeft: 8, fontSize: 13, fontWeight: '500', color: Colors.graphite[300] }}>
+              First time logging this exercise
+            </Text>
+          </View>
+          <Text style={{ marginTop: 6, fontSize: 12, color: Colors.graphite[500] }}>
+            Log a few sessions and we'll track your progress for {exercise.name}.
           </Text>
         </View>
       )}
@@ -648,7 +829,88 @@ export function CardioEntry({
             <Text style={{ fontSize: 11, color: Colors.graphite[400] }}>Power-based</Text>
           </View>
         )}
+        {activityConfig.usesWeight && (
+          <View style={{
+            marginLeft: 'auto',
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderRadius: 4,
+            backgroundColor: 'rgba(139, 92, 246, 0.2)',
+          }}>
+            <Text style={{ fontSize: 11, color: '#A78BFA' }}>Weight + Distance</Text>
+          </View>
+        )}
       </View>
+
+      {/* Weight Input for Loaded Exercises (sleds, carries, etc.) */}
+      {activityConfig.usesWeight && (
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
+            Load (lbs)
+          </Text>
+          <TextInput
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderRadius: 8,
+              textAlign: 'center',
+              fontSize: 24,
+              fontWeight: '700',
+              fontFamily: 'monospace',
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              color: Colors.graphite[100],
+              borderWidth: 2,
+              borderColor: loadWeight ? '#8B5CF6' : 'rgba(139, 92, 246, 0.3)',
+            }}
+            value={loadWeight}
+            onChangeText={setLoadWeight}
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor={Colors.graphite[500]}
+          />
+          <Text style={{ marginTop: 4, fontSize: 12, color: Colors.graphite[500], textAlign: 'center' }}>
+            Total weight you're carrying/pushing
+          </Text>
+        </View>
+      )}
+
+      {/* Prescription Info Banner - shows when intervals are detected from exercise name */}
+      {prescription.isIntervals && prescription.intervalCount && (
+        <View style={{
+          marginBottom: 16,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: 'rgba(59, 130, 246, 0.08)',
+          borderWidth: 1,
+          borderColor: 'rgba(59, 130, 246, 0.2)',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <Ionicons name="flash" size={18} color={Colors.signal[400]} />
+              <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: Colors.signal[400] }}>
+                Today's Target
+              </Text>
+            </View>
+            <View style={{
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 6,
+              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+            }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', fontFamily: 'monospace', color: Colors.signal[400] }}>
+                {prescription.intervalCount} intervals
+              </Text>
+            </View>
+          </View>
+          <Text style={{ marginTop: 8, fontSize: 15, fontWeight: '600', color: Colors.graphite[100] }}>
+            {prescription.intervalCount} × {prescription.targetDistanceMeters ? formatDistance(prescription.targetDistanceMeters) : '?'}
+            {prescription.targetPace ? ` @ ${prescription.targetPace}` : ''}
+          </Text>
+          <Text style={{ marginTop: 4, fontSize: 12, color: Colors.graphite[400] }}>
+            {loggedSegments.filter(s => s.segment_type === 'work' || !s.segment_type).length} of {prescription.intervalCount} logged
+          </Text>
+        </View>
+      )}
 
       {/* Mode Toggle: Continuous vs Intervals */}
       <View style={{ marginBottom: 16 }}>
@@ -1040,9 +1302,261 @@ export function CardioEntry({
             </Text>
           </Pressable>
         </>
-      ) : (
-        // Intervals Mode (original UI)
+      ) : batchMode && prescription.intervalCount && prescription.intervalCount > 1 ? (
+        // Batch Interval Logging Mode - for prescribed workouts like "10×200m"
         <>
+          {/* Batch Entry Header */}
+          <View style={{
+            marginBottom: 16,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.08)',
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
+                Distance per interval
+              </Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', fontFamily: 'monospace', color: Colors.signal[400] }}>
+                {prescription.targetDistanceMeters ? formatDistance(prescription.targetDistanceMeters) : '?'}
+              </Text>
+            </View>
+            {prescription.targetPace && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
+                  Target pace
+                </Text>
+                <Text style={{ fontSize: 14, fontFamily: 'monospace', color: Colors.graphite[400] }}>
+                  {prescription.targetPace}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Pace Unit Toggle */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
+              Enter your actual paces
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              {(['/mi', '/km'] as const).map((unit) => (
+                <Pressable
+                  key={unit}
+                  onPress={() => setPaceUnit(unit as any)}
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 4,
+                    backgroundColor: paceUnit === unit ? Colors.signal[500] : 'rgba(255, 255, 255, 0.05)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: paceUnit === unit ? '#fff' : Colors.graphite[400],
+                    }}
+                  >
+                    {unit}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Interval Pace Inputs */}
+          <View style={{ gap: 8, marginBottom: 16 }}>
+            {intervalPaces.map((paceValue, index) => {
+              // Check if this interval was already logged
+              const existingInterval = loggedSegments.find(
+                (s, i) => i === index && (s.segment_type === 'work' || !s.segment_type)
+              );
+              const isLogged = !!existingInterval;
+
+              return (
+                <View
+                  key={index}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 10,
+                    borderRadius: 10,
+                    backgroundColor: isLogged ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                    borderWidth: 1,
+                    borderColor: isLogged ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.08)',
+                  }}
+                >
+                  {/* Interval Number */}
+                  <View style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: isLogged ? Colors.emerald[500] : 'rgba(59, 130, 246, 0.2)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                  }}>
+                    {isLogged ? (
+                      <Ionicons name="checkmark" size={18} color="white" />
+                    ) : (
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.signal[400] }}>
+                        {index + 1}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Distance Label */}
+                  <Text style={{ fontSize: 14, color: Colors.graphite[400], width: 50 }}>
+                    {prescription.targetDistanceMeters ? formatDistance(prescription.targetDistanceMeters) : '?'}
+                  </Text>
+
+                  {/* Pace Input or Logged Value */}
+                  {isLogged ? (
+                    <Text style={{ flex: 1, textAlign: 'right', fontSize: 16, fontFamily: 'monospace', color: Colors.emerald[400] }}>
+                      {existingInterval.avg_pace || '—'}
+                    </Text>
+                  ) : (
+                    <TextInput
+                      style={{
+                        flex: 1,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 8,
+                        textAlign: 'center',
+                        fontSize: 16,
+                        fontWeight: '600',
+                        fontFamily: 'monospace',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        color: Colors.graphite[100],
+                        borderWidth: 1,
+                        borderColor: paceValue ? Colors.signal[500] : 'rgba(255, 255, 255, 0.1)',
+                      }}
+                      value={paceValue}
+                      onChangeText={(text) => {
+                        const newPaces = [...intervalPaces];
+                        newPaces[index] = text;
+                        setIntervalPaces(newPaces);
+                      }}
+                      placeholder="0:00"
+                      placeholderTextColor={Colors.graphite[500]}
+                      keyboardType="numbers-and-punctuation"
+                    />
+                  )}
+
+                  {/* Pace unit label */}
+                  <Text style={{ marginLeft: 8, fontSize: 14, color: Colors.graphite[500] }}>
+                    {paceUnit}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Log All Intervals Button */}
+          <Pressable
+            onPress={async () => {
+              setIsLogging(true);
+              try {
+                // Log all intervals that have paces entered
+                // Parse weight for loaded exercises
+                const weightValue = activityConfig.usesWeight && loadWeight
+                  ? parseFloat(loadWeight) || null
+                  : null;
+
+                let setOrder = nextSetOrder;
+                for (let i = 0; i < intervalPaces.length; i++) {
+                  const paceValue = intervalPaces[i];
+                  // Skip already-logged intervals or empty paces
+                  if (!paceValue || paceValue.trim() === '') continue;
+
+                  await onSaveSet(exercise.id, setOrder++, {
+                    distance_meters: prescription.targetDistanceMeters,
+                    avg_pace: `${paceValue}${paceUnit}`,
+                    segment_type: 'work',
+                    is_warmup: false,
+                    is_pr: false,
+                    // Include weight for loaded exercises (sleds, carries, etc.)
+                    ...(weightValue && { actual_weight: weightValue }),
+                  });
+                }
+                // Reset entered paces after logging
+                setIntervalPaces(new Array(prescription.intervalCount || 0).fill(''));
+
+                // Close modal if all intervals logged
+                const loggedCount = loggedSegments.filter(s => s.segment_type === 'work' || !s.segment_type).length;
+                const newlyLoggedCount = intervalPaces.filter(p => p && p.trim() !== '').length;
+                if (loggedCount + newlyLoggedCount >= (prescription.intervalCount || 0)) {
+                  if (onClose) setTimeout(onClose, 100);
+                }
+              } catch (error) {
+                Alert.alert('Error', 'Failed to log intervals. Please try again.');
+              } finally {
+                setIsLogging(false);
+              }
+            }}
+            disabled={isLogging || intervalPaces.every(p => !p || p.trim() === '')}
+            style={{
+              paddingVertical: 16,
+              borderRadius: 12,
+              alignItems: 'center',
+              marginBottom: 16,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              gap: 8,
+              backgroundColor: isLogging || intervalPaces.every(p => !p || p.trim() === '')
+                ? 'rgba(59, 130, 246, 0.3)'
+                : Colors.signal[600],
+            }}
+          >
+            <Ionicons name="flash" size={20} color="white" />
+            <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+              {isLogging ? 'Logging...' : `Log ${intervalPaces.filter(p => p && p.trim() !== '').length} Interval${intervalPaces.filter(p => p && p.trim() !== '').length !== 1 ? 's' : ''}`}
+            </Text>
+          </Pressable>
+
+          {/* Toggle to single-interval mode */}
+          <Pressable
+            onPress={() => setBatchMode(false)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 12,
+            }}
+          >
+            <Ionicons name="list-outline" size={16} color={Colors.graphite[500]} />
+            <Text style={{ marginLeft: 6, fontSize: 12, color: Colors.graphite[500] }}>
+              Switch to single-interval logging
+            </Text>
+          </Pressable>
+        </>
+      ) : (
+        // Single Interval Mode (original UI)
+        <>
+          {/* Toggle to batch mode if prescription available */}
+          {prescription.isIntervals && prescription.intervalCount && prescription.intervalCount > 1 && (
+            <Pressable
+              onPress={() => setBatchMode(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 12,
+                marginBottom: 16,
+                borderRadius: 12,
+                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                borderWidth: 1,
+                borderColor: 'rgba(59, 130, 246, 0.2)',
+              }}
+            >
+              <Ionicons name="grid-outline" size={18} color={Colors.signal[400]} />
+              <Text style={{ marginLeft: 8, fontSize: 13, fontWeight: '500', color: Colors.signal[400] }}>
+                Switch to batch entry ({prescription.intervalCount} intervals)
+              </Text>
+            </Pressable>
+          )}
+
           {/* Segment Type Picker */}
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>

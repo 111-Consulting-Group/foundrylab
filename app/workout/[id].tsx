@@ -623,41 +623,54 @@ export default function ActiveWorkoutScreen() {
       const exercise = trackedExercises.find(ex => ex.exercise.id === exerciseId);
       if (!exercise) return;
 
-      // Confirm deletion
-      Alert.alert(
-        'Remove Exercise',
-        `Remove "${exercise.exercise.name}" from this workout?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                // Delete all sets for this exercise
-                const setsToDelete = exercise.sets.filter(s => s.id && !s.id.startsWith('temp-'));
-                if (setsToDelete.length > 0) {
-                  await Promise.all(
-                    setsToDelete.map(set =>
-                      deleteSetMutation.mutateAsync({
-                        id: set.id!,
-                        workoutId: currentWorkoutId,
-                      })
-                    )
-                  );
-                }
+      // Confirm deletion - handle web vs native
+      const doDelete = async () => {
+        try {
+          // Delete all sets for this exercise
+          const setsToDelete = exercise.sets.filter(s => s.id && !s.id.startsWith('temp-'));
+          if (setsToDelete.length > 0) {
+            await Promise.all(
+              setsToDelete.map(set =>
+                deleteSetMutation.mutateAsync({
+                  id: set.id!,
+                  workoutId: currentWorkoutId,
+                })
+              )
+            );
+          }
 
-                // Remove from local state
-                setTrackedExercises((prev) =>
-                  prev.filter(ex => ex.exercise.id !== exerciseId)
-                );
-              } catch (error) {
-                Alert.alert('Error', 'Failed to remove exercise. Please try again.');
-              }
+          // Remove from local state
+          setTrackedExercises((prev) =>
+            prev.filter(ex => ex.exercise.id !== exerciseId)
+          );
+        } catch (error) {
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            window.alert('Failed to remove exercise. Please try again.');
+          } else {
+            Alert.alert('Error', 'Failed to remove exercise. Please try again.');
+          }
+        }
+      };
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const confirmed = window.confirm(`Remove "${exercise.exercise.name}" from this workout?`);
+        if (confirmed) {
+          await doDelete();
+        }
+      } else {
+        Alert.alert(
+          'Remove Exercise',
+          `Remove "${exercise.exercise.name}" from this workout?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Remove',
+              style: 'destructive',
+              onPress: doDelete,
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     },
     [currentWorkoutId, trackedExercises, deleteSetMutation]
   );

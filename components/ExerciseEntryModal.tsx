@@ -55,7 +55,41 @@ export function ExerciseEntryModal({
 }: ExerciseEntryModalProps) {
   if (!exercise) return null;
 
-  const isCardio = exercise.modality === 'Cardio';
+  // Determine if this exercise should use the CardioEntry (distance/time-based) UI
+  // Priority: 1) primary_metric, 2) modality, 3) smart name detection
+  const isCardio = React.useMemo(() => {
+    // Check primary_metric first - most reliable
+    if (exercise.primary_metric) {
+      return ['Distance', 'Pace', 'Watts'].includes(exercise.primary_metric);
+    }
+
+    // Check modality
+    if (exercise.modality === 'Cardio') {
+      return true;
+    }
+
+    // Smart name detection for exercises that should be distance/time-based
+    // even if incorrectly labeled as Strength
+    const name = exercise.name.toLowerCase();
+    const distanceBasedPatterns = [
+      'sled', 'prowler', 'farmers carry', 'farmer carry', 'farmers walk', 'farmer walk',
+      'yoke', 'sandbag carry', 'keg carry', 'stone carry', 'loaded carry',
+      'walk', 'march', 'sprint', 'run', 'jog', 'swim', 'bike', 'row', 'erg',
+      'stair', 'battle rope', 'jump rope', 'skip'
+    ];
+
+    // Check if exercise name contains any distance-based pattern
+    // BUT exclude exercises that are clearly weight-based (e.g., "Dumbbell Row", "Barbell Row")
+    const weightQualifiers = ['dumbbell', 'barbell', 'cable', 'machine', 'seated', 'bent over', 'pendlay', 'upright'];
+    const hasWeightQualifier = weightQualifiers.some(q => name.includes(q));
+
+    if (!hasWeightQualifier && distanceBasedPatterns.some(p => name.includes(p))) {
+      return true;
+    }
+
+    return false;
+  }, [exercise.modality, exercise.primary_metric, exercise.name]);
+
   const prescription = formatPrescription(sets, exercise, targetSets, targetReps, targetRPE, targetLoad);
 
   // Prevent browser warnings when closing modal on web

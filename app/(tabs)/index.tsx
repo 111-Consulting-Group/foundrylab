@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, Alert, Platform, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -26,6 +26,7 @@ import {
   NewUserJourneyPrompt,
 } from '@/components/JourneyUpgradePrompt';
 import { InferredProgramCard, LearningProgressCard } from '@/components/InferredProgramCard';
+import { TemplatePicker } from '@/components/TemplatePicker';
 import { Colors } from '@/constants/Colors';
 
 import {
@@ -89,6 +90,7 @@ export default function DashboardScreen() {
   // Modal state for workout generator
   const [showGeneratorModal, setShowGeneratorModal] = useState(false);
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   // Handle creating a workout from suggestion
   const handleCreateFromSuggestion = async () => {
@@ -152,6 +154,42 @@ export default function DashboardScreen() {
       setIsCreatingWorkout(false);
     }
   };
+
+  // Handle selecting a template to start a workout
+  const handleSelectTemplate = useCallback(async (template: any) => {
+    setIsCreatingWorkout(true);
+    try {
+      // Create the workout with template focus
+      const workout = await createWorkoutMutation.mutateAsync({
+        focus: template.focus || template.name,
+        scheduled_date: new Date().toISOString().split('T')[0],
+        block_id: activeBlock?.id || null,
+      });
+
+      // Add template exercises as sets
+      let setOrder = 1;
+      for (const exercise of template.exercises) {
+        for (let i = 0; i < (exercise.sets || 3); i++) {
+          await addSetMutation.mutateAsync({
+            workout_id: workout.id,
+            exercise_id: exercise.exercise_id,
+            set_order: setOrder++,
+            target_reps: exercise.target_reps,
+            target_rpe: exercise.target_rpe,
+            target_load: exercise.target_load,
+          });
+        }
+      }
+
+      setShowTemplatePicker(false);
+      router.push(`/workout/${workout.id}`);
+    } catch (error) {
+      console.error('Failed to create workout from template:', error);
+      Alert.alert('Error', 'Failed to create workout. Please try again.');
+    } finally {
+      setIsCreatingWorkout(false);
+    }
+  }, [activeBlock?.id, addSetMutation, createWorkoutMutation, router]);
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
@@ -731,30 +769,50 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* Next Time Targets */}
-          {mainLifts.length > 0 && (
-            <View style={{ marginBottom: 24 }}>
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  textTransform: 'uppercase',
-                  letterSpacing: 1,
-                  color: Colors.graphite[300],
-                  marginBottom: 8,
-                }}
-              >
-                Next Time Targets
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, paddingHorizontal: 16 }}>
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                  {mainLifts.slice(0, 3).map((lift) => (
-                    <NextTimeHighlight key={lift.exerciseId} exerciseId={lift.exerciseId} exerciseName={lift.exerciseName} />
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-          )}
+          {/* Next Time Targets - show for main lifts or recent exercises from last session */}
+          {(() => {
+            // Extract unique exercises from last session's workout_sets
+            const recentExercises = lastSession?.workout_sets
+              ? Array.from(new Map(
+                  lastSession.workout_sets
+                    .filter((set: any) => set.exercise_id && set.exercise?.name && set.exercise?.modality !== 'Cardio')
+                    .map((set: any) => [set.exercise_id, { exerciseId: set.exercise_id, exerciseName: set.exercise.name }])
+                ).values()).slice(0, 3)
+              : [];
+
+            const hasContent = mainLifts.length > 0 || recentExercises.length > 0;
+
+            if (!hasContent) return null;
+
+            return (
+              <View style={{ marginBottom: 24 }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                    color: Colors.graphite[300],
+                    marginBottom: 8,
+                  }}
+                >
+                  Next Time Targets
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, paddingHorizontal: 16 }}>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    {/* Show main lifts if available */}
+                    {mainLifts.slice(0, 3).map((lift) => (
+                      <NextTimeHighlight key={lift.exerciseId} exerciseId={lift.exerciseId} exerciseName={lift.exerciseName} />
+                    ))}
+                    {/* If no main lifts, show exercises from last session */}
+                    {mainLifts.length === 0 && recentExercises.map((ex: any) => (
+                      <NextTimeHighlight key={ex.exerciseId} exerciseId={ex.exerciseId} exerciseName={ex.exerciseName} />
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            );
+          })()}
 
           {/* Bottom Actions - Journey-aware */}
           <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -792,7 +850,7 @@ export default function DashboardScreen() {
                     label="Templates"
                     variant="outline"
                     icon={<Ionicons name="document-outline" size={14} color={Colors.graphite[300]} />}
-                    onPress={() => router.push('/workout/new')}
+                    onPress={() => setShowTemplatePicker(true)}
                   />
                 </View>
               </>
@@ -969,6 +1027,13 @@ export default function DashboardScreen() {
             </SafeAreaView>
           </View>
         </Modal>
+
+        {/* Template Picker Modal */}
+        <TemplatePicker
+          visible={showTemplatePicker}
+          onClose={() => setShowTemplatePicker(false)}
+          onSelectTemplate={handleSelectTemplate}
+        />
       </SafeAreaView>
     </View>
   );

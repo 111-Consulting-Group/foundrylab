@@ -2,7 +2,7 @@
 // Focused set-by-set input with weight, reps, RPE
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, TextInput, Pressable, Alert, Platform } from 'react-native';
 import Slider from '@react-native-community/slider';
 
@@ -20,6 +20,56 @@ const RPE_DESCRIPTIONS: Record<number, string> = {
   9: '1 rep left',
   10: 'Max effort',
 };
+
+/**
+ * Determine smart weight increment based on exercise type and current weight
+ * - Heavy compound movements: 10 lbs
+ * - Plate-loaded machines, sleds, leg press: 45 lbs (plate increments)
+ * - Medium exercises: 5 lbs
+ * - Light isolation exercises: 2.5 lbs
+ */
+function getWeightIncrement(exerciseName: string, currentWeight: number): number {
+  const name = exerciseName.toLowerCase();
+
+  // Plate-loaded exercises (45 lb increments)
+  const plateLoadedPatterns = [
+    'sled', 'leg press', 'hack squat', 'prowler', 'farmers carry', 'farmer carry',
+    'yoke', 'trap bar', 'safety bar', 'smith machine'
+  ];
+  if (plateLoadedPatterns.some(p => name.includes(p))) {
+    return 45;
+  }
+
+  // Heavy compound movements (10 lb increments)
+  const heavyCompoundPatterns = [
+    'squat', 'deadlift', 'bench press', 'row', 'overhead press', 'ohp',
+    'hip thrust', 'romanian', 'rdl', 'good morning', 'clean', 'snatch'
+  ];
+  if (heavyCompoundPatterns.some(p => name.includes(p))) {
+    // Use 10 lbs for heavy lifts, 5 lbs for lighter weights
+    return currentWeight >= 100 ? 10 : 5;
+  }
+
+  // Cable/machine exercises with weight stacks (typically 10 lb increments)
+  const cablePatterns = [
+    'cable', 'lat pulldown', 'pulldown', 'machine', 'seated row'
+  ];
+  if (cablePatterns.some(p => name.includes(p))) {
+    return 10;
+  }
+
+  // Light isolation exercises (2.5 lb increments)
+  const lightPatterns = [
+    'curl', 'extension', 'raise', 'fly', 'flye', 'kickback',
+    'wrist', 'calf raise', 'shrug'
+  ];
+  if (lightPatterns.some(p => name.includes(p))) {
+    return currentWeight >= 50 ? 5 : 2.5;
+  }
+
+  // Default: 5 lbs
+  return 5;
+}
 
 interface StrengthEntryProps {
   exercise: Exercise;
@@ -49,8 +99,11 @@ export function StrengthEntry({
   onAddSet,
 }: StrengthEntryProps) {
   // Fetch movement memory and suggestion (Training Intelligence)
-  const { data: movementMemory } = useMovementMemory(exercise.id, workoutId);
+  const { data: movementMemory, isLoading: memoryLoading } = useMovementMemory(exercise.id, workoutId);
   const { data: suggestion } = useNextTimeSuggestion(exercise.id, exercise.name, workoutId);
+
+  // Check if user has history with this exercise
+  const hasHistory = !!movementMemory && movementMemory.exposureCount > 0;
 
   // Form state - declare editingSetId first since it's used below
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
@@ -388,26 +441,31 @@ export function StrengthEntry({
                   </Pressable>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {/* Quick -5 button */}
-                  <Pressable
-                    onPress={() => {
-                      const current = parseFloat(weight) || 0;
-                      if (current >= 5) setWeight((current - 5).toString());
-                    }}
-                    disabled={isBodyweight}
-                    style={{
-                      width: 32,
-                      height: 46,
-                      borderRadius: 8,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: isBodyweight ? 'rgba(255, 255, 255, 0.02)' : 'rgba(239, 68, 68, 0.1)',
-                      borderWidth: 1,
-                      borderColor: isBodyweight ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.3)',
-                    }}
-                  >
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: isBodyweight ? Colors.graphite[600] : '#ef4444' }}>-5</Text>
-                  </Pressable>
+                  {/* Quick decrement button - only show when user has history with this exercise */}
+                  {hasHistory && !isBodyweight && (
+                    <Pressable
+                      onPress={() => {
+                        const current = parseFloat(weight) || 0;
+                        const increment = getWeightIncrement(exercise.name, current);
+                        if (current >= increment) setWeight((current - increment).toString());
+                      }}
+                      style={{
+                        minWidth: 36,
+                        height: 46,
+                        paddingHorizontal: 6,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(239, 68, 68, 0.3)',
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#ef4444' }}>
+                        -{getWeightIncrement(exercise.name, parseFloat(weight) || 0)}
+                      </Text>
+                    </Pressable>
+                  )}
                   <TextInput
                     className="flex-1 px-2 py-3 rounded-lg text-center text-xl font-lab-mono font-bold"
                     style={{
@@ -415,6 +473,7 @@ export function StrengthEntry({
                       color: Colors.graphite[50],
                       borderColor: 'rgba(255, 255, 255, 0.1)',
                       borderWidth: 1,
+                      minWidth: 70,
                     }}
                     value={isBodyweight ? 'BW' : weight}
                     onChangeText={isBodyweight ? undefined : setWeight}
@@ -423,26 +482,31 @@ export function StrengthEntry({
                     placeholderTextColor={Colors.graphite[500]}
                     editable={!isBodyweight}
                   />
-                  {/* Quick +5 button */}
-                  <Pressable
-                    onPress={() => {
-                      const current = parseFloat(weight) || 0;
-                      setWeight((current + 5).toString());
-                    }}
-                    disabled={isBodyweight}
-                    style={{
-                      width: 32,
-                      height: 46,
-                      borderRadius: 8,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: isBodyweight ? 'rgba(255, 255, 255, 0.02)' : 'rgba(16, 185, 129, 0.1)',
-                      borderWidth: 1,
-                      borderColor: isBodyweight ? 'rgba(255, 255, 255, 0.05)' : 'rgba(16, 185, 129, 0.3)',
-                    }}
-                  >
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: isBodyweight ? Colors.graphite[600] : Colors.emerald[500] }}>+5</Text>
-                  </Pressable>
+                  {/* Quick increment button - only show when user has history with this exercise */}
+                  {hasHistory && !isBodyweight && (
+                    <Pressable
+                      onPress={() => {
+                        const current = parseFloat(weight) || 0;
+                        const increment = getWeightIncrement(exercise.name, current);
+                        setWeight((current + increment).toString());
+                      }}
+                      style={{
+                        minWidth: 36,
+                        height: 46,
+                        paddingHorizontal: 6,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(16, 185, 129, 0.3)',
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.emerald[500] }}>
+                        +{getWeightIncrement(exercise.name, parseFloat(weight) || 0)}
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
 

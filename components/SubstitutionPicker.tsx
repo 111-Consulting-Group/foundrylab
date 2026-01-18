@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
 import {
   View,
   Text,
@@ -8,8 +7,9 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import { useExerciseSubstitutions, type ExerciseSubstitution } from '@/hooks/useExerciseSubstitutions';
 import type { Exercise } from '@/types/database';
 
@@ -20,15 +20,16 @@ interface SubstitutionPickerProps {
   onSelectSubstitution: (newExercise: Exercise) => void;
 }
 
+/**
+ * Modal to browse and select exercise substitutions
+ * Uses glass-morphic styling consistent with the rest of the app
+ */
 export function SubstitutionPicker({
   visible,
   onClose,
   exercise,
   onSelectSubstitution,
 }: SubstitutionPickerProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const { data: substitutions, isLoading } = useExerciseSubstitutions(exercise.id, {
     limit: 8,
   });
@@ -38,6 +39,28 @@ export function SubstitutionPicker({
     onClose();
   };
 
+  const getModalityColor = (modality: string) => {
+    switch (modality) {
+      case 'Strength':
+        return Colors.signal[500];
+      case 'Cardio':
+        return Colors.emerald[500];
+      default:
+        return '#9B59B6';
+    }
+  };
+
+  const getModalityBg = (modality: string) => {
+    switch (modality) {
+      case 'Strength':
+        return Colors.glass.blue[10];
+      case 'Cardio':
+        return 'rgba(16, 185, 129, 0.1)';
+      default:
+        return 'rgba(155, 89, 182, 0.1)';
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -45,211 +68,250 @@ export function SubstitutionPicker({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View className={`flex-1 ${isDark ? 'bg-carbon-950' : 'bg-graphite-50'}`}>
-        {/* Header */}
+      <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+        {/* Ambient Background Glow */}
         <View
-          className={`px-4 py-4 border-b ${
-            isDark ? 'border-graphite-700' : 'border-graphite-200'
-          }`}
-        >
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1">
-              <Text
-                className={`text-lg font-bold ${
-                  isDark ? 'text-graphite-100' : 'text-graphite-900'
-                }`}
-              >
-                Swap Exercise
-              </Text>
-              <Text
-                className={`text-sm ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-              >
-                Alternatives for {exercise.name}
-              </Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              className={`w-10 h-10 rounded-full items-center justify-center ${
-                isDark ? 'bg-graphite-800' : 'bg-graphite-100'
-              }`}
-            >
-              <Ionicons
-                name="close"
-                size={24}
-                color={isDark ? '#E6E8EB' : '#0E1116'}
-              />
-            </Pressable>
-          </View>
-        </View>
+          style={{
+            position: 'absolute',
+            top: -50,
+            right: -80,
+            width: 200,
+            height: 200,
+            backgroundColor: 'rgba(37, 99, 235, 0.05)',
+            borderRadius: 100,
+          }}
+        />
 
-        {/* Content */}
-        <ScrollView className="flex-1 px-4 pt-4">
-          {isLoading ? (
-            <View className="items-center justify-center py-12">
-              <ActivityIndicator size="large" color="#2F80ED" />
-              <Text
-                className={`mt-4 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
-              >
-                Finding alternatives...
-              </Text>
-            </View>
-          ) : substitutions.length === 0 ? (
-            <View className="items-center justify-center py-12">
-              <Ionicons
-                name="search-outline"
-                size={48}
-                color={isDark ? '#808fb0' : '#607296'}
-              />
-              <Text
-                className={`mt-4 text-center ${
-                  isDark ? 'text-graphite-400' : 'text-graphite-500'
-                }`}
-              >
-                No similar exercises found
-              </Text>
-            </View>
-          ) : (
-            <>
-              {/* Current Exercise Info */}
-              <View
-                className={`p-4 rounded-xl mb-4 ${
-                  isDark ? 'bg-graphite-800' : 'bg-white'
-                } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-              >
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          {/* Header */}
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: Colors.glass.white[10],
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1 }}>
                 <Text
-                  className={`text-xs mb-1 ${
-                    isDark ? 'text-graphite-400' : 'text-graphite-500'
-                  }`}
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: Colors.graphite[50],
+                  }}
                 >
-                  CURRENT
+                  Swap Exercise
                 </Text>
                 <Text
-                  className={`font-semibold ${
-                    isDark ? 'text-graphite-100' : 'text-graphite-900'
-                  }`}
+                  style={{
+                    fontSize: 14,
+                    color: Colors.graphite[400],
+                  }}
                 >
-                  {exercise.name}
+                  Alternatives for {exercise.name}
                 </Text>
-                <View className="flex-row items-center mt-1">
-                  <View
-                    className={`px-2 py-0.5 rounded ${
-                      exercise.modality === 'Strength'
-                        ? 'bg-signal-500/20'
-                        : exercise.modality === 'Cardio'
-                        ? 'bg-progress-500/20'
-                        : 'bg-purple-500/20'
-                    }`}
+              </View>
+              <Pressable
+                onPress={onClose}
+                style={({ pressed }) => ({
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: pressed ? Colors.glass.white[20] : Colors.glass.white[10],
+                })}
+              >
+                <Ionicons name="close" size={24} color={Colors.graphite[50]} />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Content */}
+          <ScrollView
+            style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }}
+            contentContainerStyle={{ paddingBottom: 32 }}
+          >
+            {isLoading ? (
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+                <ActivityIndicator size="large" color={Colors.signal[500]} />
+                <Text style={{ marginTop: 16, color: Colors.graphite[400] }}>
+                  Finding alternatives...
+                </Text>
+              </View>
+            ) : substitutions.length === 0 ? (
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+                <Ionicons name="search-outline" size={48} color={Colors.graphite[500]} />
+                <Text
+                  style={{
+                    marginTop: 16,
+                    textAlign: 'center',
+                    color: Colors.graphite[400],
+                  }}
+                >
+                  No similar exercises found
+                </Text>
+              </View>
+            ) : (
+              <>
+                {/* Current Exercise Info */}
+                <View
+                  style={{
+                    padding: 16,
+                    borderRadius: 16,
+                    marginBottom: 16,
+                    backgroundColor: Colors.glass.white[5],
+                    borderWidth: 1,
+                    borderColor: Colors.glass.white[10],
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                      marginBottom: 4,
+                      color: Colors.graphite[400],
+                    }}
                   >
-                    <Text
-                      className={`text-xs ${
-                        exercise.modality === 'Strength'
-                          ? 'text-signal-500'
-                          : exercise.modality === 'Cardio'
-                          ? 'text-progress-500'
-                          : 'text-purple-500'
-                      }`}
+                    CURRENT
+                  </Text>
+                  <Text
+                    style={{
+                      fontWeight: '600',
+                      fontSize: 16,
+                      color: Colors.graphite[50],
+                    }}
+                  >
+                    {exercise.name}
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <View
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: 6,
+                        backgroundColor: getModalityBg(exercise.modality),
+                      }}
                     >
-                      {exercise.modality}
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: getModalityColor(exercise.modality),
+                        }}
+                      >
+                        {exercise.modality}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 12,
+                        color: Colors.graphite[400],
+                      }}
+                    >
+                      {exercise.muscle_group}
                     </Text>
                   </View>
-                  <Text
-                    className={`ml-2 text-xs ${
-                      isDark ? 'text-graphite-400' : 'text-graphite-500'
-                    }`}
-                  >
-                    {exercise.muscle_group}
-                  </Text>
                 </View>
-              </View>
 
-              {/* Substitution Options */}
-              <Text
-                className={`text-xs font-semibold mb-3 ${
-                  isDark ? 'text-graphite-400' : 'text-graphite-500'
-                }`}
-              >
-                ALTERNATIVES ({substitutions.length})
-              </Text>
+                {/* Substitution Options */}
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                    marginBottom: 12,
+                    color: Colors.graphite[400],
+                  }}
+                >
+                  ALTERNATIVES ({substitutions.length})
+                </Text>
 
-              <View className="gap-2 pb-8">
-                {substitutions.map((sub) => (
-                  <Pressable
-                    key={sub.exercise.id}
-                    className={`p-4 rounded-xl ${
-                      isDark ? 'bg-graphite-800' : 'bg-white'
-                    } border ${isDark ? 'border-graphite-700' : 'border-graphite-200'}`}
-                    onPress={() => handleSelect(sub)}
-                  >
-                    <View className="flex-row items-center">
-                      <View
-                        className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
-                          sub.exercise.modality === 'Strength'
-                            ? 'bg-signal-500/20'
-                            : sub.exercise.modality === 'Cardio'
-                            ? 'bg-progress-500/20'
-                            : 'bg-purple-500/20'
-                        }`}
-                      >
-                        <Ionicons
-                          name={
-                            sub.exercise.modality === 'Strength'
-                              ? 'barbell-outline'
-                              : sub.exercise.modality === 'Cardio'
-                              ? 'bicycle-outline'
-                              : 'fitness-outline'
-                          }
-                          size={20}
-                          color={
-                            sub.exercise.modality === 'Strength'
-                              ? '#2F80ED'
-                              : sub.exercise.modality === 'Cardio'
-                              ? '#27AE60'
-                              : '#9B59B6'
-                          }
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text
-                          className={`font-semibold ${
-                            isDark ? 'text-graphite-100' : 'text-graphite-900'
-                          }`}
+                <View style={{ gap: 8 }}>
+                  {substitutions.map((sub) => (
+                    <Pressable
+                      key={sub.exercise.id}
+                      onPress={() => handleSelect(sub)}
+                      style={({ pressed }) => ({
+                        padding: 16,
+                        borderRadius: 16,
+                        backgroundColor: pressed ? Colors.glass.white[10] : Colors.glass.white[5],
+                        borderWidth: 1,
+                        borderColor: Colors.glass.white[10],
+                      })}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 20,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginRight: 12,
+                            backgroundColor: getModalityBg(sub.exercise.modality),
+                          }}
                         >
-                          {sub.exercise.name}
-                        </Text>
-                        <View className="flex-row items-center mt-1">
-                          <Text
-                            className={`text-xs ${
-                              isDark ? 'text-graphite-400' : 'text-graphite-500'
-                            }`}
-                          >
-                            {sub.reason}
-                          </Text>
-                          {sub.hasHistory && (
-                            <View className="ml-2 flex-row items-center">
-                              <Ionicons
-                                name="checkmark-circle"
-                                size={12}
-                                color="#22c55e"
-                              />
-                              <Text className="text-xs text-progress-500 ml-1">
-                                Familiar
-                              </Text>
-                            </View>
-                          )}
+                          <Ionicons
+                            name={
+                              sub.exercise.modality === 'Strength'
+                                ? 'barbell-outline'
+                                : sub.exercise.modality === 'Cardio'
+                                ? 'bicycle-outline'
+                                : 'fitness-outline'
+                            }
+                            size={20}
+                            color={getModalityColor(sub.exercise.modality)}
+                          />
                         </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              fontWeight: '600',
+                              fontSize: 15,
+                              color: Colors.graphite[50],
+                            }}
+                          >
+                            {sub.exercise.name}
+                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: Colors.graphite[400],
+                              }}
+                            >
+                              {sub.reason}
+                            </Text>
+                            {sub.hasHistory && (
+                              <View style={{ marginLeft: 8, flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name="checkmark-circle" size={12} color={Colors.emerald[500]} />
+                                <Text
+                                  style={{
+                                    fontSize: 12,
+                                    marginLeft: 4,
+                                    color: Colors.emerald[500],
+                                  }}
+                                >
+                                  Familiar
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                        <Ionicons name="swap-horizontal" size={20} color={Colors.signal[500]} />
                       </View>
-                      <Ionicons
-                        name="swap-horizontal"
-                        size={20}
-                        color="#2F80ED"
-                      />
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          )}
-        </ScrollView>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
       </View>
     </Modal>
   );
@@ -257,6 +319,7 @@ export function SubstitutionPicker({
 
 /**
  * Inline substitution suggestions (for compact display)
+ * Uses glass-morphic styling
  */
 export function InlineSubstitutions({
   exerciseId,
@@ -265,9 +328,6 @@ export function InlineSubstitutions({
   exerciseId: string;
   onSelect: (exercise: Exercise) => void;
 }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const { data: substitutions, isLoading } = useExerciseSubstitutions(exerciseId, {
     limit: 3,
   });
@@ -277,25 +337,35 @@ export function InlineSubstitutions({
   }
 
   return (
-    <View className="mt-2">
+    <View style={{ marginTop: 8 }}>
       <Text
-        className={`text-xs mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}
+        style={{
+          fontSize: 12,
+          marginBottom: 8,
+          color: Colors.graphite[400],
+        }}
       >
         Quick swap:
       </Text>
-      <View className="flex-row flex-wrap gap-2">
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {substitutions.map((sub) => (
           <Pressable
             key={sub.exercise.id}
-            className={`px-3 py-1.5 rounded-full border ${
-              isDark
-                ? 'bg-graphite-800 border-graphite-700'
-                : 'bg-white border-graphite-200'
-            }`}
             onPress={() => onSelect(sub.exercise)}
+            style={({ pressed }) => ({
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 100,
+              borderWidth: 1,
+              backgroundColor: pressed ? Colors.glass.white[10] : Colors.glass.white[5],
+              borderColor: Colors.glass.white[10],
+            })}
           >
             <Text
-              className={`text-sm ${isDark ? 'text-graphite-200' : 'text-graphite-700'}`}
+              style={{
+                fontSize: 14,
+                color: Colors.graphite[200],
+              }}
             >
               {sub.exercise.name}
             </Text>
