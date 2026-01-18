@@ -21,15 +21,13 @@ import { Colors } from '@/constants/Colors';
 import {
   useBlockBuilder,
   getRecommendedConfig,
-  getBlockDifficulty,
 } from '@/hooks/useBlockBuilder';
 import {
   type BlockConfig,
   type GeneratedBlock,
-  PERIODIZATION_TEMPLATES,
   TRAINING_SPLITS,
 } from '@/lib/blockBuilder';
-import type { TrainingGoal, TrainingExperience } from '@/types/database';
+import type { TrainingGoal } from '@/types/database';
 
 // ============================================================================
 // Types
@@ -439,8 +437,6 @@ function PreviewStep({
     day: number;
     workout: any;
   } | null>(null);
-
-  const difficulty = getBlockDifficulty(block);
 
   // Grid constants
   const days = Array.from({ length: 7 }, (_, i) => i + 1);

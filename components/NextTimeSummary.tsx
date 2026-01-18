@@ -12,7 +12,7 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 
 import { NextTimeCard, NextTimeListItem } from '@/components/NextTimeCard';
 import { Colors } from '@/constants/Colors';
-import type { NextTimeSuggestion, PerformanceTrend } from '@/types/database';
+import type { NextTimeSuggestion } from '@/types/database';
 
 interface NextTimeSummaryProps {
   suggestions: NextTimeSuggestion[];
