@@ -11,6 +11,10 @@ interface ParsedSet {
   reps: number;
   weight?: number;
   rpe?: number;
+  percentage?: number; // e.g., 0.55 for 55%
+  duration_seconds?: number; // For timed work
+  distance_meters?: number; // For distance work
+  round?: number; // For circuits: which round
   notes?: string;
 }
 
@@ -19,6 +23,7 @@ interface ParsedExercise {
   originalName: string; // What was written on the board
   sets: ParsedSet[];
   notes?: string;
+  interval_seconds?: number; // For EMOM: seconds per interval
 }
 
 interface ParsedWorkout {
@@ -29,43 +34,88 @@ interface ParsedWorkout {
   goals?: { exercise: string; target: number }[];
   warmup?: string[];
   mode: 'log' | 'plan'; // Whether this is completed work or a plan
+  protocol: 'straight_sets' | 'emom' | 'amrap' | 'circuit' | 'interval' | 'ladder' | 'mixed';
+  periodization?: {
+    current_week: number;
+    total_weeks: number;
+  };
   rawText?: string; // For debugging
 }
 
 const VISION_SYSTEM_PROMPT = `You are an expert at reading handwritten workout logs and whiteboard workout plans.
 Your job is to parse images of workouts and extract structured data.
 
-Common notations you'll see:
+## NOTATION REFERENCE
+
+Set/Rep notations:
 - "5x10" or "5 x 10" = 5 sets of 10 reps
 - "3x8@185" or "3x8 @ 185" = 3 sets of 8 reps at 185 lbs
-- "225x5" sometimes means 225 lbs for 5 reps (context matters)
+- "225x5" can mean 225 lbs for 5 reps (context matters)
 - "RPE 8" or "@8" = Rate of Perceived Exertion of 8
 - Weights with # symbol (e.g., "185#") = pounds
-- Checkmarks (✓, ✔, ☑) indicate completed items
-- Empty boxes (☐, □) indicate planned but not completed
+- Checkmarks (✓, ✔, ☑) = completed items
+- Empty boxes (☐, □) = planned but not completed
+- Tally marks (||||) = round or set counters
 
-Common abbreviations:
+Percentage-based loading:
+- "@ 55%" or "@55/60%" = percentage of 1RM
+- "55/60%" = ascending percentages across sets
+- Convert to decimal: 55% → 0.55
+
+Time/Distance:
+- "15 cal" = 15 calories (on bike/rower)
+- "3.61 mi" = distance in miles (convert to meters: × 1609.34)
+- ":30" or "30s" = 30 seconds
+
+## PROTOCOL DETECTION
+
+Identify the workout protocol:
+- "straight_sets": Traditional sets with rest (default)
+- "emom": "Every X min" or "EMOM" - note the interval
+- "amrap": "AMRAP" or "As many rounds as possible"
+- "circuit": Multiple exercises done in sequence, often with tally marks for rounds
+- "interval": Work/rest intervals (e.g., "30s on/30s off")
+- "ladder": Ascending or descending rep schemes
+- "mixed": Combination of protocols
+
+## PERIODIZATION
+
+Look for week indicators:
+- "Week 1 of 4", "Wk 1/4", "W1" = periodization context
+- Extract current_week and total_weeks when visible
+
+## EQUIPMENT ABBREVIATIONS
+
 - DB = Dumbbell
-- BB = Barbell (or just "B" or "Bar")
+- BB = Barbell (or "B", "Bar")
 - KB = Kettlebell
 - BW = Bodyweight
 - OHP = Overhead Press
 - RDL = Romanian Deadlift
-- EMOM = Every Minute On the Minute
 
-Determine if this is:
-1. A COMPLETED workout log (has actual weights logged) - mode: "log"
-2. A WORKOUT PLAN (just exercises/sets/reps, needs weight suggestions) - mode: "plan"
+## OUTPUT FORMAT
 
-Output ONLY valid JSON matching this structure:
+Output ONLY valid JSON:
 {
-  "title": "Optional workout title",
+  "title": "Workout title or focus (e.g., 'Push Day', 'Squat Day')",
+  "protocol": "straight_sets" | "emom" | "amrap" | "circuit" | "interval" | "ladder" | "mixed",
+  "periodization": { "current_week": 1, "total_weeks": 4 } or null,
   "exercises": [
     {
       "name": "Standardized exercise name (e.g., 'Back Squat' not 'Squat')",
       "originalName": "Exactly what was written",
+      "interval_seconds": 120 (for EMOM only, e.g., "every 2 min" = 120),
       "sets": [
-        { "reps": 10, "weight": 185, "rpe": null, "notes": null }
+        {
+          "reps": 10,
+          "weight": 185,
+          "rpe": null,
+          "percentage": 0.55 (if percentage-based),
+          "duration_seconds": null (for timed work),
+          "distance_meters": null (for distance work),
+          "round": 1 (for circuits),
+          "notes": null
+        }
       ],
       "notes": "Any exercise-specific notes"
     }
@@ -73,16 +123,19 @@ Output ONLY valid JSON matching this structure:
   "notes": "General workout notes",
   "goals": [{ "exercise": "Deadlift", "target": 410 }],
   "warmup": ["List of warmup items if visible"],
-  "mode": "log" or "plan",
+  "mode": "log" (has actual weights) or "plan" (template needing suggestions),
   "rawText": "Plain text representation of what you saw"
 }
 
-Important:
-- If multiple weights are listed for sets, create individual set entries
-- Convert all weights to pounds (lbs)
-- Standardize exercise names (e.g., "Back Squat" not "Squat", "Bench Press" not "Bench")
-- If sets have "x" notation like "5x10@185", expand to 5 individual sets
-- Handle ascending/pyramid sets with different weights`;
+## CRITICAL RULES
+
+1. If multiple weights listed for sets (e.g., "185, 185, 205, 215, 215"), create INDIVIDUAL set entries
+2. Convert all weights to pounds (lbs)
+3. Convert distances to meters (miles × 1609.34)
+4. Standardize names: "Back Squat" not "Squat", "Bench Press" not "Bench"
+5. For circuits with tally marks, each group of exercises = 1 round, repeat for mark count
+6. For EMOM, set interval_seconds on the exercise (e.g., "every 2 min" = 120)
+7. Extract goals from checkbox/target sections (common: big 3 lifts with targets)`;
 
 serve(async (req) => {
   console.log('[parse-workout-image] Request received:', req.method);

@@ -90,7 +90,9 @@ const MIN_CONFIDENCE_TO_OFFER = 0.6;
 interface WorkoutWithExercises {
   id: string;
   focus: string;
+  normalized_focus: string | null;
   date_completed: string;
+  duration_minutes: number | null;
   workout_sets: Array<{
     exercise_id: string;
     actual_reps: number | null;
@@ -104,9 +106,10 @@ function analyzeExercisesForFocus(
   workouts: WorkoutWithExercises[],
   targetFocus: string
 ): InferredExercise[] {
-  // Filter workouts matching this focus
+  // Filter workouts matching this focus using normalized values
+  const normalizedTarget = normalizeFocus(targetFocus);
   const matchingWorkouts = workouts.filter((w) =>
-    normalizeFocus(w.focus) === normalizeFocus(targetFocus)
+    getEffectiveFocus(w) === normalizedTarget
   );
 
   if (matchingWorkouts.length === 0) return [];
@@ -205,8 +208,52 @@ function analyzeExercisesForFocus(
     .slice(0, 8); // Top 8 exercises per focus
 }
 
+/**
+ * Client-side focus normalization matching the database function.
+ * Used as fallback when normalized_focus isn't populated.
+ */
 function normalizeFocus(focus: string): string {
-  return focus.toLowerCase().trim();
+  const lower = focus.toLowerCase().trim();
+
+  // Push day variants
+  if (/push|chest|bench|press day|pressing/.test(lower)) return 'push';
+
+  // Pull day variants
+  if (/pull|back|row|deadlift day|pulling/.test(lower)) return 'pull';
+
+  // Legs day variants
+  if (/legs?|squat|lower|quad|ham|glute/.test(lower)) return 'legs';
+
+  // Upper body
+  if (/upper|upper body/.test(lower)) return 'upper';
+
+  // Lower body
+  if (/lower body/.test(lower)) return 'lower';
+
+  // Full body
+  if (/full|total|whole/.test(lower)) return 'full_body';
+
+  // Arms
+  if (/arms?|bicep|tricep|curl/.test(lower)) return 'arms';
+
+  // Shoulders
+  if (/shoulder|delt|ohp/.test(lower)) return 'shoulders';
+
+  // Core/Abs
+  if (/core|abs?|abdominal/.test(lower)) return 'core';
+
+  // Conditioning/Cardio
+  if (/cardio|conditioning|metcon|wod|hiit|circuit|echo|bike|run|row/.test(lower)) return 'conditioning';
+
+  return lower;
+}
+
+/**
+ * Get the effective normalized focus for a workout.
+ * Uses database field if available, falls back to client-side normalization.
+ */
+function getEffectiveFocus(workout: WorkoutWithExercises): string {
+  return workout.normalized_focus || normalizeFocus(workout.focus);
 }
 
 // ============================================================================
@@ -229,6 +276,7 @@ async function inferProgram(
     .select(`
       id,
       focus,
+      normalized_focus,
       date_completed,
       duration_minutes,
       workout_sets(
@@ -267,9 +315,10 @@ async function inferProgram(
     const focus = splits[i];
     const exercises = analyzeExercisesForFocus(workouts as WorkoutWithExercises[], focus);
 
-    // Get typical duration for this focus
-    const matchingWorkouts = workouts.filter((w) =>
-      normalizeFocus(w.focus) === normalizeFocus(focus)
+    // Get typical duration for this focus using normalized values
+    const normalizedFocus = normalizeFocus(focus);
+    const matchingWorkouts = (workouts as WorkoutWithExercises[]).filter((w) =>
+      getEffectiveFocus(w) === normalizedFocus
     );
     const avgDuration = matchingWorkouts.length > 0
       ? Math.round(

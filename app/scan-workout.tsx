@@ -28,6 +28,10 @@ interface ParsedSet {
   reps: number;
   weight?: number;
   rpe?: number;
+  percentage?: number;
+  duration_seconds?: number;
+  distance_meters?: number;
+  round?: number;
   notes?: string;
 }
 
@@ -38,6 +42,7 @@ interface ParsedExercise {
   matchedName?: string;
   sets: ParsedSet[];
   notes?: string;
+  interval_seconds?: number;
   suggestions?: { id: string; name: string; similarity: number }[];
   suggestion?: {
     weight: number;
@@ -52,6 +57,8 @@ interface ParsedExercise {
   };
 }
 
+type WorkoutProtocol = 'straight_sets' | 'emom' | 'amrap' | 'circuit' | 'interval' | 'ladder' | 'mixed';
+
 interface ParsedWorkout {
   title?: string;
   exercises: ParsedExercise[];
@@ -59,6 +66,11 @@ interface ParsedWorkout {
   goals?: { exercise: string; target: number }[];
   warmup?: string[];
   mode: 'log' | 'plan';
+  protocol: WorkoutProtocol;
+  periodization?: {
+    current_week: number;
+    total_weeks: number;
+  };
   rawText?: string;
 }
 
@@ -267,6 +279,9 @@ export default function ScanWorkoutScreen() {
           focus: parsedWorkout.title || 'Scanned Workout',
           notes: parsedWorkout.notes,
           date_completed: parsedWorkout.mode === 'log' ? new Date().toISOString() : null,
+          protocol: parsedWorkout.protocol || 'straight_sets',
+          week_number: parsedWorkout.periodization?.current_week || null,
+          periodization_total_weeks: parsedWorkout.periodization?.total_weeks || null,
         })
         .select()
         .single();
@@ -288,6 +303,11 @@ export default function ScanWorkoutScreen() {
               actual_reps: set.reps,
               actual_weight: set.weight,
               actual_rpe: set.rpe,
+              duration_seconds: set.duration_seconds || null,
+              distance_meters: set.distance_meters || null,
+              target_percentage: set.percentage || null,
+              protocol_round: set.round || null,
+              protocol_interval_seconds: exercise.interval_seconds || null,
               is_warmup: false,
             });
           } else {
@@ -298,6 +318,9 @@ export default function ScanWorkoutScreen() {
               set_order: setOrder++,
               target_reps: set.reps,
               target_load: suggestedWeight,
+              target_percentage: set.percentage || null,
+              protocol_round: set.round || null,
+              protocol_interval_seconds: exercise.interval_seconds || null,
               is_warmup: false,
             });
           }
@@ -494,22 +517,49 @@ export default function ScanWorkoutScreen() {
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50] }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50], flex: 1 }} numberOfLines={1}>
               {parsedWorkout.title || 'Scanned Workout'}
             </Text>
-            <View
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 4,
-                borderRadius: 12,
-                backgroundColor: isPlan ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)',
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '600', color: isPlan ? Colors.signal[400] : Colors.emerald[400] }}>
-                {isPlan ? 'Plan' : 'Log'}
-              </Text>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {/* Protocol Badge */}
+              {parsedWorkout.protocol && parsedWorkout.protocol !== 'straight_sets' && (
+                <View
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+                  }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#FBBF24', textTransform: 'uppercase' }}>
+                    {parsedWorkout.protocol.replace('_', ' ')}
+                  </Text>
+                </View>
+              )}
+              {/* Mode Badge */}
+              <View
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  backgroundColor: isPlan ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '600', color: isPlan ? Colors.signal[400] : Colors.emerald[400] }}>
+                  {isPlan ? 'Plan' : 'Log'}
+                </Text>
+              </View>
             </View>
           </View>
+          {/* Periodization Info */}
+          {parsedWorkout.periodization && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Ionicons name="calendar-outline" size={14} color={Colors.graphite[400]} />
+              <Text style={{ fontSize: 12, color: Colors.graphite[400], marginLeft: 6 }}>
+                Week {parsedWorkout.periodization.current_week} of {parsedWorkout.periodization.total_weeks}
+              </Text>
+            </View>
+          )}
           {parsedWorkout.notes && <Text style={{ fontSize: 14, color: Colors.graphite[400] }}>{parsedWorkout.notes}</Text>}
         </View>
 
@@ -581,11 +631,33 @@ export default function ScanWorkoutScreen() {
             </View>
 
             <View style={{ paddingTop: 12, marginTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
+              {/* EMOM indicator */}
+              {exercise.interval_seconds && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <Ionicons name="timer-outline" size={12} color={Colors.amber[400]} />
+                  <Text style={{ fontSize: 11, color: Colors.amber[400], marginLeft: 4 }}>
+                    Every {exercise.interval_seconds >= 60 ? `${exercise.interval_seconds / 60} min` : `${exercise.interval_seconds}s`}
+                  </Text>
+                </View>
+              )}
               <Text style={{ fontSize: 13, fontFamily: 'monospace', color: Colors.graphite[400] }}>
                 {exercise.sets.length} set{exercise.sets.length !== 1 ? 's' : ''}:{' '}
-                {exercise.sets.map((s) => {
-                  const parts = [`${s.reps} reps`];
+                {exercise.sets.map((s, idx) => {
+                  const parts: string[] = [];
+                  // Reps or duration or distance
+                  if (s.duration_seconds) {
+                    parts.push(`${s.duration_seconds}s`);
+                  } else if (s.distance_meters) {
+                    const miles = (s.distance_meters / 1609.34).toFixed(2);
+                    parts.push(`${miles} mi`);
+                  } else {
+                    parts.push(`${s.reps} reps`);
+                  }
+                  // Weight or percentage
                   if (s.weight) parts.push(`@ ${s.weight} lbs`);
+                  else if (s.percentage) parts.push(`@ ${Math.round(s.percentage * 100)}%`);
+                  // Round indicator for circuits
+                  if (s.round && idx === 0) parts.unshift(`R${s.round}:`);
                   return parts.join(' ');
                 }).join(', ')}
               </Text>
