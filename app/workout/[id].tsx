@@ -39,6 +39,7 @@ import { supabase } from '@/lib/supabase';
 import { useSmartExerciseSuggestions } from '@/hooks/useProgressionTargets';
 import { useWorkoutTemplate } from '@/hooks/useWorkoutTemplates';
 import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
+import { useExerciseMemoryBatch } from '@/hooks/useMovementMemory';
 import type { Exercise, WorkoutSetInsert, SegmentType } from '@/types/database';
 import type { SetWithExercise } from '@/lib/workoutSummary';
 
@@ -171,6 +172,13 @@ export default function ActiveWorkoutScreen() {
     const focus = workout?.focus || focusParam || 'Workout';
     return parseFocusToSections(focus);
   }, [workout?.focus, focusParam]);
+
+  // Movement memory for exercise cards
+  const trackedExerciseIds = useMemo(
+    () => trackedExercises.map((t) => t.exercise.id),
+    [trackedExercises]
+  );
+  const { data: exerciseMemoryMap } = useExerciseMemoryBatch(trackedExerciseIds);
 
   // Show readiness check-in if no check-in today (only once)
   useEffect(() => {
@@ -1026,6 +1034,7 @@ export default function ActiveWorkoutScreen() {
               const exerciseIndex = trackedExercises.findIndex(
                 (t) => t.exercise.id === tracked.exercise.id
               );
+              const memory = exerciseMemoryMap?.get(tracked.exercise.id);
               return (
                 <ExerciseCard
                   key={tracked.exercise.id}
@@ -1038,6 +1047,12 @@ export default function ActiveWorkoutScreen() {
                   onPress={() => setSelectedExerciseIndex(exerciseIndex)}
                   onDelete={() => handleDeleteExercise(tracked.exercise.id)}
                   showDelete={true}
+                  lastPerformance={memory ? {
+                    weight: memory.lastWeight,
+                    reps: memory.lastReps,
+                    rpe: memory.lastRPE,
+                    date: memory.lastDate,
+                  } : undefined}
                 />
               );
             })}

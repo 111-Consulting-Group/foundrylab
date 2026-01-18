@@ -26,6 +26,13 @@ interface ExerciseCardProps {
   onDelete?: () => void;
   showDelete?: boolean;
   onLongPress?: () => void;
+  /** Last performance from movement memory */
+  lastPerformance?: {
+    weight: number | null;
+    reps: number | null;
+    rpe: number | null;
+    date: string | null;
+  };
 }
 
 export function ExerciseCard({
@@ -39,6 +46,7 @@ export function ExerciseCard({
   onDelete,
   showDelete = false,
   onLongPress,
+  lastPerformance,
 }: ExerciseCardProps) {
   const [showMenu, setShowMenu] = useState(false);
 
@@ -205,6 +213,22 @@ export function ExerciseCard({
           >
             {displayText}
           </Text>
+          {/* Show last performance when exercise hasn't been started */}
+          {status === 'pending' && lastPerformance?.weight && !targetLoad && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 4 }}>
+              <Ionicons name="time-outline" size={11} color={Colors.graphite[500]} />
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: Colors.graphite[500],
+                }}
+                numberOfLines={1}
+              >
+                Last: {lastPerformance.weight}×{lastPerformance.reps}
+                {lastPerformance.rpe ? ` @${lastPerformance.rpe}` : ''}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Actions */}
