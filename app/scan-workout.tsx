@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
 import { workoutKeys } from '@/hooks/useWorkouts';
 import { useCreatePendingExercise, useMuscleGroups } from '@/hooks/useExercises';
+import type { WorkoutProtocol } from '@/types/database';
 
 // Types matching edge function response
 interface ParsedSet {
@@ -56,8 +57,6 @@ interface ParsedExercise {
     exposureCount: number;
   };
 }
-
-type WorkoutProtocol = 'straight_sets' | 'emom' | 'amrap' | 'circuit' | 'interval' | 'ladder' | 'mixed';
 
 interface ParsedWorkout {
   title?: string;
@@ -552,7 +551,7 @@ export default function ScanWorkoutScreen() {
             </View>
           </View>
           {/* Periodization Info */}
-          {parsedWorkout.periodization && (
+          {parsedWorkout.periodization?.current_week != null && parsedWorkout.periodization?.total_weeks != null && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
               <Ionicons name="calendar-outline" size={14} color={Colors.graphite[400]} />
               <Text style={{ fontSize: 12, color: Colors.graphite[400], marginLeft: 6 }}>

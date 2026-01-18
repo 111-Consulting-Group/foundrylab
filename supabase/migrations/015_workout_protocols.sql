@@ -13,15 +13,21 @@
 -- circuit: Multiple exercises performed in sequence
 -- interval: Work/rest intervals
 -- ladder: Ascending/descending rep schemes
-CREATE TYPE workout_protocol AS ENUM (
-  'straight_sets',
-  'emom',
-  'amrap',
-  'circuit',
-  'interval',
-  'ladder',
-  'mixed'
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'workout_protocol') THEN
+    CREATE TYPE workout_protocol AS ENUM (
+      'straight_sets',
+      'emom',
+      'amrap',
+      'circuit',
+      'interval',
+      'ladder',
+      'mixed'
+    );
+  END IF;
+END
+$$;
 
 ALTER TABLE workouts ADD COLUMN IF NOT EXISTS protocol workout_protocol DEFAULT 'straight_sets';
 
@@ -133,6 +139,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_set_normalized_focus ON workouts;
 CREATE TRIGGER trigger_set_normalized_focus
   BEFORE INSERT OR UPDATE OF focus ON workouts
   FOR EACH ROW

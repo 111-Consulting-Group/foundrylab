@@ -320,13 +320,12 @@ async function inferProgram(
     const matchingWorkouts = (workouts as WorkoutWithExercises[]).filter((w) =>
       getEffectiveFocus(w) === normalizedFocus
     );
-    const avgDuration = matchingWorkouts.length > 0
+    const workoutsWithDuration = matchingWorkouts.filter((w) => w.duration_minutes != null);
+    const avgDuration = workoutsWithDuration.length > 0
       ? Math.round(
-          matchingWorkouts
-            .filter((w) => w.duration_minutes)
-            .reduce((sum, w) => sum + (w.duration_minutes || 0), 0) /
-            matchingWorkouts.filter((w) => w.duration_minutes).length
-        ) || 60
+          workoutsWithDuration.reduce((sum, w) => sum + (w.duration_minutes || 0), 0) /
+          workoutsWithDuration.length
+        )
       : 60;
 
     // Extract muscle groups from exercises
