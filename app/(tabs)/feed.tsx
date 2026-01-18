@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CommentSection } from '@/components/CommentSection';
 import { StreakBadge, PRCountBadge, BlockContextBadge, AdherenceBadge } from '@/components/FeedBadges';
+import { LikersModal } from '@/components/LikersModal';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Colors } from '@/constants/Colors';
 import { useFeed, useLikePost, useSearchUsers, useFollowing } from '@/hooks/useSocial';
 import { detectWorkoutContext, getContextInfo } from '@/lib/workoutContext';
@@ -24,9 +27,25 @@ export default function FeedScreen() {
   const { data: searchResults = [], isLoading: isSearching } = useSearchUsers(searchQuery);
   const { data: following = [], isLoading: followingLoading } = useFollowing();
 
+  // Social engagement state
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [likersModalPostId, setLikersModalPostId] = useState<string | null>(null);
+
   const handleLike = async (postId: string, isLiked: boolean) => {
     await likePostMutation.mutateAsync({ postId, like: !isLiked });
   };
+
+  const toggleComments = useCallback((postId: string) => {
+    setExpandedComments(prev => {
+      const next = new Set(prev);
+      if (next.has(postId)) {
+        next.delete(postId);
+      } else {
+        next.add(postId);
+      }
+      return next;
+    });
+  }, []);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -123,13 +142,16 @@ export default function FeedScreen() {
               <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.graphite[50] }}>
                 Feed
               </Text>
-              <LabButton
-                label="Discover"
-                variant="primary"
-                size="sm"
-                icon={<Ionicons name="person-add-outline" size={16} color="white" />}
-                onPress={() => setShowDiscover(true)}
-              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <NotificationBell />
+                <LabButton
+                  label="Discover"
+                  variant="primary"
+                  size="sm"
+                  icon={<Ionicons name="person-add-outline" size={16} color="white" />}
+                  onPress={() => setShowDiscover(true)}
+                />
+              </View>
             </View>
 
             {/* Friends Section */}
@@ -261,22 +283,52 @@ export default function FeedScreen() {
 
                         {/* Footer: Actions */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
-                          <Pressable
-                            style={{ flexDirection: 'row', alignItems: 'center' }}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              handleLike(post.id, post.is_liked || false);
-                            }}
-                          >
-                            <Ionicons
-                              name={post.is_liked ? 'heart' : 'heart-outline'}
-                              size={20}
-                              color={post.is_liked ? '#ef4444' : Colors.graphite[500]}
-                            />
-                            <Text style={{ marginLeft: 4, fontSize: 12, fontWeight: '700', color: Colors.graphite[400] }}>
-                              {post.like_count || 0}
-                            </Text>
-                          </Pressable>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                            {/* Like Button */}
+                            <Pressable
+                              style={{ flexDirection: 'row', alignItems: 'center' }}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleLike(post.id, post.is_liked || false);
+                              }}
+                            >
+                              <Ionicons
+                                name={post.is_liked ? 'heart' : 'heart-outline'}
+                                size={20}
+                                color={post.is_liked ? '#ef4444' : Colors.graphite[500]}
+                              />
+                              <Pressable
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  if ((post.like_count || 0) > 0) {
+                                    setLikersModalPostId(post.id);
+                                  }
+                                }}
+                              >
+                                <Text style={{ marginLeft: 4, fontSize: 12, fontWeight: '700', color: Colors.graphite[400] }}>
+                                  {post.like_count || 0}
+                                </Text>
+                              </Pressable>
+                            </Pressable>
+
+                            {/* Comment Button */}
+                            <Pressable
+                              style={{ flexDirection: 'row', alignItems: 'center' }}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                toggleComments(post.id);
+                              }}
+                            >
+                              <Ionicons
+                                name={expandedComments.has(post.id) ? 'chatbubble' : 'chatbubble-outline'}
+                                size={18}
+                                color={Colors.graphite[500]}
+                              />
+                              <Text style={{ marginLeft: 4, fontSize: 12, fontWeight: '700', color: Colors.graphite[400] }}>
+                                {post.comment_count || 0}
+                              </Text>
+                            </Pressable>
+                          </View>
 
                           {/* Adherence Score if available */}
                           {post.user_streak && post.user_streak.weeklyAdherence >= 50 && (
@@ -285,6 +337,14 @@ export default function FeedScreen() {
                             </View>
                           )}
                         </View>
+
+                        {/* Comment Section */}
+                        <CommentSection
+                          postId={post.id}
+                          isExpanded={expandedComments.has(post.id)}
+                          onToggleExpand={() => toggleComments(post.id)}
+                          commentCount={post.comment_count || 0}
+                        />
                       </View>
                     </LabCard>
                   </Pressable>
@@ -396,6 +456,13 @@ export default function FeedScreen() {
             </Pressable>
           </SafeAreaView>
         </Modal>
+
+        {/* Likers Modal */}
+        <LikersModal
+          visible={!!likersModalPostId}
+          onClose={() => setLikersModalPostId(null)}
+          postId={likersModalPostId || ''}
+        />
       </SafeAreaView>
     </View>
   );

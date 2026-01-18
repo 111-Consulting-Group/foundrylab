@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
 import { calculateStreak, type StreakInfo } from '@/lib/streakUtils';
-import type { WorkoutWithSets } from '@/types/database';
+import type { WorkoutWithSets, PostCommentWithUser, NotificationWithActor, UserProfile } from '@/types/database';
 
 // Query keys
 export const socialKeys = {
@@ -17,7 +17,11 @@ export const socialKeys = {
   followers: (userId: string) => [...socialKeys.all, 'followers', userId] as const,
   following: (userId: string) => [...socialKeys.all, 'following', userId] as const,
   likes: (postId: string) => [...socialKeys.all, 'likes', postId] as const,
+  likers: (postId: string) => [...socialKeys.all, 'likers', postId] as const,
   userSearch: (query: string) => [...socialKeys.all, 'userSearch', query] as const,
+  comments: (postId: string) => [...socialKeys.all, 'comments', postId] as const,
+  notifications: () => [...socialKeys.all, 'notifications'] as const,
+  unreadCount: () => [...socialKeys.all, 'unreadCount'] as const,
 };
 
 interface UserGoal {
@@ -38,6 +42,9 @@ interface WorkoutPost {
   user_id: string;
   caption: string | null;
   is_public: boolean;
+  image_url: string | null;
+  comment_count: number;
+  like_count: number;
   created_at: string;
   workout?: WorkoutWithSets;
   user?: {
@@ -47,7 +54,6 @@ interface WorkoutPost {
   };
   user_goals?: UserGoal[];
   user_streak?: StreakInfo;
-  like_count?: number;
   is_liked?: boolean;
 }
 
@@ -412,7 +418,7 @@ export function useSearchUsers(searchQuery: string, limit: number = 20) {
       if (!userId || !searchQuery || searchQuery.length < 2) return [];
 
       const query = searchQuery.toLowerCase().trim();
-      
+
       // Search by display_name or email (case-insensitive partial match)
       const { data, error } = await supabase
         .from('user_profiles')
@@ -425,5 +431,382 @@ export function useSearchUsers(searchQuery: string, limit: number = 20) {
       return (data || []) as SearchUser[];
     },
     enabled: !!userId && !!searchQuery && searchQuery.length >= 2,
+  });
+}
+
+// ============================================================================
+// COMMENTS HOOKS
+// ============================================================================
+
+/**
+ * Get comments for a post (with threading support)
+ */
+export function useComments(postId: string) {
+  return useQuery({
+    queryKey: socialKeys.comments(postId),
+    queryFn: async (): Promise<PostCommentWithUser[]> => {
+      if (!postId) return [];
+
+      // Fetch all comments for the post
+      const { data: comments, error } = await supabase
+        .from('post_comments')
+        .select('*')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      if (!comments || comments.length === 0) return [];
+
+      // Fetch user profiles for all comment authors
+      const userIds = [...new Set(comments.map(c => c.user_id))];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, display_name, email')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileMap = new Map<string, UserProfile>();
+      profiles?.forEach(p => profileMap.set(p.id, p as UserProfile));
+
+      // Build threaded comment structure
+      const commentMap = new Map<string, PostCommentWithUser>();
+      const topLevelComments: PostCommentWithUser[] = [];
+
+      // First pass: create all comments with user info
+      comments.forEach(comment => {
+        const commentWithUser: PostCommentWithUser = {
+          ...comment,
+          user: profileMap.get(comment.user_id) || null,
+          replies: [],
+        };
+        commentMap.set(comment.id, commentWithUser);
+      });
+
+      // Second pass: organize into threads
+      comments.forEach(comment => {
+        const commentWithUser = commentMap.get(comment.id)!;
+        if (comment.parent_comment_id) {
+          const parent = commentMap.get(comment.parent_comment_id);
+          if (parent) {
+            parent.replies = parent.replies || [];
+            parent.replies.push(commentWithUser);
+          } else {
+            // Parent was deleted, show as top-level
+            topLevelComments.push(commentWithUser);
+          }
+        } else {
+          topLevelComments.push(commentWithUser);
+        }
+      });
+
+      return topLevelComments;
+    },
+    enabled: !!postId,
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Add a comment to a post
+ */
+export function useAddComment() {
+  const userId = useAppStore((state) => state.userId);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      postId,
+      content,
+      parentCommentId,
+    }: {
+      postId: string;
+      content: string;
+      parentCommentId?: string;
+    }): Promise<void> => {
+      if (!userId) throw new Error('Not authenticated');
+      if (!content.trim()) throw new Error('Comment cannot be empty');
+
+      const { error } = await supabase.from('post_comments').insert({
+        post_id: postId,
+        user_id: userId,
+        content: content.trim(),
+        parent_comment_id: parentCommentId || null,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: socialKeys.comments(variables.postId) });
+      queryClient.invalidateQueries({ queryKey: socialKeys.feed() });
+    },
+  });
+}
+
+/**
+ * Edit a comment
+ */
+export function useEditComment() {
+  const userId = useAppStore((state) => state.userId);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      commentId,
+      postId,
+      content,
+    }: {
+      commentId: string;
+      postId: string;
+      content: string;
+    }): Promise<void> => {
+      if (!userId) throw new Error('Not authenticated');
+      if (!content.trim()) throw new Error('Comment cannot be empty');
+
+      const { error } = await supabase
+        .from('post_comments')
+        .update({
+          content: content.trim(),
+          is_edited: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', commentId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: socialKeys.comments(variables.postId) });
+    },
+  });
+}
+
+/**
+ * Delete a comment
+ */
+export function useDeleteComment() {
+  const userId = useAppStore((state) => state.userId);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      commentId,
+      postId,
+    }: {
+      commentId: string;
+      postId: string;
+    }): Promise<void> => {
+      if (!userId) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('post_comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: socialKeys.comments(variables.postId) });
+      queryClient.invalidateQueries({ queryKey: socialKeys.feed() });
+    },
+  });
+}
+
+// ============================================================================
+// NOTIFICATIONS HOOKS
+// ============================================================================
+
+/**
+ * Get notifications for current user
+ */
+export function useNotifications(limit: number = 50) {
+  const userId = useAppStore((state) => state.userId);
+
+  return useQuery({
+    queryKey: socialKeys.notifications(),
+    queryFn: async (): Promise<NotificationWithActor[]> => {
+      if (!userId) return [];
+
+      const { data: notifications, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      if (!notifications || notifications.length === 0) return [];
+
+      // Fetch actor profiles
+      const actorIds = [...new Set(notifications.map(n => n.actor_id).filter(Boolean))];
+
+      if (actorIds.length === 0) {
+        return notifications.map(n => ({ ...n, actor: null }));
+      }
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, display_name, email')
+        .in('id', actorIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileMap = new Map<string, UserProfile>();
+      profiles?.forEach(p => profileMap.set(p.id, p as UserProfile));
+
+      return notifications.map(notification => ({
+        ...notification,
+        actor: notification.actor_id ? profileMap.get(notification.actor_id) || null : null,
+      }));
+    },
+    enabled: !!userId,
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Get unread notification count
+ */
+export function useUnreadNotificationCount() {
+  const userId = useAppStore((state) => state.userId);
+
+  return useQuery({
+    queryKey: socialKeys.unreadCount(),
+    queryFn: async (): Promise<number> => {
+      if (!userId) return 0;
+
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!userId,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000, // Refetch every minute
+  });
+}
+
+/**
+ * Mark notification as read
+ */
+export function useMarkNotificationRead() {
+  const userId = useAppStore((state) => state.userId);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (notificationId: string): Promise<void> => {
+      if (!userId) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString(),
+        })
+        .eq('id', notificationId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: socialKeys.notifications() });
+      queryClient.invalidateQueries({ queryKey: socialKeys.unreadCount() });
+    },
+  });
+}
+
+/**
+ * Mark all notifications as read
+ */
+export function useMarkAllNotificationsRead() {
+  const userId = useAppStore((state) => state.userId);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      if (!userId) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('is_read', false);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: socialKeys.notifications() });
+      queryClient.invalidateQueries({ queryKey: socialKeys.unreadCount() });
+    },
+  });
+}
+
+/**
+ * Delete a notification
+ */
+export function useDeleteNotification() {
+  const userId = useAppStore((state) => state.userId);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (notificationId: string): Promise<void> => {
+      if (!userId) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: socialKeys.notifications() });
+      queryClient.invalidateQueries({ queryKey: socialKeys.unreadCount() });
+    },
+  });
+}
+
+// ============================================================================
+// POST LIKERS HOOK
+// ============================================================================
+
+/**
+ * Get list of users who liked a post
+ */
+export function usePostLikers(postId: string) {
+  return useQuery({
+    queryKey: socialKeys.likers(postId),
+    queryFn: async (): Promise<SearchUser[]> => {
+      if (!postId) return [];
+
+      const { data: likes, error } = await supabase
+        .from('post_likes')
+        .select('user_id')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (!likes || likes.length === 0) return [];
+
+      const userIds = likes.map(l => l.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, display_name, email')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+      return (profiles || []) as SearchUser[];
+    },
+    enabled: !!postId,
+    staleTime: 30 * 1000,
   });
 }

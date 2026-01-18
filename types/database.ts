@@ -23,6 +23,9 @@ export type PerformanceTrend = 'progressing' | 'stagnant' | 'regressing';
 export type PatternType = 'training_split' | 'exercise_pairing' | 'rep_range_preference' | 'training_day';
 export type AchievementType = 'pr' | 'streak' | 'block_complete' | 'consistency' | 'volume_milestone';
 
+// Social Feed Enhancement types
+export type NotificationType = 'like' | 'comment' | 'comment_reply' | 'follow' | 'mention' | 'pr_achieved' | 'streak_milestone';
+
 // Core database types matching Supabase schema
 export interface Database {
   public: {
@@ -372,6 +375,9 @@ export interface Database {
           user_id: string;
           caption: string | null;
           is_public: boolean;
+          image_url: string | null;
+          comment_count: number;
+          like_count: number;
           created_at: string;
         };
         Insert: {
@@ -380,6 +386,9 @@ export interface Database {
           user_id: string;
           caption?: string | null;
           is_public?: boolean;
+          image_url?: string | null;
+          comment_count?: number;
+          like_count?: number;
           created_at?: string;
         };
         Update: {
@@ -388,6 +397,9 @@ export interface Database {
           user_id?: string;
           caption?: string | null;
           is_public?: boolean;
+          image_url?: string | null;
+          comment_count?: number;
+          like_count?: number;
           created_at?: string;
         };
       };
@@ -408,6 +420,85 @@ export interface Database {
           id?: string;
           post_id?: string;
           user_id?: string;
+          created_at?: string;
+        };
+      };
+      post_comments: {
+        Row: {
+          id: string;
+          post_id: string;
+          user_id: string;
+          parent_comment_id: string | null;
+          content: string;
+          is_edited: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          user_id: string;
+          parent_comment_id?: string | null;
+          content: string;
+          is_edited?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          post_id?: string;
+          user_id?: string;
+          parent_comment_id?: string | null;
+          content?: string;
+          is_edited?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: NotificationType;
+          title: string;
+          body: string | null;
+          actor_id: string | null;
+          post_id: string | null;
+          comment_id: string | null;
+          workout_id: string | null;
+          data: Json | null;
+          is_read: boolean;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: NotificationType;
+          title: string;
+          body?: string | null;
+          actor_id?: string | null;
+          post_id?: string | null;
+          comment_id?: string | null;
+          workout_id?: string | null;
+          data?: Json | null;
+          is_read?: boolean;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          type?: NotificationType;
+          title?: string;
+          body?: string | null;
+          actor_id?: string | null;
+          post_id?: string | null;
+          comment_id?: string | null;
+          workout_id?: string | null;
+          data?: Json | null;
+          is_read?: boolean;
+          read_at?: string | null;
           created_at?: string;
         };
       };
@@ -631,6 +722,7 @@ export interface Database {
       performance_trend: PerformanceTrend;
       pattern_type: PatternType;
       achievement_type: AchievementType;
+      notification_type: NotificationType;
     };
   };
 }
@@ -672,6 +764,37 @@ export type DetectedPatternUpdate = Database['public']['Tables']['detected_patte
 export type UserAchievement = Database['public']['Tables']['user_achievements']['Row'];
 export type UserAchievementInsert = Database['public']['Tables']['user_achievements']['Insert'];
 export type UserAchievementUpdate = Database['public']['Tables']['user_achievements']['Update'];
+
+// Social Feed Enhancement type aliases
+export type WorkoutPost = Database['public']['Tables']['workout_posts']['Row'];
+export type WorkoutPostInsert = Database['public']['Tables']['workout_posts']['Insert'];
+export type WorkoutPostUpdate = Database['public']['Tables']['workout_posts']['Update'];
+
+export type PostComment = Database['public']['Tables']['post_comments']['Row'];
+export type PostCommentInsert = Database['public']['Tables']['post_comments']['Insert'];
+export type PostCommentUpdate = Database['public']['Tables']['post_comments']['Update'];
+
+export type PostLike = Database['public']['Tables']['post_likes']['Row'];
+export type PostLikeInsert = Database['public']['Tables']['post_likes']['Insert'];
+export type PostLikeUpdate = Database['public']['Tables']['post_likes']['Update'];
+
+export type Notification = Database['public']['Tables']['notifications']['Row'];
+export type NotificationInsert = Database['public']['Tables']['notifications']['Insert'];
+export type NotificationUpdate = Database['public']['Tables']['notifications']['Update'];
+
+export type Follow = Database['public']['Tables']['follows']['Row'];
+export type FollowInsert = Database['public']['Tables']['follows']['Insert'];
+export type FollowUpdate = Database['public']['Tables']['follows']['Update'];
+
+// Enhanced types with relations for social feed
+export interface PostCommentWithUser extends PostComment {
+  user?: UserProfile | null;
+  replies?: PostCommentWithUser[];
+}
+
+export interface NotificationWithActor extends Notification {
+  actor?: UserProfile | null;
+}
 
 // Workout Template types (not in main Database interface yet)
 export interface WorkoutTemplate {
