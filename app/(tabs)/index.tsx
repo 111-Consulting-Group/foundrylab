@@ -25,6 +25,7 @@ import {
   JourneyIndicator,
   NewUserJourneyPrompt,
 } from '@/components/JourneyUpgradePrompt';
+import { InferredProgramCard, LearningProgressCard } from '@/components/InferredProgramCard';
 import { Colors } from '@/constants/Colors';
 
 import {
@@ -696,6 +697,14 @@ export default function DashboardScreen() {
                   </View>
                 </GlassCard>
               </Pressable>
+            </View>
+          )}
+
+          {/* Inferred Program - for Freestylers with enough data */}
+          {journey === 'freestyler' && (
+            <View style={{ marginBottom: 24 }}>
+              <InferredProgramCard />
+              <LearningProgressCard />
             </View>
           )}
 
