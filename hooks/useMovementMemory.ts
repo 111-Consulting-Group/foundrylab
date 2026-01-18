@@ -363,6 +363,57 @@ export function useCardioMemory(exerciseId: string, currentWorkoutId?: string) {
 }
 
 /**
+ * Check if user has ANY cardio history (not just for a specific exercise)
+ * Used to determine if "first time logging cardio" message is appropriate
+ */
+export function useAnyCardioHistory() {
+  const userId = useAppStore((state) => state.userId);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['anyCardioHistory', userId],
+    queryFn: async (): Promise<{ hasHistory: boolean; totalSessions: number }> => {
+      if (!userId) return { hasHistory: false, totalSessions: 0 };
+
+      // Query workout_sets for any cardio data (distance, duration, or pace)
+      const { data: sets, error: setsError } = await supabase
+        .from('workout_sets')
+        .select(`
+          id,
+          workout:workouts!inner(id, date_completed, user_id)
+        `)
+        .eq('workout.user_id', userId)
+        .not('workout.date_completed', 'is', null)
+        .or('distance_meters.not.is.null,duration_seconds.not.is.null,avg_pace.not.is.null')
+        .limit(10);
+
+      if (setsError) {
+        console.warn('Error checking cardio history:', setsError);
+        return { hasHistory: false, totalSessions: 0 };
+      }
+
+      // Count unique workout dates
+      const uniqueDates = new Set(
+        (sets || []).map((s: any) => s.workout?.date_completed?.split('T')[0]).filter(Boolean)
+      );
+
+      return {
+        hasHistory: (sets || []).length > 0,
+        totalSessions: uniqueDates.size,
+      };
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  return {
+    hasHistory: data?.hasHistory ?? false,
+    totalSessions: data?.totalSessions ?? 0,
+    isLoading,
+    error: error as Error | null,
+  };
+}
+
+/**
  * Get all next-time suggestions for exercises in a workout
  */
 export function useWorkoutSuggestions(
