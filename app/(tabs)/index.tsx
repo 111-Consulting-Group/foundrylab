@@ -189,7 +189,7 @@ export default function DashboardScreen() {
     } finally {
       setIsCreatingWorkout(false);
     }
-  };
+  }, [activeBlock?.id, addSetMutation, createWorkoutMutation, router]);
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
