@@ -15,6 +15,7 @@ export type RecordType = 'weight' | 'reps' | 'volume' | 'e1rm' | 'watts' | 'pace
 export type UnitsPreference = 'imperial' | 'metric';
 export type WorkoutContext = 'building' | 'maintaining' | 'deloading' | 'testing' | 'unstructured';
 export type SegmentType = 'warmup' | 'work' | 'recovery' | 'cooldown';
+export type WorkoutProtocol = 'straight_sets' | 'emom' | 'amrap' | 'circuit' | 'interval' | 'ladder' | 'mixed';
 
 // Training Intelligence types
 export type ConfidenceLevel = 'low' | 'medium' | 'high';
@@ -128,11 +129,14 @@ export interface Database {
           week_number: number | null;
           day_number: number | null;
           focus: string;
+          normalized_focus: string | null;
           notes: string | null;
           scheduled_date: string | null;
           date_completed: string | null;
           duration_minutes: number | null;
           context: WorkoutContext;
+          protocol: WorkoutProtocol;
+          periodization_total_weeks: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -143,11 +147,14 @@ export interface Database {
           week_number?: number | null;
           day_number?: number | null;
           focus: string;
+          normalized_focus?: string | null;
           notes?: string | null;
           scheduled_date?: string | null;
           date_completed?: string | null;
           duration_minutes?: number | null;
           context?: WorkoutContext;
+          protocol?: WorkoutProtocol;
+          periodization_total_weeks?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -158,11 +165,14 @@ export interface Database {
           week_number?: number | null;
           day_number?: number | null;
           focus?: string;
+          normalized_focus?: string | null;
           notes?: string | null;
           scheduled_date?: string | null;
           date_completed?: string | null;
           duration_minutes?: number | null;
           context?: WorkoutContext;
+          protocol?: WorkoutProtocol;
+          periodization_total_weeks?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -176,6 +186,7 @@ export interface Database {
           target_reps: number | null;
           target_rpe: number | null;
           target_load: number | null;
+          target_percentage: number | null;
           tempo: string | null;
           actual_weight: number | null;
           actual_reps: number | null;
@@ -191,6 +202,8 @@ export interface Database {
           progression_type: string | null;
           previous_set_id: string | null;
           segment_type: SegmentType;
+          protocol_interval_seconds: number | null;
+          protocol_round: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -202,6 +215,7 @@ export interface Database {
           target_reps?: number | null;
           target_rpe?: number | null;
           target_load?: number | null;
+          target_percentage?: number | null;
           tempo?: string | null;
           actual_weight?: number | null;
           actual_reps?: number | null;
@@ -217,6 +231,8 @@ export interface Database {
           progression_type?: string | null;
           previous_set_id?: string | null;
           segment_type?: SegmentType;
+          protocol_interval_seconds?: number | null;
+          protocol_round?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -228,6 +244,7 @@ export interface Database {
           target_reps?: number | null;
           target_rpe?: number | null;
           target_load?: number | null;
+          target_percentage?: number | null;
           tempo?: string | null;
           actual_weight?: number | null;
           actual_reps?: number | null;
@@ -243,6 +260,8 @@ export interface Database {
           progression_type?: string | null;
           previous_set_id?: string | null;
           segment_type?: SegmentType;
+          protocol_interval_seconds?: number | null;
+          protocol_round?: number | null;
           created_at?: string;
           updated_at?: string;
         };

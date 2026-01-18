@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
+import { useJourneySignals } from './useJourneySignals';
 import type {
   DailyReadiness,
   DailyReadinessInsert,
@@ -108,6 +109,7 @@ export function useReadinessHistory(days: number = 7) {
 export function useSubmitReadiness() {
   const queryClient = useQueryClient();
   const userId = useAppStore((state) => state.userId);
+  const { trackSignal } = useJourneySignals();
 
   return useMutation({
     mutationFn: async (
@@ -143,9 +145,22 @@ export function useSubmitReadiness() {
       }
       return data as DailyReadiness;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: readinessKeys.today() });
       queryClient.invalidateQueries({ queryKey: readinessKeys.history(7) });
+
+      // Track journey signal for readiness check-in
+      if (data) {
+        const analysis = analyzeReadiness(
+          data.sleep_quality as 1 | 2 | 3 | 4 | 5,
+          data.muscle_soreness as 1 | 2 | 3 | 4 | 5,
+          data.stress_level as 1 | 2 | 3 | 4 | 5
+        );
+        trackSignal('check_readiness', {
+          score: analysis.score,
+          adjustment: analysis.suggestion,
+        });
+      }
     },
   });
 }

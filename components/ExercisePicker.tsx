@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/Colors';
 import { useExercises, useExerciseSearch } from '@/hooks/useExercises';
+import { useExerciseMemoryBatch } from '@/hooks/useMovementMemory';
 import type { Exercise, ExerciseModality } from '@/types/database';
 
 interface ExercisePickerProps {
@@ -43,6 +44,10 @@ export function ExercisePicker({
   const { data: allExercises = [], isLoading } = useExercises(
     selectedModality === 'all' ? undefined : { modality: selectedModality }
   );
+
+  // Fetch movement memory for displayed exercises
+  const exerciseIds = useMemo(() => allExercises.map((e) => e.id), [allExercises]);
+  const { data: memoryMap } = useExerciseMemoryBatch(exerciseIds);
 
   // Search exercises when query changes
   const { data: searchResults = [] } = useExerciseSearch(searchQuery);
@@ -74,113 +79,132 @@ export function ExercisePicker({
   );
 
   const renderExerciseItem = useCallback(
-    ({ item }: { item: Exercise }) => (
-      <Pressable
-        style={{
-          padding: 16,
-          borderBottomWidth: 1,
-          borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-        }}
-        onPress={() => handleSelectExercise(item)}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 14,
-                backgroundColor:
-                  item.modality === 'Strength'
-                    ? 'rgba(59, 130, 246, 0.15)'
-                    : item.modality === 'Cardio'
-                    ? 'rgba(16, 185, 129, 0.15)'
-                    : 'rgba(155, 89, 182, 0.15)',
-                borderWidth: 1,
-                borderColor:
-                  item.modality === 'Strength'
-                    ? 'rgba(59, 130, 246, 0.3)'
-                    : item.modality === 'Cardio'
-                    ? 'rgba(16, 185, 129, 0.3)'
-                    : 'rgba(155, 89, 182, 0.3)',
-              }}
-            >
-              <Ionicons
-                name={
-                  item.modality === 'Strength'
-                    ? 'barbell-outline'
-                    : item.modality === 'Cardio'
-                    ? 'bicycle-outline'
-                    : 'fitness-outline'
-                }
-                size={22}
-                color={
-                  item.modality === 'Strength'
-                    ? Colors.signal[400]
-                    : item.modality === 'Cardio'
-                    ? Colors.emerald[400]
-                    : '#9B59B6'
-                }
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.graphite[50] }}>
-                {item.name}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 }}>
-                <View
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    borderRadius: 8,
-                    backgroundColor:
-                      item.modality === 'Strength'
-                        ? 'rgba(59, 130, 246, 0.2)'
-                        : item.modality === 'Cardio'
-                        ? 'rgba(16, 185, 129, 0.2)'
-                        : 'rgba(155, 89, 182, 0.2)',
-                  }}
-                >
-                  <Text
+    ({ item }: { item: Exercise }) => {
+      const memory = memoryMap?.get(item.id);
+      const hasMemory = memory && memory.lastWeight !== null;
+
+      return (
+        <Pressable
+          style={{
+            padding: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+          }}
+          onPress={() => handleSelectExercise(item)}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                  backgroundColor:
+                    item.modality === 'Strength'
+                      ? 'rgba(59, 130, 246, 0.15)'
+                      : item.modality === 'Cardio'
+                      ? 'rgba(16, 185, 129, 0.15)'
+                      : 'rgba(155, 89, 182, 0.15)',
+                  borderWidth: 1,
+                  borderColor:
+                    item.modality === 'Strength'
+                      ? 'rgba(59, 130, 246, 0.3)'
+                      : item.modality === 'Cardio'
+                      ? 'rgba(16, 185, 129, 0.3)'
+                      : 'rgba(155, 89, 182, 0.3)',
+                }}
+              >
+                <Ionicons
+                  name={
+                    item.modality === 'Strength'
+                      ? 'barbell-outline'
+                      : item.modality === 'Cardio'
+                      ? 'bicycle-outline'
+                      : 'fitness-outline'
+                  }
+                  size={22}
+                  color={
+                    item.modality === 'Strength'
+                      ? Colors.signal[400]
+                      : item.modality === 'Cardio'
+                      ? Colors.emerald[400]
+                      : '#9B59B6'
+                  }
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.graphite[50] }}>
+                  {item.name}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 }}>
+                  <View
                     style={{
-                      fontSize: 10,
-                      fontWeight: '600',
-                      color:
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 8,
+                      backgroundColor:
                         item.modality === 'Strength'
-                          ? Colors.signal[400]
+                          ? 'rgba(59, 130, 246, 0.2)'
                           : item.modality === 'Cardio'
-                          ? Colors.emerald[400]
-                          : '#9B59B6',
+                          ? 'rgba(16, 185, 129, 0.2)'
+                          : 'rgba(155, 89, 182, 0.2)',
                     }}
                   >
-                    {item.modality}
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontWeight: '600',
+                        color:
+                          item.modality === 'Strength'
+                            ? Colors.signal[400]
+                            : item.modality === 'Cardio'
+                            ? Colors.emerald[400]
+                            : '#9B59B6',
+                      }}
+                    >
+                      {item.modality}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>
+                    {item.muscle_group}
                   </Text>
                 </View>
-                <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>
-                  {item.muscle_group}
-                </Text>
+                {/* Movement Memory - Last Performance */}
+                {hasMemory && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 }}>
+                    <Ionicons name="time-outline" size={12} color={Colors.graphite[500]} />
+                    <Text style={{ fontSize: 11, color: Colors.graphite[400], fontFamily: 'monospace' }}>
+                      {memory.displayText}
+                    </Text>
+                    {memory.lastDateRelative && (
+                      <Text style={{ fontSize: 10, color: Colors.graphite[500] }}>
+                        · {memory.lastDateRelative}
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
             </View>
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: hasMemory ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="add" size={18} color={hasMemory ? Colors.emerald[400] : Colors.signal[400]} />
+            </View>
           </View>
-          <View
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="add" size={18} color={Colors.signal[400]} />
-          </View>
-        </View>
-      </Pressable>
-    ),
-    [handleSelectExercise]
+        </Pressable>
+      );
+    },
+    [handleSelectExercise, memoryMap]
   );
 
   return (
@@ -359,24 +383,33 @@ export function ExercisePicker({
                   Recent
                 </Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {recentExercises.map((exercise) => (
-                    <Pressable
-                      key={exercise.id}
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                        borderRadius: 12,
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(59, 130, 246, 0.3)',
-                      }}
-                      onPress={() => handleSelectExercise(exercise)}
-                    >
-                      <Text style={{ color: Colors.graphite[100], fontWeight: '500' }}>
-                        {exercise.name}
-                      </Text>
-                    </Pressable>
-                  ))}
+                  {recentExercises.map((exercise) => {
+                    const memory = memoryMap?.get(exercise.id);
+                    const hasMemory = memory && memory.lastWeight !== null;
+                    return (
+                      <Pressable
+                        key={exercise.id}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(59, 130, 246, 0.3)',
+                        }}
+                        onPress={() => handleSelectExercise(exercise)}
+                      >
+                        <Text style={{ color: Colors.graphite[100], fontWeight: '500' }}>
+                          {exercise.name}
+                        </Text>
+                        {hasMemory && (
+                          <Text style={{ color: Colors.graphite[400], fontSize: 10, marginTop: 2, fontFamily: 'monospace' }}>
+                            {memory.displayText}
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
             )}

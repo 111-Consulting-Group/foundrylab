@@ -496,3 +496,110 @@ export function useWorkoutSuggestions(
 
   return { data: data || [], isLoading, error: error as Error | null };
 }
+
+// ============================================================================
+// Batch Memory for Exercise Picker
+// ============================================================================
+
+export interface ExerciseMemoryPreview {
+  exerciseId: string;
+  lastWeight: number | null;
+  lastReps: number | null;
+  lastRPE: number | null;
+  lastDate: string | null;
+  lastDateRelative: string | null;
+  exposureCount: number;
+  displayText: string;
+}
+
+/**
+ * Batch fetch last performance for multiple exercises
+ * Optimized for exercise picker display
+ */
+export function useExerciseMemoryBatch(exerciseIds: string[]) {
+  const userId = useAppStore((state) => state.userId);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['exerciseMemoryBatch', userId, exerciseIds.slice(0, 50).join(',')],
+    queryFn: async (): Promise<Map<string, ExerciseMemoryPreview>> => {
+      if (!userId || exerciseIds.length === 0) return new Map();
+
+      // Fetch latest set for each exercise in one query
+      const { data: sets, error: setsError } = await supabase
+        .from('workout_sets')
+        .select(`
+          id,
+          exercise_id,
+          actual_weight,
+          actual_reps,
+          actual_rpe,
+          workout:workouts!inner(id, date_completed, user_id)
+        `)
+        .eq('workout.user_id', userId)
+        .in('exercise_id', exerciseIds.slice(0, 50)) // Limit to prevent huge queries
+        .not('workout.date_completed', 'is', null)
+        .not('actual_weight', 'is', null)
+        .not('actual_reps', 'is', null)
+        .order('workout(date_completed)', { ascending: false });
+
+      if (setsError) {
+        console.warn('Error fetching exercise memory batch:', setsError);
+        return new Map();
+      }
+
+      if (!sets || sets.length === 0) return new Map();
+
+      // Group by exercise and get latest + count
+      const exerciseMap = new Map<string, ExerciseMemoryPreview>();
+      const exposureCounts = new Map<string, Set<string>>();
+
+      for (const set of sets as any[]) {
+        const exerciseId = set.exercise_id;
+        const dateStr = set.workout.date_completed?.split('T')[0];
+
+        // Track unique dates for exposure count
+        if (!exposureCounts.has(exerciseId)) {
+          exposureCounts.set(exerciseId, new Set());
+        }
+        if (dateStr) {
+          exposureCounts.get(exerciseId)!.add(dateStr);
+        }
+
+        // Only store the first (most recent) set for each exercise
+        if (!exerciseMap.has(exerciseId)) {
+          const daysSince = set.workout.date_completed
+            ? differenceInDays(new Date(), new Date(set.workout.date_completed))
+            : null;
+          const lastDateRelative = set.workout.date_completed
+            ? formatDistanceToNow(new Date(set.workout.date_completed), { addSuffix: true })
+            : null;
+
+          exerciseMap.set(exerciseId, {
+            exerciseId,
+            lastWeight: set.actual_weight,
+            lastReps: set.actual_reps,
+            lastRPE: set.actual_rpe,
+            lastDate: set.workout.date_completed,
+            lastDateRelative,
+            exposureCount: 0, // Will be updated below
+            displayText: `${set.actual_weight}×${set.actual_reps}${set.actual_rpe ? ` @${set.actual_rpe}` : ''}`,
+          });
+        }
+      }
+
+      // Update exposure counts
+      for (const [exerciseId, dates] of exposureCounts) {
+        const preview = exerciseMap.get(exerciseId);
+        if (preview) {
+          preview.exposureCount = dates.size;
+        }
+      }
+
+      return exerciseMap;
+    },
+    enabled: !!userId && exerciseIds.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  return { data: data || new Map(), isLoading, error: error as Error | null };
+}

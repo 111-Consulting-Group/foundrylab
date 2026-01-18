@@ -4,9 +4,11 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { WeeklyInsights } from '@/components/WeeklyInsights';
+import { MuscleGroupBreakdown } from '@/components/MuscleGroupBreakdown';
 import { PatternInsightsList } from '@/components/PatternInsights';
 import { Colors } from '@/constants/Colors';
 import { useWorkoutHistory } from '@/hooks/useWorkouts';
+import { useWeekSummary } from '@/hooks/useWeekSummary';
 import { useMainLiftPRs } from '@/hooks/usePersonalRecords';
 import { usePatternInsights } from '@/hooks/usePatternDetection';
 
@@ -17,6 +19,9 @@ export default function AnalyticsScreen() {
 
   // Fetch workout history for weekly insights
   const { data: recentWorkouts = [] } = useWorkoutHistory(50);
+
+  // Fetch week summary for muscle group breakdown
+  const { data: weekSummary } = useWeekSummary();
 
   // Fetch main lift PRs
   const { data: mainLiftPRs = [], isLoading: prsLoading } = useMainLiftPRs();
@@ -94,6 +99,17 @@ export default function AnalyticsScreen() {
               <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
                 <WeeklyInsights workouts={recentWorkouts} />
               </View>
+
+              {/* Muscle Group Breakdown */}
+              {weekSummary && (
+                <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+                  <MuscleGroupBreakdown
+                    muscleGroups={weekSummary.muscleGroups}
+                    compact={false}
+                    showTitle={true}
+                  />
+                </View>
+              )}
 
               {/* Pattern Detection */}
               {patterns.length > 0 && (
