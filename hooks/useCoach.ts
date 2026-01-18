@@ -17,6 +17,7 @@ import {
   type QuickSuggestion,
 } from '@/lib/coachContext';
 import { supabase } from '@/lib/supabase';
+import { useJourneySignals } from './useJourneySignals';
 import type {
   ChatMessage,
   CoachContext,
@@ -242,6 +243,7 @@ interface UseCoachOptions {
 export function useCoach(options: UseCoachOptions = {}) {
   const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
+  const { trackSignal } = useJourneySignals();
 
   // Local state for current conversation
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(
@@ -377,6 +379,9 @@ export function useCoach(options: UseCoachOptions = {}) {
       // Save user message
       await saveMessage(convId, 'user', sanitizedMessage, contextSnapshot);
 
+      // Track journey signal for coach interaction
+      trackSignal('use_coach', { action: 'message', context_type: options.contextType });
+
       // Add streaming placeholder
       const streamingId = `assistant-${Date.now()}`;
       setMessages((prev) => [
@@ -491,6 +496,7 @@ export function useCoach(options: UseCoachOptions = {}) {
       saveMessage,
       chatMessages,
       options.contextType,
+      trackSignal,
     ]
   );
 

@@ -10,6 +10,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/stores/useAppStore';
+import { useJourneySignals } from './useJourneySignals';
 import { useTrainingProfile } from '@/hooks/useTrainingProfile';
 import { useMainLiftPRs } from '@/hooks/usePersonalRecords';
 import { useExercises } from '@/hooks/useExercises';
@@ -47,6 +48,7 @@ import type {
 export function useBlockBuilder() {
   const userId = useAppStore((state) => state.userId);
   const queryClient = useQueryClient();
+  const { trackSignal } = useJourneySignals();
 
   // Get user's training profile for personalization
   const { data: profile } = useTrainingProfile();
@@ -372,10 +374,17 @@ export function useBlockBuilder() {
 
       return blockData.id;
     },
-    onSuccess: () => {
+    onSuccess: (blockId, block) => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['trainingBlocks'] });
       queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+
+      // Track journey signal for block creation
+      trackSignal('create_block', {
+        block_id: blockId,
+        weeks: block.durationWeeks,
+        goal: config?.goal,
+      });
     },
   });
 

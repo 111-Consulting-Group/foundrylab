@@ -45,6 +45,7 @@ import { generateExerciseSummary } from '@/lib/workoutSummary';
 import { useWeekSummary } from '@/hooks/useWeekSummary';
 import { useNextInRotation } from '@/hooks/useRotationAwareness';
 import { useJourneyFeatures } from '@/hooks/useJourneyDetection';
+import { useTrackQuickStart, useTrackSuggestionResponse } from '@/hooks/useJourneySignals';
 
 export default function DashboardScreen() {
   const logoutMutation = useLogout();
@@ -80,6 +81,10 @@ export default function DashboardScreen() {
     suggestedUpgrade,
   } = useJourneyFeatures();
 
+  // Journey signal tracking
+  const trackQuickStart = useTrackQuickStart();
+  const trackSuggestionResponse = useTrackSuggestionResponse();
+
   // Modal state for workout generator
   const [showGeneratorModal, setShowGeneratorModal] = useState(false);
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false);
@@ -87,6 +92,9 @@ export default function DashboardScreen() {
   // Handle creating a workout from suggestion
   const handleCreateFromSuggestion = async () => {
     if (!dailySuggestion) return;
+
+    // Track that user accepted the suggestion
+    trackSuggestionResponse(true, 'daily');
 
     setIsCreatingWorkout(true);
     try {
