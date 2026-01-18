@@ -82,7 +82,7 @@ function parsePrescription(exerciseName: string): ParsedPrescription {
 // Activity Type Detection
 // ============================================================================
 
-type CardioActivityType = 'run' | 'bike' | 'row' | 'swim' | 'other';
+type CardioActivityType = 'run' | 'bike' | 'row' | 'swim' | 'loaded' | 'other';
 
 interface ActivityConfig {
   type: CardioActivityType;
@@ -93,6 +93,7 @@ interface ActivityConfig {
   color: string;
   usesWatts: boolean;
   usesPace: boolean;
+  usesWeight: boolean; // For loaded exercises like sleds, carries
   defaultDistanceUnit: 'meters' | 'miles' | 'km';
   defaultPaceUnit: '/mi' | '/km' | '/m' | '/500m';
 }
@@ -107,6 +108,7 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: Colors.emerald[500],
     usesWatts: false,
     usesPace: true,
+    usesWeight: false,
     defaultDistanceUnit: 'miles',
     defaultPaceUnit: '/mi',
   },
@@ -119,6 +121,7 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: '#F59E0B',
     usesWatts: true,
     usesPace: false,
+    usesWeight: false,
     defaultDistanceUnit: 'miles',
     defaultPaceUnit: '/mi',
   },
@@ -131,6 +134,7 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: '#3B82F6',
     usesWatts: true,
     usesPace: true,
+    usesWeight: false,
     defaultDistanceUnit: 'meters',
     defaultPaceUnit: '/500m',
   },
@@ -143,8 +147,22 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: '#06B6D4',
     usesWatts: false,
     usesPace: true,
+    usesWeight: false,
     defaultDistanceUnit: 'meters',
     defaultPaceUnit: '/m',
+  },
+  loaded: {
+    type: 'loaded',
+    label: 'Loaded Carry',
+    continuousLabel: 'Distance',
+    intervalLabel: 'Sets',
+    icon: 'barbell-outline',
+    color: '#8B5CF6', // Purple for loaded exercises
+    usesWatts: false,
+    usesPace: false, // Time-based, not pace
+    usesWeight: true, // Key differentiator
+    defaultDistanceUnit: 'meters',
+    defaultPaceUnit: '/mi',
   },
   other: {
     type: 'other',
@@ -155,6 +173,7 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
     color: Colors.emerald[500],
     usesWatts: false,
     usesPace: true,
+    usesWeight: false,
     defaultDistanceUnit: 'miles',
     defaultPaceUnit: '/mi',
   },
@@ -163,15 +182,28 @@ const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
 function detectActivityType(exercise: Exercise): CardioActivityType {
   const name = exercise.name.toLowerCase();
 
+  // Check for loaded carries/sleds FIRST (before running, since some may contain "walk")
+  const loadedPatterns = [
+    'sled', 'prowler', 'farmers carry', 'farmer carry', 'farmers walk', 'farmer walk',
+    'yoke', 'sandbag carry', 'keg carry', 'stone carry', 'loaded carry',
+    'carry', 'drag', 'push', 'pull sled'
+  ];
+  // Make sure it's not something like "lateral raise" that contains "ral"
+  if (loadedPatterns.some(p => name.includes(p))) {
+    return 'loaded';
+  }
+
   // Check for biking
   if (name.includes('bike') || name.includes('cycling') || name.includes('bicycle') ||
       name.includes('spin') || name.includes('peloton')) {
     return 'bike';
   }
 
-  // Check for rowing
-  if (name.includes('row') || name.includes('erg') || name.includes('concept2') ||
-      name.includes('c2')) {
+  // Check for rowing - but not "dumbbell row", "barbell row", etc.
+  const rowExclusions = ['dumbbell', 'barbell', 'cable', 'machine', 'seated', 'bent', 'pendlay', 'upright', 't-bar'];
+  const isRowExcluded = rowExclusions.some(ex => name.includes(ex));
+  if (!isRowExcluded && (name.includes('row') || name.includes('erg') || name.includes('concept2') ||
+      name.includes('c2'))) {
     return 'row';
   }
 
@@ -340,6 +372,9 @@ export function CardioEntry({
   const [avgWatts, setAvgWatts] = useState('');
   const [cadence, setCadence] = useState('');
 
+  // Weight state (for loaded exercises like sleds, carries)
+  const [loadWeight, setLoadWeight] = useState('');
+
   // Switch distance unit when mode changes
   const handleModeChange = (newMode: CardioMode) => {
     setMode(newMode);
@@ -445,6 +480,11 @@ export function CardioEntry({
       console.log('[CardioEntry] Starting save...');
       setIsLogging(true);
 
+      // Parse weight for loaded exercises
+      const weightValue = activityConfig.usesWeight && loadWeight
+        ? parseFloat(loadWeight) || null
+        : null;
+
       const setData = {
         distance_meters: distanceMeters,
         avg_pace: paceOrWatts,
@@ -453,6 +493,8 @@ export function CardioEntry({
         segment_type: 'work' as const,
         is_warmup: false,
         is_pr: false,
+        // Include weight for loaded exercises (sleds, carries, etc.)
+        ...(weightValue && { actual_weight: weightValue }),
       };
 
       console.log('[CardioEntry] Saving continuous session:', {
@@ -524,6 +566,11 @@ export function CardioEntry({
     // Format pace with unit
     const paceWithUnit = pace ? `${pace}${paceUnit}` : null;
 
+    // Parse weight for loaded exercises
+    const weightValue = activityConfig.usesWeight && loadWeight
+      ? parseFloat(loadWeight) || null
+      : null;
+
     setIsLogging(true);
     try {
       await onSaveSet(exercise.id, nextSetOrder, {
@@ -532,6 +579,8 @@ export function CardioEntry({
         segment_type: segmentType,
         is_warmup: segmentType === 'warmup',
         is_pr: false,
+        // Include weight for loaded exercises (sleds, carries, etc.)
+        ...(weightValue && { actual_weight: weightValue }),
       });
 
       // Reset form for next entry (keep segment type)
@@ -547,7 +596,7 @@ export function CardioEntry({
     } finally {
       setIsLogging(false);
     }
-  }, [mode, exercise.id, nextSetOrder, selectedDistance, customDistance, pace, paceUnit, distanceUnit, segmentType, totalDistance, avgPace, avgWatts, avgHeartRate, durationMinutes, onSaveSet, activityConfig, activityType, onClose]);
+  }, [mode, exercise.id, nextSetOrder, selectedDistance, customDistance, pace, paceUnit, distanceUnit, segmentType, totalDistance, avgPace, avgWatts, avgHeartRate, durationMinutes, onSaveSet, activityConfig, activityType, onClose, loadWeight]);
 
   // Handle duplicate (copy last segment)
   const handleDuplicate = useCallback(async () => {
@@ -780,7 +829,50 @@ export function CardioEntry({
             <Text style={{ fontSize: 11, color: Colors.graphite[400] }}>Power-based</Text>
           </View>
         )}
+        {activityConfig.usesWeight && (
+          <View style={{
+            marginLeft: 'auto',
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderRadius: 4,
+            backgroundColor: 'rgba(139, 92, 246, 0.2)',
+          }}>
+            <Text style={{ fontSize: 11, color: '#A78BFA' }}>Weight + Distance</Text>
+          </View>
+        )}
       </View>
+
+      {/* Weight Input for Loaded Exercises (sleds, carries, etc.) */}
+      {activityConfig.usesWeight && (
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
+            Load (lbs)
+          </Text>
+          <TextInput
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderRadius: 8,
+              textAlign: 'center',
+              fontSize: 24,
+              fontWeight: '700',
+              fontFamily: 'monospace',
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              color: Colors.graphite[100],
+              borderWidth: 2,
+              borderColor: loadWeight ? '#8B5CF6' : 'rgba(139, 92, 246, 0.3)',
+            }}
+            value={loadWeight}
+            onChangeText={setLoadWeight}
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor={Colors.graphite[500]}
+          />
+          <Text style={{ marginTop: 4, fontSize: 12, color: Colors.graphite[500], textAlign: 'center' }}>
+            Total weight you're carrying/pushing
+          </Text>
+        </View>
+      )}
 
       {/* Prescription Info Banner - shows when intervals are detected from exercise name */}
       {prescription.isIntervals && prescription.intervalCount && (
@@ -1367,6 +1459,11 @@ export function CardioEntry({
               setIsLogging(true);
               try {
                 // Log all intervals that have paces entered
+                // Parse weight for loaded exercises
+                const weightValue = activityConfig.usesWeight && loadWeight
+                  ? parseFloat(loadWeight) || null
+                  : null;
+
                 let setOrder = nextSetOrder;
                 for (let i = 0; i < intervalPaces.length; i++) {
                   const paceValue = intervalPaces[i];
@@ -1379,6 +1476,8 @@ export function CardioEntry({
                     segment_type: 'work',
                     is_warmup: false,
                     is_pr: false,
+                    // Include weight for loaded exercises (sleds, carries, etc.)
+                    ...(weightValue && { actual_weight: weightValue }),
                   });
                 }
                 // Reset entered paces after logging
