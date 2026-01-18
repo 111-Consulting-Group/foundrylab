@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, useMemo } from 'react';
-import { View, Text, ScrollView, RefreshControl, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, Pressable, Alert, Platform, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachButton } from '@/components/CoachChat';
@@ -24,10 +24,13 @@ import {
   useNextWorkout,
   useWorkoutHistory,
   useTodaysWorkout,
+  useCreateWorkout,
+  useAddWorkoutSet,
 } from '@/hooks/useWorkouts';
 import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
 import { useMainLiftPRs } from '@/hooks/usePersonalRecords';
 import { useNextTimeSuggestion } from '@/hooks/useMovementMemory';
+import { useDailyWorkoutSuggestion, useQuickWorkoutOptions } from '@/hooks/useDailyWorkout';
 import { summarizeWorkoutExercises, formatExerciseForFeed } from '@/lib/feedUtils';
 import { generateExerciseSummary } from '@/lib/workoutSummary';
 
@@ -40,6 +43,76 @@ export default function DashboardScreen() {
   const { data: activeBlock } = useActiveTrainingBlock();
   const { data: history = [], isLoading: loadingHistory, refetch: refetchHistory } = useWorkoutHistory(1);
   const { data: mainLifts = [], isLoading: loadingLifts } = useMainLiftPRs();
+
+  // Daily workout suggestion (for Journey 3: Guided users)
+  const { data: dailySuggestion, isLoading: loadingSuggestion } = useDailyWorkoutSuggestion();
+  const quickOptions = useQuickWorkoutOptions();
+  const createWorkoutMutation = useCreateWorkout();
+  const addSetMutation = useAddWorkoutSet();
+
+  // Modal state for workout generator
+  const [showGeneratorModal, setShowGeneratorModal] = useState(false);
+  const [isCreatingWorkout, setIsCreatingWorkout] = useState(false);
+
+  // Handle creating a workout from suggestion
+  const handleCreateFromSuggestion = async () => {
+    if (!dailySuggestion) return;
+
+    setIsCreatingWorkout(true);
+    try {
+      // Create the workout
+      const workout = await createWorkoutMutation.mutateAsync({
+        focus: dailySuggestion.focus,
+        scheduled_date: new Date().toISOString().split('T')[0],
+        block_id: activeBlock?.id || null,
+      });
+
+      // Add suggested exercises as sets
+      let setOrder = 1;
+      for (const suggested of dailySuggestion.exercises) {
+        for (let i = 0; i < suggested.sets; i++) {
+          await addSetMutation.mutateAsync({
+            workout_id: workout.id,
+            exercise_id: suggested.exercise.id,
+            set_order: setOrder++,
+            target_reps: suggested.targetReps,
+            target_rpe: suggested.targetRPE,
+          });
+        }
+      }
+
+      setShowGeneratorModal(false);
+      router.push(`/workout/${workout.id}`);
+    } catch (error) {
+      console.error('Failed to create workout:', error);
+      Alert.alert('Error', 'Failed to create workout. Please try again.');
+    } finally {
+      setIsCreatingWorkout(false);
+    }
+  };
+
+  // Handle selecting a quick option
+  const handleQuickOption = async (optionId: string) => {
+    const option = quickOptions.find((o) => o.id === optionId);
+    if (!option) return;
+
+    setIsCreatingWorkout(true);
+    try {
+      const workout = await createWorkoutMutation.mutateAsync({
+        focus: option.label,
+        scheduled_date: new Date().toISOString().split('T')[0],
+        block_id: activeBlock?.id || null,
+      });
+
+      setShowGeneratorModal(false);
+      router.push(`/workout/${workout.id}?autoOpenPicker=true`);
+    } catch (error) {
+      console.error('Failed to create workout:', error);
+      Alert.alert('Error', 'Failed to create workout. Please try again.');
+    } finally {
+      setIsCreatingWorkout(false);
+    }
+  };
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
@@ -228,28 +301,102 @@ export default function DashboardScreen() {
               </GlassCard>
             ) : (
               <GlassCard>
-                <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-                  <FoundryLabLogo size={64} style={{ marginBottom: 12 }} />
-                  <Text style={{ fontSize: 18, fontWeight: '600', color: Colors.graphite[200], marginBottom: 4 }}>
-                    Calibration Mode
-                  </Text>
-                  <Text style={{ fontSize: 13, color: Colors.graphite[500], textAlign: 'center', marginBottom: 16 }}>
-                    No scheduled session. Scan a workout or log manually.
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
-                    <LabButton
-                      label="Scan Workout"
-                      icon={<Ionicons name="camera-outline" size={14} color="white" />}
-                      size="sm"
-                      onPress={() => router.push('/scan-workout')}
-                    />
-                    <LabButton
-                      label="Quick Log"
-                      variant="outline"
-                      size="sm"
-                      icon={<Ionicons name="add-circle-outline" size={14} color={Colors.graphite[50]} />}
-                      onPress={() => router.push('/workout/new?autoOpenPicker=true')}
-                    />
+                <View style={{ paddingVertical: 8 }}>
+                  {/* AI Suggested Workout */}
+                  {dailySuggestion && (
+                    <>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <Ionicons name="sparkles" size={18} color={Colors.signal[400]} />
+                        <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: Colors.signal[400] }}>
+                          Recommended for You
+                        </Text>
+                      </View>
+
+                      <View style={{ marginBottom: 16 }}>
+                        <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50], marginBottom: 4 }}>
+                          {dailySuggestion.focus}
+                        </Text>
+                        <Text style={{ fontSize: 13, color: Colors.graphite[400], marginBottom: 8 }}>
+                          {dailySuggestion.reason}
+                        </Text>
+
+                        {/* Exercise preview */}
+                        <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 8, padding: 10 }}>
+                          {dailySuggestion.exercises.slice(0, 3).map((ex, i) => (
+                            <View key={ex.exercise.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: i < 2 ? 6 : 0 }}>
+                              <Text style={{ fontSize: 13, color: Colors.graphite[300] }} numberOfLines={1}>
+                                {ex.exercise.name}
+                              </Text>
+                              <Text style={{ fontSize: 12, fontFamily: 'monospace', color: Colors.graphite[500] }}>
+                                {ex.sets}×{ex.targetReps}
+                              </Text>
+                            </View>
+                          ))}
+                          {dailySuggestion.exercises.length > 3 && (
+                            <Text style={{ fontSize: 11, color: Colors.graphite[500], marginTop: 4 }}>
+                              +{dailySuggestion.exercises.length - 3} more exercises
+                            </Text>
+                          )}
+                        </View>
+
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                          <View style={{ flex: 1 }}>
+                            <StatPill label="Est." value={dailySuggestion.estimatedDuration} unit="min" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <StatPill label="Exercises" value={dailySuggestion.exercises.length} />
+                          </View>
+                        </View>
+                      </View>
+
+                      <LabButton
+                        label="Start This Workout"
+                        icon={<Ionicons name="play" size={16} color="white" />}
+                        onPress={handleCreateFromSuggestion}
+                        loading={isCreatingWorkout}
+                      />
+
+                      <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginVertical: 16 }} />
+                    </>
+                  )}
+
+                  {/* Alternative options */}
+                  <View style={{ alignItems: 'center' }}>
+                    {!dailySuggestion && (
+                      <>
+                        <FoundryLabLogo size={48} style={{ marginBottom: 12 }} />
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.graphite[200], marginBottom: 4 }}>
+                          Ready to Train?
+                        </Text>
+                      </>
+                    )}
+                    <Text style={{ fontSize: 12, color: Colors.graphite[500], textAlign: 'center', marginBottom: 12 }}>
+                      {dailySuggestion ? 'Or choose a different option:' : 'Scan a workout, log manually, or let us suggest one.'}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      {!dailySuggestion && (
+                        <LabButton
+                          label="Generate Workout"
+                          icon={<Ionicons name="sparkles-outline" size={14} color="white" />}
+                          size="sm"
+                          onPress={() => setShowGeneratorModal(true)}
+                        />
+                      )}
+                      <LabButton
+                        label="Scan"
+                        variant="outline"
+                        size="sm"
+                        icon={<Ionicons name="camera-outline" size={14} color={Colors.graphite[50]} />}
+                        onPress={() => router.push('/scan-workout')}
+                      />
+                      <LabButton
+                        label="Quick Log"
+                        variant="outline"
+                        size="sm"
+                        icon={<Ionicons name="add-circle-outline" size={14} color={Colors.graphite[50]} />}
+                        onPress={() => router.push('/workout/new?autoOpenPicker=true')}
+                      />
+                    </View>
                   </View>
                 </View>
               </GlassCard>
@@ -392,6 +539,152 @@ export default function DashboardScreen() {
         <View style={{ position: 'absolute', bottom: 100, right: 16 }}>
           <CoachButton onPress={() => router.push('/coach')} />
         </View>
+
+        {/* Workout Generator Modal */}
+        <Modal
+          visible={showGeneratorModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowGeneratorModal(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+            <SafeAreaView style={{ flex: 1 }}>
+              {/* Header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.08)' }}>
+                <View>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.graphite[50] }}>
+                    Generate Workout
+                  </Text>
+                  <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
+                    Choose a focus or let us recommend
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => setShowGeneratorModal(false)}
+                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255, 255, 255, 0.1)', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons name="close" size={20} color={Colors.graphite[300]} />
+                </Pressable>
+              </View>
+
+              <ScrollView style={{ flex: 1, padding: 16 }}>
+                {/* AI Recommendation */}
+                {dailySuggestion && (
+                  <View style={{ marginBottom: 24 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                      <Ionicons name="sparkles" size={16} color={Colors.signal[400]} />
+                      <Text style={{ marginLeft: 8, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, color: Colors.signal[400] }}>
+                        AI Recommendation
+                      </Text>
+                    </View>
+
+                    <Pressable
+                      onPress={handleCreateFromSuggestion}
+                      disabled={isCreatingWorkout}
+                      style={{
+                        padding: 16,
+                        borderRadius: 16,
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        borderColor: Colors.signal[500],
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.graphite[50], marginBottom: 4 }}>
+                            {dailySuggestion.focus}
+                          </Text>
+                          <Text style={{ fontSize: 13, color: Colors.graphite[400], marginBottom: 8 }}>
+                            {dailySuggestion.reason}
+                          </Text>
+                          <Text style={{ fontSize: 12, fontFamily: 'monospace', color: Colors.graphite[500] }}>
+                            {dailySuggestion.exercises.length} exercises · ~{dailySuggestion.estimatedDuration} min
+                          </Text>
+                        </View>
+                        {isCreatingWorkout ? (
+                          <ActivityIndicator size="small" color={Colors.signal[500]} />
+                        ) : (
+                          <Ionicons name="arrow-forward-circle" size={28} color={Colors.signal[500]} />
+                        )}
+                      </View>
+                    </Pressable>
+                  </View>
+                )}
+
+                {/* Quick Options */}
+                <View>
+                  <Text style={{ fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, color: Colors.graphite[400], marginBottom: 12 }}>
+                    Or Choose a Focus
+                  </Text>
+
+                  <View style={{ gap: 10 }}>
+                    {quickOptions.map((option) => (
+                      <Pressable
+                        key={option.id}
+                        onPress={() => handleQuickOption(option.id)}
+                        disabled={isCreatingWorkout}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          padding: 14,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                        }}
+                      >
+                        <View style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 12,
+                        }}>
+                          <Ionicons name={option.icon as any} size={22} color={Colors.signal[400]} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.graphite[100] }}>
+                            {option.label}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: Colors.graphite[500] }}>
+                            {option.description} · ~{option.duration} min
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={Colors.graphite[500]} />
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Custom option */}
+                <Pressable
+                  onPress={() => {
+                    setShowGeneratorModal(false);
+                    router.push('/workout/new?autoOpenPicker=true');
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 16,
+                    borderRadius: 12,
+                    marginTop: 24,
+                    borderWidth: 1,
+                    borderStyle: 'dashed',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  }}
+                >
+                  <Ionicons name="create-outline" size={18} color={Colors.graphite[400]} />
+                  <Text style={{ marginLeft: 8, fontSize: 14, color: Colors.graphite[400] }}>
+                    Build Custom Workout
+                  </Text>
+                </Pressable>
+              </ScrollView>
+            </SafeAreaView>
+          </View>
+        </Modal>
       </SafeAreaView>
     </View>
   );
