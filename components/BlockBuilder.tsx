@@ -3,6 +3,7 @@
  *
  * Multi-step wizard for creating AI-generated training blocks.
  * Guides users through goal selection, configuration, and preview.
+ * Uses glass-morphic styling consistent with the rest of the app.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +17,7 @@ import {
   Modal,
 } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { Colors } from '@/constants/Colors';
 import {
   useBlockBuilder,
   getRecommendedConfig,
@@ -29,7 +30,6 @@ import {
   TRAINING_SPLITS,
 } from '@/lib/blockBuilder';
 import type { TrainingGoal, TrainingExperience } from '@/types/database';
-import { LabButton, LabCard } from '@/components/ui/LabPrimitives';
 
 // ============================================================================
 // Types
@@ -98,71 +98,98 @@ const GOAL_OPTIONS: {
 function GoalSelectionStep({
   selectedGoal,
   onSelect,
-  isDark,
 }: {
   selectedGoal: TrainingGoal | null;
   onSelect: (goal: TrainingGoal) => void;
-  isDark: boolean;
 }) {
   return (
     <View>
       <Text
-        className={`text-2xl font-bold mb-2 ${
-          isDark ? 'text-graphite-100' : 'text-graphite-900'
-        }`}
+        style={{
+          fontSize: 24,
+          fontWeight: '700',
+          marginBottom: 8,
+          color: Colors.graphite[50],
+        }}
       >
         What's your focus?
       </Text>
       <Text
-        className={`text-base mb-6 ${
-          isDark ? 'text-graphite-400' : 'text-graphite-500'
-        }`}
+        style={{
+          fontSize: 16,
+          marginBottom: 24,
+          color: Colors.graphite[400],
+        }}
       >
         Choose what you want to prioritize for this training block.
       </Text>
 
-      <View className="gap-3">
-        {GOAL_OPTIONS.map((option) => (
-          <Pressable
-            key={option.goal}
-            onPress={() => onSelect(option.goal)}
-            className={`p-4 rounded-xl border-2 ${
-              selectedGoal === option.goal
-                ? 'border-signal-500'
-                : isDark
-                ? 'border-graphite-700 bg-graphite-800'
-                : 'border-graphite-200 bg-white'
-            }`}
-          >
-            <View className="flex-row items-center">
-              <View
-                className="w-12 h-12 rounded-full items-center justify-center mr-4"
-                style={{ backgroundColor: `${option.color}20` }}
-              >
-                <Ionicons name={option.icon} size={24} color={option.color} />
-              </View>
-              <View className="flex-1">
-                <Text
-                  className={`text-lg font-semibold ${
-                    isDark ? 'text-graphite-100' : 'text-graphite-900'
-                  }`}
+      <View style={{ gap: 12 }}>
+        {GOAL_OPTIONS.map((option) => {
+          const isSelected = selectedGoal === option.goal;
+          return (
+            <Pressable
+              key={option.goal}
+              onPress={() => onSelect(option.goal)}
+              style={({ pressed }) => ({
+                padding: 16,
+                borderRadius: 16,
+                borderWidth: isSelected ? 2 : 1,
+                borderColor: isSelected
+                  ? Colors.signal[500]
+                  : Colors.glass.white[10],
+                backgroundColor: isSelected
+                  ? Colors.glass.blue[10]
+                  : Colors.glass.white[5],
+                opacity: pressed ? 0.8 : 1,
+                ...(isSelected && {
+                  shadowColor: Colors.signal[500],
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 12,
+                }),
+              })}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 16,
+                    backgroundColor: `${option.color}20`,
+                  }}
                 >
-                  {option.label}
-                </Text>
-                <Text
-                  className={`text-sm ${
-                    isDark ? 'text-graphite-400' : 'text-graphite-500'
-                  }`}
-                >
-                  {option.description}
-                </Text>
+                  <Ionicons name={option.icon} size={24} color={option.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: '600',
+                      color: Colors.graphite[50],
+                    }}
+                  >
+                    {option.label}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: Colors.graphite[400],
+                    }}
+                  >
+                    {option.description}
+                  </Text>
+                </View>
+                {isSelected && (
+                  <Ionicons name="checkmark-circle" size={24} color={Colors.signal[500]} />
+                )}
               </View>
-              {selectedGoal === option.goal && (
-                <Ionicons name="checkmark-circle" size={24} color="#2F80ED" />
-              )}
-            </View>
-          </Pressable>
-        ))}
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -178,140 +205,175 @@ const DAYS_OPTIONS = [3, 4, 5, 6];
 function ConfigurationStep({
   config,
   onUpdateConfig,
-  isDark,
   availableSplits,
 }: {
   config: Partial<BlockConfig>;
   onUpdateConfig: (updates: Partial<BlockConfig>) => void;
-  isDark: boolean;
   availableSplits: typeof TRAINING_SPLITS;
 }) {
   return (
     <View>
       <Text
-        className={`text-2xl font-bold mb-2 ${
-          isDark ? 'text-graphite-100' : 'text-graphite-900'
-        }`}
+        style={{
+          fontSize: 24,
+          fontWeight: '700',
+          marginBottom: 8,
+          color: Colors.graphite[50],
+        }}
       >
         Configure your block
       </Text>
       <Text
-        className={`text-base mb-6 ${
-          isDark ? 'text-graphite-400' : 'text-graphite-500'
-        }`}
+        style={{
+          fontSize: 16,
+          marginBottom: 24,
+          color: Colors.graphite[400],
+        }}
       >
         Customize the duration and training frequency.
       </Text>
 
       {/* Duration */}
-      <View className="mb-6">
+      <View style={{ marginBottom: 24 }}>
         <Text
-          className={`font-semibold mb-3 ${
-            isDark ? 'text-graphite-200' : 'text-graphite-800'
-          }`}
+          style={{
+            fontWeight: '600',
+            marginBottom: 12,
+            color: Colors.graphite[200],
+          }}
         >
           Block Duration
         </Text>
-        <View className="flex-row gap-2">
-          {DURATION_OPTIONS.map((weeks) => (
-            <Pressable
-              key={weeks}
-              onPress={() => onUpdateConfig({ durationWeeks: weeks })}
-              className={`flex-1 py-3 rounded-xl items-center ${
-                config.durationWeeks === weeks
-                  ? 'bg-signal-500'
-                  : isDark
-                  ? 'bg-graphite-700'
-                  : 'bg-graphite-100'
-              }`}
-            >
-              <Text
-                className={`text-lg font-semibold ${
-                  config.durationWeeks === weeks
-                    ? 'text-white'
-                    : isDark
-                    ? 'text-graphite-200'
-                    : 'text-graphite-800'
-                }`}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {DURATION_OPTIONS.map((weeks) => {
+            const isSelected = config.durationWeeks === weeks;
+            return (
+              <Pressable
+                key={weeks}
+                onPress={() => onUpdateConfig({ durationWeeks: weeks })}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  backgroundColor: isSelected
+                    ? Colors.signal[600]
+                    : Colors.glass.white[5],
+                  borderWidth: 1,
+                  borderColor: isSelected
+                    ? Colors.signal[500]
+                    : Colors.glass.white[10],
+                  opacity: pressed ? 0.8 : 1,
+                  ...(isSelected && {
+                    shadowColor: Colors.signal[500],
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                  }),
+                })}
               >
-                {weeks}
-              </Text>
-              <Text
-                className={`text-xs ${
-                  config.durationWeeks === weeks
-                    ? 'text-white/80'
-                    : isDark
-                    ? 'text-graphite-400'
-                    : 'text-graphite-500'
-                }`}
-              >
-                weeks
-              </Text>
-            </Pressable>
-          ))}
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '600',
+                    color: isSelected ? '#fff' : Colors.graphite[200],
+                  }}
+                >
+                  {weeks}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: isSelected ? 'rgba(255,255,255,0.8)' : Colors.graphite[400],
+                  }}
+                >
+                  weeks
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
       {/* Days per week */}
-      <View className="mb-6">
+      <View style={{ marginBottom: 24 }}>
         <Text
-          className={`font-semibold mb-3 ${
-            isDark ? 'text-graphite-200' : 'text-graphite-800'
-          }`}
+          style={{
+            fontWeight: '600',
+            marginBottom: 12,
+            color: Colors.graphite[200],
+          }}
         >
           Training Days per Week
         </Text>
-        <View className="flex-row gap-2">
-          {DAYS_OPTIONS.map((days) => (
-            <Pressable
-              key={days}
-              onPress={() => onUpdateConfig({ daysPerWeek: days })}
-              className={`flex-1 py-3 rounded-xl items-center ${
-                config.daysPerWeek === days
-                  ? 'bg-signal-500'
-                  : isDark
-                  ? 'bg-graphite-700'
-                  : 'bg-graphite-100'
-              }`}
-            >
-              <Text
-                className={`text-lg font-semibold ${
-                  config.daysPerWeek === days
-                    ? 'text-white'
-                    : isDark
-                    ? 'text-graphite-200'
-                    : 'text-graphite-800'
-                }`}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {DAYS_OPTIONS.map((days) => {
+            const isSelected = config.daysPerWeek === days;
+            return (
+              <Pressable
+                key={days}
+                onPress={() => onUpdateConfig({ daysPerWeek: days })}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  backgroundColor: isSelected
+                    ? Colors.signal[600]
+                    : Colors.glass.white[5],
+                  borderWidth: 1,
+                  borderColor: isSelected
+                    ? Colors.signal[500]
+                    : Colors.glass.white[10],
+                  opacity: pressed ? 0.8 : 1,
+                  ...(isSelected && {
+                    shadowColor: Colors.signal[500],
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                  }),
+                })}
               >
-                {days}
-              </Text>
-              <Text
-                className={`text-xs ${
-                  config.daysPerWeek === days
-                    ? 'text-white/80'
-                    : isDark
-                    ? 'text-graphite-400'
-                    : 'text-graphite-500'
-                }`}
-              >
-                days
-              </Text>
-            </Pressable>
-          ))}
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '600',
+                    color: isSelected ? '#fff' : Colors.graphite[200],
+                  }}
+                >
+                  {days}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: isSelected ? 'rgba(255,255,255,0.8)' : Colors.graphite[400],
+                  }}
+                >
+                  days
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
       {/* Training split preview */}
       {config.daysPerWeek && (
         <View
-          className={`p-4 rounded-xl ${
-            isDark ? 'bg-graphite-800' : 'bg-graphite-50'
-          }`}
+          style={{
+            padding: 16,
+            borderRadius: 16,
+            backgroundColor: Colors.glass.white[5],
+            borderWidth: 1,
+            borderColor: Colors.glass.white[10],
+          }}
         >
           <Text
-            className={`font-semibold mb-2 ${
-              isDark ? 'text-graphite-200' : 'text-graphite-800'
-            }`}
+            style={{
+              fontWeight: '600',
+              marginBottom: 8,
+              color: Colors.graphite[200],
+            }}
           >
             Recommended Split
           </Text>
@@ -324,24 +386,30 @@ function ConfigurationStep({
             return (
               <View>
                 <Text
-                  className={`text-sm mb-2 ${
-                    isDark ? 'text-graphite-400' : 'text-graphite-500'
-                  }`}
+                  style={{
+                    fontSize: 14,
+                    marginBottom: 8,
+                    color: Colors.graphite[400],
+                  }}
                 >
                   {split.name}
                 </Text>
-                <View className="flex-row flex-wrap gap-2">
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {split.days.map((day) => (
                     <View
                       key={day.dayNumber}
-                      className={`px-3 py-1 rounded-full ${
-                        isDark ? 'bg-graphite-700' : 'bg-graphite-200'
-                      }`}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 4,
+                        borderRadius: 100,
+                        backgroundColor: Colors.glass.white[10],
+                      }}
                     >
                       <Text
-                        className={`text-xs ${
-                          isDark ? 'text-graphite-300' : 'text-graphite-600'
-                        }`}
+                        style={{
+                          fontSize: 12,
+                          color: Colors.graphite[300],
+                        }}
                       >
                         {day.name}
                       </Text>
@@ -363,17 +431,15 @@ function ConfigurationStep({
 
 function PreviewStep({
   block,
-  isDark,
 }: {
   block: GeneratedBlock;
-  isDark: boolean;
 }) {
   const [selectedDay, setSelectedDay] = useState<{
     week: number;
     day: number;
     workout: any;
   } | null>(null);
-  
+
   const difficulty = getBlockDifficulty(block);
 
   // Grid constants
@@ -383,69 +449,134 @@ function PreviewStep({
   return (
     <View>
       <Text
-        className={`text-2xl font-bold mb-2 ${
-          isDark ? 'text-graphite-100' : 'text-graphite-900'
-        }`}
+        style={{
+          fontSize: 24,
+          fontWeight: '700',
+          marginBottom: 8,
+          color: Colors.graphite[50],
+        }}
       >
         {block.name}
       </Text>
       <Text
-        className={`text-base mb-6 ${
-          isDark ? 'text-graphite-400' : 'text-graphite-500'
-        }`}
+        style={{
+          fontSize: 16,
+          marginBottom: 24,
+          color: Colors.graphite[400],
+        }}
       >
         {block.description}
       </Text>
 
       {/* Spreadsheet Grid View */}
-      <View className={`border rounded-lg overflow-hidden ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}>
+      <View
+        style={{
+          borderWidth: 1,
+          borderRadius: 12,
+          overflow: 'hidden',
+          borderColor: Colors.glass.white[10],
+          backgroundColor: Colors.glass.white[2],
+        }}
+      >
         {/* Header Row */}
-        <View className={`flex-row border-b ${isDark ? 'border-graphite-700 bg-graphite-800' : 'border-graphite-300 bg-graphite-100'}`}>
-          <View className={`w-10 p-2 items-center justify-center border-r ${isDark ? 'border-graphite-700' : 'border-graphite-300'}`}>
-            <Text className={`text-xs font-bold ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>Wk</Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            borderBottomWidth: 1,
+            borderBottomColor: Colors.glass.white[10],
+            backgroundColor: Colors.glass.white[5],
+          }}
+        >
+          <View
+            style={{
+              width: 40,
+              padding: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRightWidth: 1,
+              borderRightColor: Colors.glass.white[10],
+            }}
+          >
+            <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.graphite[400] }}>Wk</Text>
           </View>
           {days.map(d => (
-            <View key={d} className="flex-1 p-2 items-center justify-center">
-              <Text className={`text-xs font-bold ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>D{d}</Text>
+            <View key={d} style={{ flex: 1, padding: 8, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.graphite[400] }}>D{d}</Text>
             </View>
           ))}
         </View>
 
         {/* Weeks Rows */}
-        {weeks.map((week) => (
-          <View key={week.weekNumber} className={`flex-row border-b ${isDark ? 'border-graphite-700' : 'border-graphite-300'} last:border-b-0`}>
+        {weeks.map((week, weekIdx) => (
+          <View
+            key={week.weekNumber}
+            style={{
+              flexDirection: 'row',
+              borderBottomWidth: weekIdx < weeks.length - 1 ? 1 : 0,
+              borderBottomColor: Colors.glass.white[10],
+            }}
+          >
             {/* Week Number Column */}
-            <View className={`w-10 p-2 items-center justify-center border-r ${isDark ? 'border-graphite-700 bg-graphite-800' : 'border-graphite-300 bg-graphite-50'}`}>
-              <Text className={`text-sm font-lab-mono font-bold ${isDark ? 'text-graphite-300' : 'text-graphite-700'}`}>
+            <View
+              style={{
+                width: 40,
+                padding: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRightWidth: 1,
+                borderRightColor: Colors.glass.white[10],
+                backgroundColor: Colors.glass.white[5],
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontFamily: 'monospace',
+                  fontWeight: '700',
+                  color: Colors.graphite[300],
+                }}
+              >
                 {week.weekNumber}
               </Text>
             </View>
 
             {/* Days Cells */}
-            {days.map((dayNum) => {
+            {days.map((dayNum, dayIdx) => {
               const workout = week.workouts.find(w => w.dayNumber === dayNum);
               const isRest = !workout;
-              
+
               return (
                 <Pressable
                   key={dayNum}
                   onPress={() => workout && setSelectedDay({ week: week.weekNumber, day: dayNum, workout })}
-                  className={`flex-1 h-12 p-1 border-r ${isDark ? 'border-graphite-700' : 'border-graphite-300'} last:border-r-0 ${
-                    !isRest ? (isDark ? 'bg-signal-500/10' : 'bg-signal-500/5') : ''
-                  }`}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    height: 48,
+                    padding: 4,
+                    borderRightWidth: dayIdx < 6 ? 1 : 0,
+                    borderRightColor: Colors.glass.white[10],
+                    backgroundColor: !isRest ? Colors.glass.blue[5] : 'transparent',
+                    opacity: pressed && workout ? 0.7 : 1,
+                  })}
                 >
                   {workout ? (
-                    <View className="flex-1 justify-center items-center">
-                      <Text 
-                        className={`text-[10px] font-medium text-center leading-tight ${isDark ? 'text-signal-400' : 'text-signal-600'}`}
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          fontWeight: '500',
+                          textAlign: 'center',
+                          lineHeight: 12,
+                          color: Colors.signal[400],
+                        }}
                         numberOfLines={2}
                       >
-                        {workout.name.split(' ')[0]} 
+                        {workout.name.split(' ')[0]}
                       </Text>
                     </View>
                   ) : (
-                    <View className="flex-1 justify-center items-center">
-                      <Text className={`text-[10px] ${isDark ? 'text-graphite-600' : 'text-graphite-300'}`}>-</Text>
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 10, color: Colors.graphite[600] }}>-</Text>
                     </View>
                   )}
                 </Pressable>
@@ -462,47 +593,58 @@ function PreviewStep({
         animationType="fade"
         onRequestClose={() => setSelectedDay(null)}
       >
-        <Pressable 
-          className="flex-1 bg-black/60 justify-center px-6"
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: Colors.glass.black[60],
+            justifyContent: 'center',
+            paddingHorizontal: 24,
+          }}
           onPress={() => setSelectedDay(null)}
         >
-          <Pressable 
-            className={`p-6 rounded-xl ${isDark ? 'bg-graphite-900' : 'bg-white'}`}
+          <Pressable
+            style={{
+              padding: 24,
+              borderRadius: 16,
+              backgroundColor: Colors.void[800],
+              borderWidth: 1,
+              borderColor: Colors.glass.white[10],
+            }}
             onPress={e => e.stopPropagation()}
           >
             {selectedDay && (
               <>
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className={`text-xl font-bold ${isDark ? 'text-graphite-100' : 'text-graphite-900'}`}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50] }}>
                     Week {selectedDay.week} · Day {selectedDay.day}
                   </Text>
                   <Pressable onPress={() => setSelectedDay(null)}>
-                    <Ionicons name="close" size={24} color={isDark ? '#E6E8EB' : '#0E1116'} />
+                    <Ionicons name="close" size={24} color={Colors.graphite[50]} />
                   </Pressable>
                 </View>
-                
-                <Text className={`text-lg font-semibold mb-2 ${isDark ? 'text-signal-400' : 'text-signal-600'}`}>
+
+                <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: Colors.signal[400] }}>
                   {selectedDay.workout.name}
                 </Text>
-                
-                <View className="h-px bg-graphite-700 my-3" />
-                
-                <Text className={`text-sm font-bold uppercase mb-2 ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>
+
+                <View style={{ height: 1, backgroundColor: Colors.glass.white[10], marginVertical: 12 }} />
+
+                <Text style={{ fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8, color: Colors.graphite[400] }}>
                   Exercises
                 </Text>
-                
-                <View className="gap-2">
+
+                <View style={{ gap: 8 }}>
                   {selectedDay.workout.exercises.length === 0 ? (
-                    <Text className={`text-sm italic ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                    <Text style={{ fontSize: 14, fontStyle: 'italic', color: Colors.graphite[500] }}>
                       No exercises found. Try regenerating the block.
                     </Text>
                   ) : (
                     selectedDay.workout.exercises.map((ex: any, idx: number) => (
-                      <View key={idx} className="flex-row justify-between">
-                        <Text className={`flex-1 ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+                      <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ flex: 1, color: Colors.graphite[200] }}>
                           {ex.exerciseName}
                         </Text>
-                        <Text className={`font-lab-mono ${isDark ? 'text-graphite-400' : 'text-graphite-600'}`}>
+                        <Text style={{ fontFamily: 'monospace', color: Colors.graphite[400] }}>
                           {Array.isArray(ex.sets) ? ex.sets.filter((s: any) => !s.isWarmup).length : ex.sets} sets
                         </Text>
                       </View>
@@ -527,9 +669,6 @@ export const BlockBuilder = React.memo(function BlockBuilder({
   onCancel,
   initialConfig,
 }: BlockBuilderProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const {
     generateBlock,
     saveBlock,
@@ -620,43 +759,85 @@ export const BlockBuilder = React.memo(function BlockBuilder({
     else if (step === 'preview') setStep('config');
   }, [step]);
 
+  const steps = ['goal', 'config', 'preview'];
+  const currentStepIndex = steps.indexOf(step);
+
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
+      {/* Ambient Background Glows */}
+      <View
+        style={{
+          position: 'absolute',
+          top: -100,
+          right: -100,
+          width: 300,
+          height: 300,
+          backgroundColor: 'rgba(37, 99, 235, 0.04)',
+          borderRadius: 150,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 100,
+          left: -80,
+          width: 200,
+          height: 200,
+          backgroundColor: 'rgba(37, 99, 235, 0.03)',
+          borderRadius: 100,
+        }}
+      />
+
       {/* Header */}
       <View
-        className={`flex-row items-center justify-between p-4 border-b ${
-          isDark ? 'border-graphite-800' : 'border-graphite-200'
-        }`}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: Colors.glass.white[10],
+        }}
       >
-        <Pressable onPress={step === 'goal' ? onCancel : handleBack} className="p-2">
+        <Pressable
+          onPress={step === 'goal' ? onCancel : handleBack}
+          style={({ pressed }) => ({
+            padding: 8,
+            borderRadius: 20,
+            backgroundColor: pressed ? Colors.glass.white[10] : 'transparent',
+          })}
+        >
           <Ionicons
             name={step === 'goal' ? 'close' : 'arrow-back'}
             size={24}
-            color={isDark ? '#d3d8e4' : '#374151'}
+            color={Colors.graphite[200]}
           />
         </Pressable>
-        <View className="flex-row">
-          {['goal', 'config', 'preview'].map((s, i) => (
+        <View style={{ flexDirection: 'row' }}>
+          {steps.map((s, i) => (
             <View
               key={s}
-              className={`w-8 h-1 rounded-full mx-1 ${
-                step === s
-                  ? 'bg-signal-500'
-                  : i < ['goal', 'config', 'preview'].indexOf(step)
-                  ? 'bg-progress-500'
-                  : isDark
-                  ? 'bg-graphite-700'
-                  : 'bg-graphite-300'
-              }`}
+              style={{
+                width: 32,
+                height: 4,
+                borderRadius: 2,
+                marginHorizontal: 4,
+                backgroundColor:
+                  step === s
+                    ? Colors.signal[500]
+                    : i < currentStepIndex
+                    ? Colors.emerald[500]
+                    : Colors.graphite[700],
+              }}
             />
           ))}
         </View>
-        <View className="w-10" />
+        <View style={{ width: 40 }} />
       </View>
 
       {/* Content */}
       <ScrollView
-        className="flex-1 px-4"
+        style={{ flex: 1, paddingHorizontal: 16 }}
         contentContainerStyle={{ paddingVertical: 24 }}
         showsVerticalScrollIndicator={false}
       >
@@ -664,7 +845,6 @@ export const BlockBuilder = React.memo(function BlockBuilder({
           <GoalSelectionStep
             selectedGoal={config.goal || null}
             onSelect={(goal) => updateConfig({ goal })}
-            isDark={isDark}
           />
         )}
 
@@ -673,36 +853,68 @@ export const BlockBuilder = React.memo(function BlockBuilder({
             <ConfigurationStep
               config={config}
               onUpdateConfig={updateConfig}
-              isDark={isDark}
               availableSplits={availableSplits}
             />
 
             {/* Exercise library status */}
             {exercisesLoading && (
-              <View className={`mt-4 p-4 rounded-xl flex-row items-center ${isDark ? 'bg-graphite-800' : 'bg-graphite-100'}`}>
-                <ActivityIndicator size="small" color="#2F80ED" />
-                <Text className={`ml-3 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+              <View
+                style={{
+                  marginTop: 16,
+                  padding: 16,
+                  borderRadius: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: Colors.glass.white[5],
+                  borderWidth: 1,
+                  borderColor: Colors.glass.white[10],
+                }}
+              >
+                <ActivityIndicator size="small" color={Colors.signal[500]} />
+                <Text style={{ marginLeft: 12, color: Colors.graphite[300] }}>
                   Loading exercise library...
                 </Text>
               </View>
             )}
 
             {exercisesError && (
-              <View className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30">
-                <View className="flex-row items-center">
-                  <Ionicons name="warning" size={20} color="#EF4444" />
-                  <Text className="ml-2 text-red-400 font-semibold">Exercise Library Error</Text>
+              <View
+                style={{
+                  marginTop: 16,
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="warning" size={20} color={Colors.regression[400]} />
+                  <Text style={{ marginLeft: 8, fontWeight: '600', color: Colors.regression[400] }}>
+                    Exercise Library Error
+                  </Text>
                 </View>
-                <Text className="mt-2 text-red-300 text-sm">
+                <Text style={{ marginTop: 8, fontSize: 14, color: 'rgba(248, 113, 113, 0.9)' }}>
                   Failed to load exercises. Please check your connection and try again.
                 </Text>
               </View>
             )}
 
             {!exercisesLoading && !exercisesError && exercisesReady && (
-              <View className={`mt-4 p-3 rounded-xl flex-row items-center ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-                <Text className={`ml-2 text-sm ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+              <View
+                style={{
+                  marginTop: 16,
+                  padding: 12,
+                  borderRadius: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(16, 185, 129, 0.2)',
+                }}
+              >
+                <Ionicons name="checkmark-circle" size={18} color={Colors.emerald[400]} />
+                <Text style={{ marginLeft: 8, fontSize: 14, color: Colors.emerald[400] }}>
                   {exerciseCount} exercises available
                 </Text>
               </View>
@@ -712,16 +924,29 @@ export const BlockBuilder = React.memo(function BlockBuilder({
 
         {step === 'preview' && generatedBlock && (
           <>
-            <PreviewStep block={generatedBlock} isDark={isDark} />
+            <PreviewStep block={generatedBlock} />
 
             {/* Error banner */}
             {saveError && (
-              <View className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30">
-                <View className="flex-row items-center">
-                  <Ionicons name="alert-circle" size={20} color="#EF4444" />
-                  <Text className="ml-2 text-red-400 font-semibold">Unable to Create Block</Text>
+              <View
+                style={{
+                  marginTop: 16,
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="alert-circle" size={20} color={Colors.regression[400]} />
+                  <Text style={{ marginLeft: 8, fontWeight: '600', color: Colors.regression[400] }}>
+                    Unable to Create Block
+                  </Text>
                 </View>
-                <Text className="mt-2 text-red-300 text-sm">{saveError}</Text>
+                <Text style={{ marginTop: 8, fontSize: 14, color: 'rgba(248, 113, 113, 0.9)' }}>
+                  {saveError}
+                </Text>
               </View>
             )}
 
@@ -736,12 +961,23 @@ export const BlockBuilder = React.memo(function BlockBuilder({
 
               if (totalExercises === 0) {
                 return (
-                  <View className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                    <View className="flex-row items-center">
-                      <Ionicons name="warning" size={20} color="#F59E0B" />
-                      <Text className="ml-2 text-amber-400 font-semibold">Empty Block</Text>
+                  <View
+                    style={{
+                      marginTop: 16,
+                      padding: 16,
+                      borderRadius: 16,
+                      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(245, 158, 11, 0.3)',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="warning" size={20} color={Colors.oxide[400]} />
+                      <Text style={{ marginLeft: 8, fontWeight: '600', color: Colors.oxide[400] }}>
+                        Empty Block
+                      </Text>
                     </View>
-                    <Text className="mt-2 text-amber-300 text-sm">
+                    <Text style={{ marginTop: 8, fontSize: 14, color: 'rgba(251, 191, 36, 0.9)' }}>
                       This block has no exercises. Try going back and selecting different options.
                     </Text>
                   </View>
@@ -749,28 +985,37 @@ export const BlockBuilder = React.memo(function BlockBuilder({
               }
 
               return (
-                <View className={`mt-4 p-4 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-graphite-100'}`}>
-                  <Text className={`font-semibold mb-2 ${isDark ? 'text-graphite-200' : 'text-graphite-700'}`}>
+                <View
+                  style={{
+                    marginTop: 16,
+                    padding: 16,
+                    borderRadius: 16,
+                    backgroundColor: Colors.glass.white[5],
+                    borderWidth: 1,
+                    borderColor: Colors.glass.white[10],
+                  }}
+                >
+                  <Text style={{ fontWeight: '600', marginBottom: 12, color: Colors.graphite[200] }}>
                     Block Summary
                   </Text>
-                  <View className="flex-row gap-4">
+                  <View style={{ flexDirection: 'row', gap: 24 }}>
                     <View>
-                      <Text className={`text-2xl font-bold ${isDark ? 'text-signal-400' : 'text-signal-600'}`}>
+                      <Text style={{ fontSize: 28, fontWeight: '700', color: Colors.signal[400] }}>
                         {generatedBlock.durationWeeks}
                       </Text>
-                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>weeks</Text>
+                      <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>weeks</Text>
                     </View>
                     <View>
-                      <Text className={`text-2xl font-bold ${isDark ? 'text-signal-400' : 'text-signal-600'}`}>
+                      <Text style={{ fontSize: 28, fontWeight: '700', color: Colors.signal[400] }}>
                         {totalWorkouts}
                       </Text>
-                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>workouts</Text>
+                      <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>workouts</Text>
                     </View>
                     <View>
-                      <Text className={`text-2xl font-bold ${isDark ? 'text-signal-400' : 'text-signal-600'}`}>
+                      <Text style={{ fontSize: 28, fontWeight: '700', color: Colors.signal[400] }}>
                         {totalExercises}
                       </Text>
-                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>exercises</Text>
+                      <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>exercises</Text>
                     </View>
                   </View>
                 </View>
@@ -780,11 +1025,9 @@ export const BlockBuilder = React.memo(function BlockBuilder({
         )}
 
         {step === 'saving' && (
-          <View className="items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#2F80ED" />
-            <Text
-              className={`mt-4 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}
-            >
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
+            <ActivityIndicator size="large" color={Colors.signal[500]} />
+            <Text style={{ marginTop: 16, color: Colors.graphite[300] }}>
               Creating your training block...
             </Text>
           </View>
@@ -794,24 +1037,68 @@ export const BlockBuilder = React.memo(function BlockBuilder({
       {/* Footer */}
       {step !== 'saving' && (
         <View
-          className={`p-4 border-t ${
-            isDark ? 'border-graphite-800' : 'border-graphite-200'
-          }`}
+          style={{
+            padding: 16,
+            borderTopWidth: 1,
+            borderTopColor: Colors.glass.white[10],
+            backgroundColor: 'rgba(10, 10, 10, 0.9)',
+          }}
         >
-          <LabButton
-            label={
-              step === 'goal'
-                ? 'Continue'
-                : step === 'config'
-                ? 'Generate Block'
-                : 'Start Training'
-            }
+          <Pressable
             onPress={handleNext}
             disabled={!canProceed || isGenerating}
-            loading={isGenerating}
-            variant={canProceed ? 'primary' : 'secondary'}
-            className={!canProceed && !isGenerating ? 'opacity-50' : ''}
-          />
+            style={({ pressed }) => ({
+              paddingVertical: 16,
+              borderRadius: 12,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              backgroundColor: canProceed && !isGenerating
+                ? Colors.signal[600]
+                : Colors.glass.white[5],
+              borderWidth: 1,
+              borderColor: canProceed && !isGenerating
+                ? Colors.signal[500]
+                : Colors.glass.white[10],
+              opacity: pressed ? 0.8 : (!canProceed && !isGenerating) ? 0.5 : 1,
+              ...(canProceed && !isGenerating && {
+                shadowColor: Colors.signal[500],
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.3,
+                shadowRadius: 16,
+              }),
+            })}
+          >
+            {isGenerating ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text
+                  style={{
+                    color: canProceed ? '#fff' : Colors.graphite[400],
+                    fontWeight: '700',
+                    fontSize: 16,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                  }}
+                >
+                  {step === 'goal'
+                    ? 'Continue'
+                    : step === 'config'
+                    ? 'Generate Block'
+                    : 'Start Training'}
+                </Text>
+                {canProceed && (
+                  <Ionicons
+                    name="arrow-forward"
+                    size={20}
+                    color="#fff"
+                    style={{ marginLeft: 8 }}
+                  />
+                )}
+              </>
+            )}
+          </Pressable>
         </View>
       )}
     </View>
