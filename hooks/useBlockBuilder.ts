@@ -51,7 +51,7 @@ export function useBlockBuilder() {
   // Get user's training profile for personalization
   const { data: profile } = useTrainingProfile();
   const { data: mainLiftPRs = [] } = useMainLiftPRs();
-  const { data: exercises = [] } = useExercises();
+  const { data: exercises = [], isLoading: exercisesLoading, error: exercisesError } = useExercises();
 
   // State for block configuration
   const [config, setConfig] = useState<BlockConfig | null>(null);
@@ -393,12 +393,16 @@ export function useBlockBuilder() {
     generatedBlock,
     isGenerating,
     isSaving: saveBlock.isPending,
+    exercisesLoading,
+    exercisesError,
+    exercisesReady: exercises.length > 0,
 
     // Data
     availableTemplates,
     availableSplits,
     profile,
     mainLiftPRs,
+    exerciseCount: exercises.length,
 
     // Actions
     generateBlock,

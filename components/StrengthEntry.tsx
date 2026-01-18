@@ -387,21 +387,63 @@ export function StrengthEntry({
                     </Text>
                   </Pressable>
                 </View>
-                <TextInput
-                  className="px-3 py-3 rounded-lg text-center text-xl font-lab-mono font-bold"
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    color: Colors.graphite[50],
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                    borderWidth: 1,
-                  }}
-                  value={isBodyweight ? 'BW' : weight}
-                  onChangeText={isBodyweight ? undefined : setWeight}
-                  keyboardType="decimal-pad"
-                  placeholder={suggestion?.recommendation.weight?.toString() || "0"}
-                  placeholderTextColor={Colors.graphite[500]}
-                  editable={!isBodyweight}
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {/* Quick -5 button */}
+                  <Pressable
+                    onPress={() => {
+                      const current = parseFloat(weight) || 0;
+                      if (current >= 5) setWeight((current - 5).toString());
+                    }}
+                    disabled={isBodyweight}
+                    style={{
+                      width: 32,
+                      height: 46,
+                      borderRadius: 8,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: isBodyweight ? 'rgba(255, 255, 255, 0.02)' : 'rgba(239, 68, 68, 0.1)',
+                      borderWidth: 1,
+                      borderColor: isBodyweight ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.3)',
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: isBodyweight ? Colors.graphite[600] : '#ef4444' }}>-5</Text>
+                  </Pressable>
+                  <TextInput
+                    className="flex-1 px-2 py-3 rounded-lg text-center text-xl font-lab-mono font-bold"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      color: Colors.graphite[50],
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      borderWidth: 1,
+                    }}
+                    value={isBodyweight ? 'BW' : weight}
+                    onChangeText={isBodyweight ? undefined : setWeight}
+                    keyboardType="decimal-pad"
+                    placeholder={suggestion?.recommendation.weight?.toString() || "0"}
+                    placeholderTextColor={Colors.graphite[500]}
+                    editable={!isBodyweight}
+                  />
+                  {/* Quick +5 button */}
+                  <Pressable
+                    onPress={() => {
+                      const current = parseFloat(weight) || 0;
+                      setWeight((current + 5).toString());
+                    }}
+                    disabled={isBodyweight}
+                    style={{
+                      width: 32,
+                      height: 46,
+                      borderRadius: 8,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: isBodyweight ? 'rgba(255, 255, 255, 0.02)' : 'rgba(16, 185, 129, 0.1)',
+                      borderWidth: 1,
+                      borderColor: isBodyweight ? 'rgba(255, 255, 255, 0.05)' : 'rgba(16, 185, 129, 0.3)',
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: isBodyweight ? Colors.graphite[600] : Colors.emerald[500] }}>+5</Text>
+                  </Pressable>
+                </View>
               </View>
 
               <Text style={{ fontSize: 20, paddingBottom: 12, fontFamily: 'monospace', color: Colors.graphite[400] }}>
@@ -492,17 +534,63 @@ export function StrengthEntry({
               </View>
             )}
 
+            {/* Quick Log as Planned Button - for planners following a program */}
+            {!editingSetId && targetLoad && targetReps && (
+              <Pressable
+                onPress={async () => {
+                  setIsLogging(true);
+                  try {
+                    const setOrder = currentSet?.set_order || (currentSetIndex < sortedSets.length ? sortedSets[currentSetIndex]?.set_order : sortedSets.length + 1);
+                    await onSaveSet(exercise.id, setOrder, {
+                      actual_weight: targetLoad,
+                      actual_reps: targetReps,
+                      actual_rpe: targetRPE || rpe,
+                      is_warmup: false,
+                      is_pr: false,
+                      segment_type: 'work',
+                    });
+                    // Reset form for next set
+                    if (targetReps) {
+                      setReps(targetReps.toString());
+                    }
+                  } catch (error) {
+                    Alert.alert('Error', 'Failed to log set. Please try again.');
+                  } finally {
+                    setIsLogging(false);
+                  }
+                }}
+                disabled={isLogging}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  marginBottom: 12,
+                  borderRadius: 12,
+                  borderWidth: 2,
+                  borderColor: Colors.emerald[500],
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                }}
+              >
+                <Ionicons name="checkmark-circle" size={20} color={Colors.emerald[500]} />
+                <Text style={{ marginLeft: 8, fontWeight: '700', fontSize: 14, color: Colors.emerald[500] }}>
+                  Log as Planned ({targetLoad} × {targetReps}{targetRPE ? ` @${targetRPE}` : ''})
+                </Text>
+              </Pressable>
+            )}
+
             {/* Action Buttons */}
             <View className="flex-row gap-3">
               {editingSetId && (
-                <LabButton 
-                  label="Cancel" 
+                <LabButton
+                  label="Cancel"
                   variant="outline"
                   onPress={() => setEditingSetId(null)}
                 />
               )}
-              <LabButton 
-                label={isLogging ? 'Logging...' : editingSetId ? 'Update Set' : 'Log Set'}
+              <LabButton
+                label={isLogging ? 'Logging...' : editingSetId ? 'Update Set' : (targetLoad && targetReps) ? 'Log Different' : 'Log Set'}
                 variant="primary"
                 className="flex-1"
                 onPress={handleLogSet}

@@ -492,16 +492,22 @@ function PreviewStep({
                 </Text>
                 
                 <View className="gap-2">
-                  {selectedDay.workout.exercises.map((ex: any, idx: number) => (
-                    <View key={idx} className="flex-row justify-between">
-                      <Text className={`flex-1 ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
-                        {ex.exerciseName}
-                      </Text>
-                      <Text className={`font-lab-mono ${isDark ? 'text-graphite-400' : 'text-graphite-600'}`}>
-                        {ex.sets} sets
-                      </Text>
-                    </View>
-                  ))}
+                  {selectedDay.workout.exercises.length === 0 ? (
+                    <Text className={`text-sm italic ${isDark ? 'text-graphite-500' : 'text-graphite-400'}`}>
+                      No exercises found. Try regenerating the block.
+                    </Text>
+                  ) : (
+                    selectedDay.workout.exercises.map((ex: any, idx: number) => (
+                      <View key={idx} className="flex-row justify-between">
+                        <Text className={`flex-1 ${isDark ? 'text-graphite-200' : 'text-graphite-800'}`}>
+                          {ex.exerciseName}
+                        </Text>
+                        <Text className={`font-lab-mono ${isDark ? 'text-graphite-400' : 'text-graphite-600'}`}>
+                          {Array.isArray(ex.sets) ? ex.sets.filter((s: any) => !s.isWarmup).length : ex.sets} sets
+                        </Text>
+                      </View>
+                    ))
+                  )}
                 </View>
               </>
             )}
@@ -532,7 +538,13 @@ export const BlockBuilder = React.memo(function BlockBuilder({
     availableSplits,
     profile,
     generatedBlock,
+    exercisesLoading,
+    exercisesError,
+    exercisesReady,
+    exerciseCount,
   } = useBlockBuilder();
+
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Determine initial step based on initialConfig
   const [step, setStep] = useState<BuilderStep>(() => {
@@ -565,23 +577,43 @@ export const BlockBuilder = React.memo(function BlockBuilder({
   }, [step, config, generatedBlock]);
 
   const handleNext = useCallback(async () => {
+    setSaveError(null);
+
     if (step === 'goal') {
       setStep('config');
     } else if (step === 'config') {
+      // Check if exercises are ready before generating
+      if (!exercisesReady) {
+        setSaveError('Exercise library is still loading. Please wait a moment and try again.');
+        return;
+      }
       // Generate the block
       await generateBlock(config as BlockConfig);
       setStep('preview');
     } else if (step === 'preview' && generatedBlock) {
+      // Check if the generated block has any exercises
+      const totalExercises = generatedBlock.weeks.reduce(
+        (sum, week) => sum + week.workouts.reduce(
+          (wSum, workout) => wSum + workout.exercises.length, 0
+        ), 0
+      );
+
+      if (totalExercises === 0) {
+        setSaveError('No exercises could be generated. Please try a different configuration or check your exercise library.');
+        return;
+      }
+
       setStep('saving');
       try {
         const blockId = await saveBlock(generatedBlock);
         onComplete(blockId);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to save block:', error);
+        setSaveError(error?.message || 'Failed to save training block. Please try again.');
         setStep('preview');
       }
     }
-  }, [step, config, generatedBlock, generateBlock, saveBlock, onComplete]);
+  }, [step, config, generatedBlock, generateBlock, saveBlock, onComplete, exercisesReady]);
 
   const handleBack = useCallback(() => {
     if (step === 'config') setStep('goal');
@@ -637,16 +669,114 @@ export const BlockBuilder = React.memo(function BlockBuilder({
         )}
 
         {step === 'config' && (
-          <ConfigurationStep
-            config={config}
-            onUpdateConfig={updateConfig}
-            isDark={isDark}
-            availableSplits={availableSplits}
-          />
+          <>
+            <ConfigurationStep
+              config={config}
+              onUpdateConfig={updateConfig}
+              isDark={isDark}
+              availableSplits={availableSplits}
+            />
+
+            {/* Exercise library status */}
+            {exercisesLoading && (
+              <View className={`mt-4 p-4 rounded-xl flex-row items-center ${isDark ? 'bg-graphite-800' : 'bg-graphite-100'}`}>
+                <ActivityIndicator size="small" color="#2F80ED" />
+                <Text className={`ml-3 ${isDark ? 'text-graphite-300' : 'text-graphite-600'}`}>
+                  Loading exercise library...
+                </Text>
+              </View>
+            )}
+
+            {exercisesError && (
+              <View className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+                <View className="flex-row items-center">
+                  <Ionicons name="warning" size={20} color="#EF4444" />
+                  <Text className="ml-2 text-red-400 font-semibold">Exercise Library Error</Text>
+                </View>
+                <Text className="mt-2 text-red-300 text-sm">
+                  Failed to load exercises. Please check your connection and try again.
+                </Text>
+              </View>
+            )}
+
+            {!exercisesLoading && !exercisesError && exercisesReady && (
+              <View className={`mt-4 p-3 rounded-xl flex-row items-center ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
+                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                <Text className={`ml-2 text-sm ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                  {exerciseCount} exercises available
+                </Text>
+              </View>
+            )}
+          </>
         )}
 
         {step === 'preview' && generatedBlock && (
-          <PreviewStep block={generatedBlock} isDark={isDark} />
+          <>
+            <PreviewStep block={generatedBlock} isDark={isDark} />
+
+            {/* Error banner */}
+            {saveError && (
+              <View className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+                <View className="flex-row items-center">
+                  <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                  <Text className="ml-2 text-red-400 font-semibold">Unable to Create Block</Text>
+                </View>
+                <Text className="mt-2 text-red-300 text-sm">{saveError}</Text>
+              </View>
+            )}
+
+            {/* Block summary */}
+            {(() => {
+              const totalWorkouts = generatedBlock.weeks.reduce((sum, w) => sum + w.workouts.length, 0);
+              const totalExercises = generatedBlock.weeks.reduce(
+                (sum, week) => sum + week.workouts.reduce(
+                  (wSum, workout) => wSum + workout.exercises.length, 0
+                ), 0
+              );
+
+              if (totalExercises === 0) {
+                return (
+                  <View className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                    <View className="flex-row items-center">
+                      <Ionicons name="warning" size={20} color="#F59E0B" />
+                      <Text className="ml-2 text-amber-400 font-semibold">Empty Block</Text>
+                    </View>
+                    <Text className="mt-2 text-amber-300 text-sm">
+                      This block has no exercises. Try going back and selecting different options.
+                    </Text>
+                  </View>
+                );
+              }
+
+              return (
+                <View className={`mt-4 p-4 rounded-xl ${isDark ? 'bg-graphite-800' : 'bg-graphite-100'}`}>
+                  <Text className={`font-semibold mb-2 ${isDark ? 'text-graphite-200' : 'text-graphite-700'}`}>
+                    Block Summary
+                  </Text>
+                  <View className="flex-row gap-4">
+                    <View>
+                      <Text className={`text-2xl font-bold ${isDark ? 'text-signal-400' : 'text-signal-600'}`}>
+                        {generatedBlock.durationWeeks}
+                      </Text>
+                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>weeks</Text>
+                    </View>
+                    <View>
+                      <Text className={`text-2xl font-bold ${isDark ? 'text-signal-400' : 'text-signal-600'}`}>
+                        {totalWorkouts}
+                      </Text>
+                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>workouts</Text>
+                    </View>
+                    <View>
+                      <Text className={`text-2xl font-bold ${isDark ? 'text-signal-400' : 'text-signal-600'}`}>
+                        {totalExercises}
+                      </Text>
+                      <Text className={`text-xs ${isDark ? 'text-graphite-400' : 'text-graphite-500'}`}>exercises</Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })()}
+          </>
         )}
 
         {step === 'saving' && (

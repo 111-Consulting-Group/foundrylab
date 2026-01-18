@@ -1,13 +1,131 @@
 // Cardio-specific entry component
+// Adaptive UI based on exercise type (running, biking, rowing, etc.)
 // Segment picker, distance presets, pace input, logged intervals list
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, Pressable, Alert, Platform } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
 import { formatDistance, formatPace, getCompletionStatus, type SetWithExercise } from '@/lib/workoutSummary';
-import type { Exercise, WorkoutSetInsert, SegmentType } from '@/types/database';
+import { useCardioMemory } from '@/hooks/useMovementMemory';
+import type { Exercise, WorkoutSetInsert, SegmentType, PrimaryMetric } from '@/types/database';
+
+// ============================================================================
+// Activity Type Detection
+// ============================================================================
+
+type CardioActivityType = 'run' | 'bike' | 'row' | 'swim' | 'other';
+
+interface ActivityConfig {
+  type: CardioActivityType;
+  label: string;
+  continuousLabel: string;
+  intervalLabel: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  usesWatts: boolean;
+  usesPace: boolean;
+  defaultDistanceUnit: 'meters' | 'miles' | 'km';
+  defaultPaceUnit: '/mi' | '/km' | '/m' | '/500m';
+}
+
+const ACTIVITY_CONFIGS: Record<CardioActivityType, ActivityConfig> = {
+  run: {
+    type: 'run',
+    label: 'Running',
+    continuousLabel: 'Continuous Run',
+    intervalLabel: 'Run Intervals',
+    icon: 'walk-outline',
+    color: Colors.emerald[500],
+    usesWatts: false,
+    usesPace: true,
+    defaultDistanceUnit: 'miles',
+    defaultPaceUnit: '/mi',
+  },
+  bike: {
+    type: 'bike',
+    label: 'Cycling',
+    continuousLabel: 'Continuous Ride',
+    intervalLabel: 'Bike Intervals',
+    icon: 'bicycle-outline',
+    color: '#F59E0B',
+    usesWatts: true,
+    usesPace: false,
+    defaultDistanceUnit: 'miles',
+    defaultPaceUnit: '/mi',
+  },
+  row: {
+    type: 'row',
+    label: 'Rowing',
+    continuousLabel: 'Continuous Row',
+    intervalLabel: 'Row Intervals',
+    icon: 'boat-outline',
+    color: '#3B82F6',
+    usesWatts: true,
+    usesPace: true,
+    defaultDistanceUnit: 'meters',
+    defaultPaceUnit: '/500m',
+  },
+  swim: {
+    type: 'swim',
+    label: 'Swimming',
+    continuousLabel: 'Continuous Swim',
+    intervalLabel: 'Swim Intervals',
+    icon: 'water-outline',
+    color: '#06B6D4',
+    usesWatts: false,
+    usesPace: true,
+    defaultDistanceUnit: 'meters',
+    defaultPaceUnit: '/m',
+  },
+  other: {
+    type: 'other',
+    label: 'Cardio',
+    continuousLabel: 'Continuous Session',
+    intervalLabel: 'Intervals',
+    icon: 'fitness-outline',
+    color: Colors.emerald[500],
+    usesWatts: false,
+    usesPace: true,
+    defaultDistanceUnit: 'miles',
+    defaultPaceUnit: '/mi',
+  },
+};
+
+function detectActivityType(exercise: Exercise): CardioActivityType {
+  const name = exercise.name.toLowerCase();
+
+  // Check for biking
+  if (name.includes('bike') || name.includes('cycling') || name.includes('bicycle') ||
+      name.includes('spin') || name.includes('peloton')) {
+    return 'bike';
+  }
+
+  // Check for rowing
+  if (name.includes('row') || name.includes('erg') || name.includes('concept2') ||
+      name.includes('c2')) {
+    return 'row';
+  }
+
+  // Check for swimming
+  if (name.includes('swim') || name.includes('pool') || name.includes('lap')) {
+    return 'swim';
+  }
+
+  // Check for running (including walking, jogging)
+  if (name.includes('run') || name.includes('jog') || name.includes('walk') ||
+      name.includes('treadmill') || name.includes('sprint')) {
+    return 'run';
+  }
+
+  // Default based on primary metric
+  if (exercise.primary_metric === 'Watts') {
+    return 'bike';
+  }
+
+  return 'other';
+}
 
 // Distance presets in meters
 const DISTANCE_PRESETS_METERS = [
@@ -88,30 +206,41 @@ export function CardioEntry({
   onAddSet,
   onClose,
 }: CardioEntryProps) {
+  // Detect activity type from exercise
+  const activityType = useMemo(() => detectActivityType(exercise), [exercise]);
+  const activityConfig = ACTIVITY_CONFIGS[activityType];
+
+  // Fetch last session data for this exercise
+  const { data: lastSession, isLoading: lastSessionLoading } = useCardioMemory(exercise.id, workoutId);
+
   // Mode: intervals (segment-by-segment) or continuous (single entry for entire run)
   const [mode, setMode] = useState<CardioMode>('continuous');
-  
+
   // Form state - Intervals mode
   const [segmentType, setSegmentType] = useState<SegmentType>('work');
   const [selectedDistance, setSelectedDistance] = useState<number | null>(400);
   const [customDistance, setCustomDistance] = useState('');
   const [pace, setPace] = useState('');
   const [isLogging, setIsLogging] = useState(false);
-  // Default: miles for continuous (typical for runs), meters for intervals (400m, 800m, etc.)
-  const [distanceUnit, setDistanceUnit] = useState<'meters' | 'miles' | 'km'>('miles');
-  const [paceUnit, setPaceUnit] = useState<'/mi' | '/km' | '/m'>('/mi');
-  
+  // Default based on activity type
+  const [distanceUnit, setDistanceUnit] = useState<'meters' | 'miles' | 'km'>(activityConfig.defaultDistanceUnit);
+  const [paceUnit, setPaceUnit] = useState<'/mi' | '/km' | '/m' | '/500m'>(activityConfig.defaultPaceUnit);
+
+  // Watts mode state (for bikes/rowers)
+  const [avgWatts, setAvgWatts] = useState('');
+  const [cadence, setCadence] = useState('');
+
   // Switch distance unit when mode changes
   const handleModeChange = (newMode: CardioMode) => {
     setMode(newMode);
-    // Set sensible defaults for each mode
+    // Set sensible defaults for each mode based on activity
     if (newMode === 'continuous') {
-      setDistanceUnit('miles'); // People typically log runs in miles
+      setDistanceUnit(activityConfig.defaultDistanceUnit);
     } else {
-      setDistanceUnit('meters'); // Intervals are often in meters (400m, 800m)
+      setDistanceUnit(activityType === 'row' ? 'meters' : 'meters');
     }
   };
-  
+
   // Form state - Continuous mode
   const [totalDistance, setTotalDistance] = useState('');
   const [avgPace, setAvgPace] = useState('');
@@ -133,9 +262,9 @@ export function CardioEntry({
   // Handle logging a segment (intervals mode) or continuous run
   const handleLogSegment = useCallback(async () => {
     if (mode === 'continuous') {
-      // Continuous mode: log total distance, average pace, average heart rate
+      // Continuous mode: log based on activity type
       let distanceMeters: number | null = null;
-      
+
       if (totalDistance) {
         const distanceValue = parseFloat(totalDistance);
         if (!isNaN(distanceValue)) {
@@ -149,20 +278,30 @@ export function CardioEntry({
           }
         }
       }
-      
-      if (!distanceMeters && !avgPace && !durationMinutes) {
-        Alert.alert('Missing Info', 'Please enter at least distance, pace, or duration.');
-        return;
+
+      // Validation based on activity type
+      if (activityConfig.usesWatts) {
+        // Watts-based activities need duration OR watts
+        if (!durationMinutes && !avgWatts) {
+          Alert.alert('Missing Info', 'Please enter at least duration or average watts.');
+          return;
+        }
+      } else {
+        // Pace-based activities need distance, pace, or duration
+        if (!distanceMeters && !avgPace && !durationMinutes) {
+          Alert.alert('Missing Info', 'Please enter at least distance, pace, or duration.');
+          return;
+        }
       }
 
-      // Format pace with unit
+      // Format pace with unit (for pace-based activities)
       const paceWithUnit = avgPace ? `${avgPace}${paceUnit}` : null;
-      
+
       // Calculate duration from distance and pace if not provided
       let durationSeconds: number | null = null;
       if (durationMinutes) {
         durationSeconds = Math.round(parseFloat(durationMinutes) * 60);
-      } else if (distanceMeters && avgPace) {
+      } else if (distanceMeters && avgPace && !activityConfig.usesWatts) {
         // Calculate duration from distance and pace
         // Parse pace (format: "8:45" or "8.75")
         const paceParts = avgPace.split(':');
@@ -173,7 +312,7 @@ export function CardioEntry({
         } else {
           paceValue = parseFloat(avgPace);
         }
-        
+
         if (!isNaN(paceValue) && paceValue > 0) {
           let totalMinutes = 0;
           if (paceUnit === '/mi') {
@@ -187,35 +326,43 @@ export function CardioEntry({
         }
       }
 
+      // Format watts info into avg_pace field for watts-based activities
+      // (since there's no dedicated watts column, we store it with notation)
+      const paceOrWatts = activityConfig.usesWatts && avgWatts
+        ? `${avgWatts}w`
+        : paceWithUnit;
+
       console.log('[CardioEntry] Starting save...');
       setIsLogging(true);
-      
+
       const setData = {
         distance_meters: distanceMeters,
-        avg_pace: paceWithUnit,
+        avg_pace: paceOrWatts,
         avg_hr: avgHeartRate ? parseInt(avgHeartRate, 10) : null,
         duration_seconds: durationSeconds,
         segment_type: 'work' as const,
         is_warmup: false,
         is_pr: false,
       };
-      
-      console.log('[CardioEntry] Saving continuous run:', {
+
+      console.log('[CardioEntry] Saving continuous session:', {
         exerciseId: exercise.id,
+        activityType,
         setOrder: nextSetOrder,
         setData,
       });
-      
+
       try {
         await onSaveSet(exercise.id, nextSetOrder, setData);
-        console.log('[CardioEntry] Run saved successfully');
-        
+        console.log('[CardioEntry] Session saved successfully');
+
         // Reset form
         setTotalDistance('');
         setAvgPace('');
+        setAvgWatts('');
         setAvgHeartRate('');
         setDurationMinutes('');
-        
+
         // Auto-close the modal after successful save
         if (onClose) {
           setTimeout(() => {
@@ -223,14 +370,14 @@ export function CardioEntry({
           }, 100);
         }
       } catch (error: any) {
-        console.error('[CardioEntry] Error saving run:', error);
+        console.error('[CardioEntry] Error saving session:', error);
         console.error('[CardioEntry] Error details:', {
           message: error?.message,
           code: error?.code,
           status: error?.status,
         });
         Alert.alert(
-          'Error', 
+          'Error',
           `Failed to log workout: ${error?.message || 'Unknown error'}. Please try again.`
         );
       } finally {
@@ -290,7 +437,7 @@ export function CardioEntry({
     } finally {
       setIsLogging(false);
     }
-  }, [mode, exercise.id, nextSetOrder, selectedDistance, customDistance, pace, paceUnit, distanceUnit, segmentType, totalDistance, avgPace, avgHeartRate, durationMinutes, onSaveSet]);
+  }, [mode, exercise.id, nextSetOrder, selectedDistance, customDistance, pace, paceUnit, distanceUnit, segmentType, totalDistance, avgPace, avgWatts, avgHeartRate, durationMinutes, onSaveSet, activityConfig, activityType, onClose]);
 
   // Handle duplicate (copy last segment)
   const handleDuplicate = useCallback(async () => {
@@ -365,6 +512,144 @@ export function CardioEntry({
         </View>
       )}
 
+      {/* Last Session Context - Shows previous workout data */}
+      {lastSession && (
+        <View style={{
+          marginBottom: 16,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: 'rgba(255, 255, 255, 0.03)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Ionicons name="time-outline" size={16} color={Colors.graphite[400]} />
+            <Text style={{ marginLeft: 6, fontSize: 12, color: Colors.graphite[400] }}>
+              Last session {lastSession.lastDateRelative}
+            </Text>
+            {lastSession.exposureCount > 1 && (
+              <View style={{
+                marginLeft: 'auto',
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4,
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+              }}>
+                <Text style={{ fontSize: 10, color: Colors.signal[400] }}>
+                  {lastSession.exposureCount} sessions
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.graphite[100] }}>
+            {lastSession.displayText}
+          </Text>
+          {lastSession.exposureCount >= 3 && (
+            <Text style={{ marginTop: 6, fontSize: 12, color: Colors.graphite[500] }}>
+              Avg session: {lastSession.avgDuration ? `${Math.round(lastSession.avgDuration / 60)} min` : 'N/A'}
+              {lastSession.longestDistance && ` • Best: ${(lastSession.longestDistance / 1609.34).toFixed(1)} mi`}
+            </Text>
+          )}
+
+          {/* Progressive Suggestion */}
+          {lastSession.exposureCount >= 2 && (
+            <View style={{
+              marginTop: 10,
+              paddingTop: 10,
+              borderTopWidth: 1,
+              borderTopColor: 'rgba(255, 255, 255, 0.06)',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="bulb-outline" size={14} color={Colors.emerald[400]} />
+                <Text style={{ marginLeft: 6, fontSize: 12, fontWeight: '600', color: Colors.emerald[400] }}>
+                  Suggestion
+                </Text>
+              </View>
+              <Text style={{ marginTop: 4, fontSize: 12, color: Colors.graphite[300] }}>
+                {(() => {
+                  // Generate suggestion based on last session
+                  if (lastSession.daysSinceLast && lastSession.daysSinceLast > 14) {
+                    return `It's been ${lastSession.daysSinceLast} days. Start with an easy session to rebuild.`;
+                  }
+
+                  if (activityConfig.usesWatts && lastSession.lastPace?.endsWith('w')) {
+                    const watts = parseInt(lastSession.lastPace);
+                    if (!isNaN(watts)) {
+                      return `Try ${Math.round(watts * 1.02)}w for the same duration, or add 5 min at ${watts}w.`;
+                    }
+                  }
+
+                  if (lastSession.lastDuration && lastSession.lastDistance) {
+                    const durationMins = Math.round(lastSession.lastDuration / 60);
+                    const miles = (lastSession.lastDistance / 1609.34).toFixed(1);
+                    if (durationMins < 30) {
+                      return `Try adding 5 minutes to your session today (${durationMins + 5} min).`;
+                    }
+                    return `Maintain ${durationMins} min or push for ${(parseFloat(miles) + 0.5).toFixed(1)} mi.`;
+                  }
+
+                  if (lastSession.lastDuration) {
+                    const durationMins = Math.round(lastSession.lastDuration / 60);
+                    return `Match your ${durationMins} min session or try ${durationMins + 5} min.`;
+                  }
+
+                  return 'Keep building consistency. Log today\'s session!';
+                })()}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* First time prompt */}
+      {!lastSession && !lastSessionLoading && loggedSegments.length === 0 && (
+        <View style={{
+          marginBottom: 16,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: 'rgba(59, 130, 246, 0.08)',
+          borderWidth: 1,
+          borderColor: 'rgba(59, 130, 246, 0.2)',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="sparkles" size={18} color={Colors.signal[400]} />
+            <Text style={{ marginLeft: 8, fontSize: 13, fontWeight: '500', color: Colors.signal[400] }}>
+              First time logging {activityConfig.label.toLowerCase()}!
+            </Text>
+          </View>
+          <Text style={{ marginTop: 6, fontSize: 12, color: Colors.graphite[400] }}>
+            After a few sessions, we'll show your history and suggest targets based on your progress.
+          </Text>
+        </View>
+      )}
+
+      {/* Activity Type Indicator */}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        backgroundColor: `${activityConfig.color}15`,
+      }}>
+        <Ionicons name={activityConfig.icon} size={20} color={activityConfig.color} />
+        <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: activityConfig.color }}>
+          {activityConfig.label}
+        </Text>
+        {activityConfig.usesWatts && (
+          <View style={{
+            marginLeft: 'auto',
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderRadius: 4,
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          }}>
+            <Text style={{ fontSize: 11, color: Colors.graphite[400] }}>Power-based</Text>
+          </View>
+        )}
+      </View>
+
       {/* Mode Toggle: Continuous vs Intervals */}
       <View style={{ marginBottom: 16 }}>
         <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
@@ -379,19 +664,19 @@ export function CardioEntry({
               paddingHorizontal: 12,
               borderRadius: 8,
               alignItems: 'center',
-              backgroundColor: mode === 'continuous' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+              backgroundColor: mode === 'continuous' ? `${activityConfig.color}20` : 'rgba(255, 255, 255, 0.05)',
               borderWidth: mode === 'continuous' ? 2 : 1,
-              borderColor: mode === 'continuous' ? Colors.emerald[400] : 'rgba(255, 255, 255, 0.1)',
+              borderColor: mode === 'continuous' ? activityConfig.color : 'rgba(255, 255, 255, 0.1)',
             }}
           >
             <Text
               style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: mode === 'continuous' ? Colors.emerald[400] : Colors.graphite[400],
+                color: mode === 'continuous' ? activityConfig.color : Colors.graphite[400],
               }}
             >
-              Continuous Run
+              {activityConfig.continuousLabel}
             </Text>
           </Pressable>
           <Pressable
@@ -414,184 +699,325 @@ export function CardioEntry({
                 color: mode === 'intervals' ? Colors.signal[400] : Colors.graphite[400],
               }}
             >
-              Intervals
+              {activityConfig.intervalLabel}
             </Text>
           </Pressable>
         </View>
       </View>
 
       {mode === 'continuous' ? (
-        // Continuous Run Mode
+        // Continuous Mode - Adaptive UI based on activity type
         <>
-          {/* Total Distance */}
-          <View style={{ marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
-                Total Distance
-              </Text>
-              {/* Unit Toggle */}
-              <View style={{ flexDirection: 'row', gap: 4 }}>
-                {(['meters', 'miles', 'km'] as const).map((unit) => (
-                  <Pressable
-                    key={unit}
-                    onPress={() => {
-                      setDistanceUnit(unit);
-                      setTotalDistance('');
-                    }}
-                    style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 4,
-                      backgroundColor: distanceUnit === unit ? Colors.signal[500] : 'rgba(255, 255, 255, 0.05)',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: '600',
-                        color: distanceUnit === unit ? '#fff' : Colors.graphite[400],
-                      }}
-                    >
-                      {unit === 'meters' ? 'm' : unit === 'miles' ? 'mi' : 'km'}
-                    </Text>
-                  </Pressable>
-                ))}
+          {activityConfig.usesWatts ? (
+            // WATTS-BASED UI (Bike, Rower)
+            <>
+              {/* Duration (primary for watts-based) */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
+                  Duration (minutes)
+                </Text>
+                <TextInput
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    textAlign: 'center',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: Colors.graphite[100],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                  value={durationMinutes}
+                  onChangeText={setDurationMinutes}
+                  keyboardType="decimal-pad"
+                  placeholder="30"
+                  placeholderTextColor={Colors.graphite[500]}
+                />
               </View>
-            </View>
-            <TextInput
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                borderRadius: 8,
-                textAlign: 'center',
-                fontSize: 18,
-                fontWeight: '600',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                color: Colors.graphite[100],
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.1)',
-              }}
-              value={totalDistance}
-              onChangeText={setTotalDistance}
-              keyboardType="decimal-pad"
-              placeholder="5.0"
-              placeholderTextColor={Colors.graphite[500]}
-            />
-          </View>
 
-          {/* Average Pace */}
-          <View style={{ marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
-                Average Pace
-              </Text>
-              {/* Pace Unit Toggle */}
-              <View style={{ flexDirection: 'row', gap: 4 }}>
-                {(['/mi', '/km', '/m'] as const).map((unit) => (
-                  <Pressable
-                    key={unit}
-                    onPress={() => setPaceUnit(unit)}
-                    style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 4,
-                      backgroundColor: paceUnit === unit ? Colors.signal[500] : 'rgba(255, 255, 255, 0.05)',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: '600',
-                        color: paceUnit === unit ? '#fff' : Colors.graphite[400],
-                      }}
-                    >
-                      {unit}
-                    </Text>
-                  </Pressable>
-                ))}
+              {/* Average Watts */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
+                  Average Watts
+                </Text>
+                <TextInput
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    textAlign: 'center',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: Colors.graphite[100],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                  value={avgWatts}
+                  onChangeText={setAvgWatts}
+                  keyboardType="number-pad"
+                  placeholder="180"
+                  placeholderTextColor={Colors.graphite[500]}
+                />
               </View>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TextInput
-                style={{
-                  flex: 1,
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  textAlign: 'center',
-                  fontSize: 18,
-                  fontWeight: '600',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  color: Colors.graphite[100],
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
-                }}
-                value={avgPace}
-                onChangeText={setAvgPace}
-                placeholder="8:45"
-                placeholderTextColor={Colors.graphite[500]}
-                keyboardType="numbers-and-punctuation"
-              />
-              <Text style={{ marginLeft: 12, fontSize: 18, color: Colors.graphite[400] }}>
-                {paceUnit}
-              </Text>
-            </View>
-          </View>
 
-          {/* Average Heart Rate */}
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
-              Average Heart Rate (bpm)
-            </Text>
-            <TextInput
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                borderRadius: 8,
-                textAlign: 'center',
-                fontSize: 18,
-                fontWeight: '600',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                color: Colors.graphite[100],
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.1)',
-              }}
-              value={avgHeartRate}
-              onChangeText={setAvgHeartRate}
-              keyboardType="number-pad"
-              placeholder="145"
-              placeholderTextColor={Colors.graphite[500]}
-            />
-          </View>
+              {/* Distance (optional for bikes) */}
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
+                    Distance (optional)
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {(['meters', 'miles', 'km'] as const).map((unit) => (
+                      <Pressable
+                        key={unit}
+                        onPress={() => {
+                          setDistanceUnit(unit);
+                          setTotalDistance('');
+                        }}
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 4,
+                          backgroundColor: distanceUnit === unit ? activityConfig.color : 'rgba(255, 255, 255, 0.05)',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            fontWeight: '600',
+                            color: distanceUnit === unit ? '#fff' : Colors.graphite[400],
+                          }}
+                        >
+                          {unit === 'meters' ? 'm' : unit === 'miles' ? 'mi' : 'km'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+                <TextInput
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    textAlign: 'center',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: Colors.graphite[100],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                  value={totalDistance}
+                  onChangeText={setTotalDistance}
+                  keyboardType="decimal-pad"
+                  placeholder={activityType === 'row' ? '2000' : '10'}
+                  placeholderTextColor={Colors.graphite[500]}
+                />
+              </View>
 
-          {/* Duration (optional) */}
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
-              Duration (minutes) - Optional
-            </Text>
-            <Text style={{ fontSize: 12, color: Colors.graphite[500], marginBottom: 8 }}>
-              Leave empty to calculate from distance and pace
-            </Text>
-            <TextInput
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                borderRadius: 8,
-                textAlign: 'center',
-                fontSize: 18,
-                fontWeight: '600',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                color: Colors.graphite[100],
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.1)',
-              }}
-              value={durationMinutes}
-              onChangeText={setDurationMinutes}
-              keyboardType="decimal-pad"
-              placeholder="60"
-              placeholderTextColor={Colors.graphite[500]}
-            />
-          </View>
+              {/* Average Heart Rate */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
+                  Average Heart Rate (bpm)
+                </Text>
+                <TextInput
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    textAlign: 'center',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: Colors.graphite[100],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                  value={avgHeartRate}
+                  onChangeText={setAvgHeartRate}
+                  keyboardType="number-pad"
+                  placeholder="145"
+                  placeholderTextColor={Colors.graphite[500]}
+                />
+              </View>
+            </>
+          ) : (
+            // PACE-BASED UI (Running, Swimming, etc.)
+            <>
+              {/* Total Distance */}
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
+                    Total Distance
+                  </Text>
+                  {/* Unit Toggle */}
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {(['meters', 'miles', 'km'] as const).map((unit) => (
+                      <Pressable
+                        key={unit}
+                        onPress={() => {
+                          setDistanceUnit(unit);
+                          setTotalDistance('');
+                        }}
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 4,
+                          backgroundColor: distanceUnit === unit ? activityConfig.color : 'rgba(255, 255, 255, 0.05)',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            fontWeight: '600',
+                            color: distanceUnit === unit ? '#fff' : Colors.graphite[400],
+                          }}
+                        >
+                          {unit === 'meters' ? 'm' : unit === 'miles' ? 'mi' : 'km'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+                <TextInput
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    textAlign: 'center',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: Colors.graphite[100],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                  value={totalDistance}
+                  onChangeText={setTotalDistance}
+                  keyboardType="decimal-pad"
+                  placeholder={activityType === 'swim' ? '1000' : '5.0'}
+                  placeholderTextColor={Colors.graphite[500]}
+                />
+              </View>
+
+              {/* Average Pace */}
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.graphite[300] }}>
+                    Average Pace
+                  </Text>
+                  {/* Pace Unit Toggle */}
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {(activityType === 'swim' ? ['/m', '/100m'] as const : ['/mi', '/km'] as const).map((unit) => (
+                      <Pressable
+                        key={unit}
+                        onPress={() => setPaceUnit(unit as any)}
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 4,
+                          backgroundColor: paceUnit === unit ? activityConfig.color : 'rgba(255, 255, 255, 0.05)',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            fontWeight: '600',
+                            color: paceUnit === unit ? '#fff' : Colors.graphite[400],
+                          }}
+                        >
+                          {unit}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderRadius: 8,
+                      textAlign: 'center',
+                      fontSize: 18,
+                      fontWeight: '600',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      color: Colors.graphite[100],
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    }}
+                    value={avgPace}
+                    onChangeText={setAvgPace}
+                    placeholder={activityType === 'swim' ? '1:45' : '8:45'}
+                    placeholderTextColor={Colors.graphite[500]}
+                    keyboardType="numbers-and-punctuation"
+                  />
+                  <Text style={{ marginLeft: 12, fontSize: 18, color: Colors.graphite[400] }}>
+                    {paceUnit}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Average Heart Rate */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
+                  Average Heart Rate (bpm)
+                </Text>
+                <TextInput
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    textAlign: 'center',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: Colors.graphite[100],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                  value={avgHeartRate}
+                  onChangeText={setAvgHeartRate}
+                  keyboardType="number-pad"
+                  placeholder="145"
+                  placeholderTextColor={Colors.graphite[500]}
+                />
+              </View>
+
+              {/* Duration (optional) */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: Colors.graphite[300] }}>
+                  Duration (minutes) - Optional
+                </Text>
+                <Text style={{ fontSize: 12, color: Colors.graphite[500], marginBottom: 8 }}>
+                  Leave empty to calculate from distance and pace
+                </Text>
+                <TextInput
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    textAlign: 'center',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: Colors.graphite[100],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                  value={durationMinutes}
+                  onChangeText={setDurationMinutes}
+                  keyboardType="decimal-pad"
+                  placeholder="60"
+                  placeholderTextColor={Colors.graphite[500]}
+                />
+              </View>
+            </>
+          )}
 
           {/* Save & Done Button */}
           <Pressable
@@ -605,7 +1031,7 @@ export function CardioEntry({
               flexDirection: 'row',
               justifyContent: 'center',
               gap: 8,
-              backgroundColor: isLogging ? 'rgba(16, 185, 129, 0.5)' : Colors.emerald[500],
+              backgroundColor: isLogging ? `${activityConfig.color}80` : activityConfig.color,
             }}
           >
             <Ionicons name="checkmark-circle" size={20} color="white" />
@@ -839,13 +1265,20 @@ export function CardioEntry({
             const distanceStr = segment.distance_meters
               ? formatDistance(segment.distance_meters)
               : '';
-            const paceStr = segment.avg_pace ? formatPace(segment.avg_pace) : '';
+
+            // Check if pace contains watts (ends with 'w')
+            const isWattsValue = segment.avg_pace?.endsWith('w');
+            const paceStr = segment.avg_pace
+              ? isWattsValue
+                ? segment.avg_pace  // Display watts as-is (e.g., "180w")
+                : formatPace(segment.avg_pace)
+              : '';
             const hrStr = segment.avg_hr ? `${segment.avg_hr} bpm` : '';
             const durationStr = segment.duration_seconds
               ? `${Math.round(segment.duration_seconds / 60)} min`
               : '';
 
-            // Determine if this is a continuous run (has duration or heart rate but no segment type)
+            // Determine if this is a continuous session (has duration or heart rate but no segment type)
             const isContinuous = segment.duration_seconds && !segment.segment_type;
 
             return (
@@ -857,21 +1290,26 @@ export function CardioEntry({
                   padding: 12,
                   borderRadius: 12,
                   marginBottom: 8,
-                  backgroundColor: isContinuous ? 'rgba(16, 185, 129, 0.1)' : config.bgColor,
+                  backgroundColor: isContinuous ? `${activityConfig.color}15` : config.bgColor,
                 }}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '600', color: isContinuous ? Colors.emerald[400] : config.color }}>
-                    {isContinuous ? 'Continuous Run' : config.label}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {isContinuous && (
+                      <Ionicons name={activityConfig.icon} size={16} color={activityConfig.color} style={{ marginRight: 6 }} />
+                    )}
+                    <Text style={{ fontWeight: '600', color: isContinuous ? activityConfig.color : config.color }}>
+                      {isContinuous ? activityConfig.continuousLabel : config.label}
+                    </Text>
+                  </View>
                   <Text style={{ fontSize: 14, marginTop: 2, color: Colors.graphite[300] }}>
-                    {distanceStr}
-                    {distanceStr && paceStr ? ' @ ' : ''}
-                    {paceStr}
-                    {hrStr && (distanceStr || paceStr) ? ' • ' : ''}
-                    {hrStr}
-                    {durationStr && (distanceStr || paceStr || hrStr) ? ' • ' : ''}
                     {durationStr}
+                    {durationStr && (paceStr || distanceStr) ? ' • ' : ''}
+                    {paceStr}
+                    {paceStr && distanceStr ? ' • ' : ''}
+                    {distanceStr}
+                    {hrStr && (distanceStr || paceStr || durationStr) ? ' • ' : ''}
+                    {hrStr}
                   </Text>
                 </View>
 

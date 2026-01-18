@@ -255,6 +255,113 @@ function generateSuggestion(exerciseId: string, exerciseName: string, memory: Mo
   };
 }
 
+// ============================================================================
+// Cardio Memory - For cardio exercises (running, biking, rowing, etc.)
+// ============================================================================
+
+export interface CardioMemoryData {
+  lastDistance: number | null;      // in meters
+  lastPace: string | null;          // e.g., "8:45/mi" or "180w"
+  lastDuration: number | null;      // in seconds
+  lastHR: number | null;            // average heart rate
+  lastDate: string | null;
+  lastDateRelative: string | null;
+  exposureCount: number;
+  avgDuration: number | null;       // typical session duration
+  longestDistance: number | null;   // PR distance
+  fastestPace: string | null;       // PR pace
+  displayText: string;
+  daysSinceLast: number | null;
+}
+
+export function useCardioMemory(exerciseId: string, currentWorkoutId?: string) {
+  const userId = useAppStore((state) => state.userId);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['cardioMemory', exerciseId, currentWorkoutId],
+    queryFn: async (): Promise<CardioMemoryData | null> => {
+      if (!userId || !exerciseId) return null;
+
+      // Query workout_sets for cardio data
+      let query = supabase
+        .from('workout_sets')
+        .select(`*, workout:workouts!inner(id, date_completed, user_id)`)
+        .eq('exercise_id', exerciseId)
+        .eq('workout.user_id', userId)
+        .not('workout.date_completed', 'is', null)
+        .order('workout(date_completed)', { ascending: false })
+        .limit(20);
+
+      if (currentWorkoutId) query = query.neq('workout_id', currentWorkoutId);
+
+      const { data: sets, error: setsError } = await query;
+      if (setsError) throw setsError;
+      if (!sets || sets.length === 0) return null;
+
+      // Filter for cardio sets (have distance, duration, or pace)
+      const cardioSets = (sets as any[]).filter(
+        (s) => s.distance_meters || s.duration_seconds || s.avg_pace
+      );
+      if (cardioSets.length === 0) return null;
+
+      const lastSet = cardioSets[0];
+      const uniqueDates = new Set(cardioSets.map((s) => s.workout.date_completed.split('T')[0]));
+      const exposureCount = uniqueDates.size;
+      const daysSince = lastSet.workout.date_completed
+        ? differenceInDays(new Date(), new Date(lastSet.workout.date_completed))
+        : null;
+      const lastDateRelative = lastSet.workout.date_completed
+        ? formatDistanceToNow(new Date(lastSet.workout.date_completed), { addSuffix: true })
+        : null;
+
+      // Calculate averages and PRs
+      const durations = cardioSets.filter((s) => s.duration_seconds).map((s) => s.duration_seconds);
+      const avgDuration = durations.length > 0
+        ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+        : null;
+
+      const distances = cardioSets.filter((s) => s.distance_meters).map((s) => s.distance_meters);
+      const longestDistance = distances.length > 0 ? Math.max(...distances) : null;
+
+      // Build display text
+      const parts: string[] = [];
+      if (lastSet.duration_seconds) {
+        const mins = Math.round(lastSet.duration_seconds / 60);
+        parts.push(`${mins} min`);
+      }
+      if (lastSet.avg_pace) {
+        parts.push(lastSet.avg_pace);
+      }
+      if (lastSet.distance_meters) {
+        const miles = (lastSet.distance_meters / 1609.34).toFixed(1);
+        parts.push(`${miles} mi`);
+      }
+      if (lastSet.avg_hr) {
+        parts.push(`${lastSet.avg_hr} bpm`);
+      }
+
+      return {
+        lastDistance: lastSet.distance_meters,
+        lastPace: lastSet.avg_pace,
+        lastDuration: lastSet.duration_seconds,
+        lastHR: lastSet.avg_hr,
+        lastDate: lastSet.workout.date_completed,
+        lastDateRelative,
+        exposureCount,
+        avgDuration,
+        longestDistance,
+        fastestPace: null, // Could compute this later
+        displayText: parts.join(' • ') || 'No data',
+        daysSinceLast: daysSince,
+      };
+    },
+    enabled: !!exerciseId && !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return { data: data || null, isLoading, error: error as Error | null };
+}
+
 /**
  * Get all next-time suggestions for exercises in a workout
  */
