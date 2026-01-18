@@ -20,6 +20,11 @@ import { MovementMemoryCard } from '@/components/MovementMemoryCard';
 import { MuscleGroupBreakdown } from '@/components/MuscleGroupBreakdown';
 import { ContinueRotationCard } from '@/components/ContinueRotationCard';
 import { FoundryLabLogo } from '@/components/FoundryLabLogo';
+import {
+  JourneyUpgradePrompt,
+  JourneyIndicator,
+  NewUserJourneyPrompt,
+} from '@/components/JourneyUpgradePrompt';
 import { Colors } from '@/constants/Colors';
 
 import {
@@ -33,10 +38,13 @@ import { useActiveTrainingBlock } from '@/hooks/useTrainingBlocks';
 import { useMainLiftPRs } from '@/hooks/usePersonalRecords';
 import { useNextTimeSuggestion } from '@/hooks/useMovementMemory';
 import { useDailyWorkoutSuggestion, useQuickWorkoutOptions } from '@/hooks/useDailyWorkout';
+import { useReadinessAwareWorkout, useShouldPromptReadiness } from '@/hooks/useReadinessAwareWorkout';
+import { useTodaysReadiness, getReadinessColor } from '@/hooks/useReadiness';
 import { summarizeWorkoutExercises, formatExerciseForFeed } from '@/lib/feedUtils';
 import { generateExerciseSummary } from '@/lib/workoutSummary';
 import { useWeekSummary } from '@/hooks/useWeekSummary';
 import { useNextInRotation } from '@/hooks/useRotationAwareness';
+import { useJourneyFeatures } from '@/hooks/useJourneyDetection';
 
 export default function DashboardScreen() {
   const logoutMutation = useLogout();
@@ -56,9 +64,21 @@ export default function DashboardScreen() {
 
   // Daily workout suggestion (for Journey 3: Guided users)
   const { data: dailySuggestion, isLoading: loadingSuggestion } = useDailyWorkoutSuggestion();
+  const { data: readinessAwareWorkout } = useReadinessAwareWorkout();
+  const { data: todaysReadiness } = useTodaysReadiness();
+  const { shouldPrompt: shouldPromptReadiness } = useShouldPromptReadiness();
   const quickOptions = useQuickWorkoutOptions();
   const createWorkoutMutation = useCreateWorkout();
   const addSetMutation = useAddWorkoutSet();
+
+  // Journey detection - adapts UI based on user behavior
+  const {
+    journey,
+    confidence,
+    features,
+    isNewUser,
+    suggestedUpgrade,
+  } = useJourneyFeatures();
 
   // Modal state for workout generator
   const [showGeneratorModal, setShowGeneratorModal] = useState(false);
@@ -234,22 +254,52 @@ export default function DashboardScreen() {
             </View>
           </View>
 
+          {/* Journey Upgrade Prompt - shows when behavior suggests a journey change */}
+          {suggestedUpgrade && !isNewUser && (
+            <View style={{ marginBottom: 16 }}>
+              <JourneyUpgradePrompt
+                from={suggestedUpgrade.from}
+                to={suggestedUpgrade.to}
+                reason={suggestedUpgrade.reason}
+                prompt={suggestedUpgrade.prompt}
+                onAccept={() => {
+                  if (suggestedUpgrade.to === 'planner') {
+                    router.push('/block-builder');
+                  } else if (suggestedUpgrade.to === 'guided') {
+                    router.push('/readiness');
+                  }
+                }}
+              />
+            </View>
+          )}
+
           {/* Hero: Today's Target - Glass Card */}
           <View style={{ marginBottom: 24 }}>
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                color: Colors.graphite[300],
-                marginBottom: 8,
-              }}
-            >
-              Today's Target
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                  color: Colors.graphite[300],
+                }}
+              >
+                Today's Target
+              </Text>
+              {!isNewUser && confidence !== 'low' && (
+                <JourneyIndicator journey={journey} confidence={confidence} />
+              )}
+            </View>
 
-            {activeSession ? (
+            {/* New user journey selection */}
+            {isNewUser && !activeSession ? (
+              <NewUserJourneyPrompt
+                onSelectFreestyle={() => router.push('/workout/new?autoOpenPicker=true')}
+                onSelectPlanner={() => router.push('/block-builder')}
+                onSelectGuided={() => router.push('/readiness')}
+              />
+            ) : activeSession ? (
               <GlassCard
                 variant="elevated"
                 active={true}
@@ -316,56 +366,150 @@ export default function DashboardScreen() {
               /* Priority 3: AI-generated suggestion (Journey 3: Guided) */
               <GlassCard>
                 <View style={{ paddingVertical: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                    <Ionicons name="sparkles" size={18} color={Colors.signal[400]} />
-                    <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: Colors.signal[400] }}>
-                      Recommended for You
-                    </Text>
-                  </View>
-
-                  <View style={{ marginBottom: 16 }}>
-                    <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50], marginBottom: 4 }}>
-                      {dailySuggestion.focus}
-                    </Text>
-                    <Text style={{ fontSize: 13, color: Colors.graphite[400], marginBottom: 8 }}>
-                      {dailySuggestion.reason}
-                    </Text>
-
-                    {/* Exercise preview */}
-                    <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 8, padding: 10 }}>
-                      {dailySuggestion.exercises.slice(0, 3).map((ex, i) => (
-                        <View key={ex.exercise.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: i < 2 ? 6 : 0 }}>
-                          <Text style={{ fontSize: 13, color: Colors.graphite[300] }} numberOfLines={1}>
-                            {ex.exercise.name}
-                          </Text>
-                          <Text style={{ fontSize: 12, fontFamily: 'monospace', color: Colors.graphite[500] }}>
-                            {ex.sets}×{ex.targetReps}
-                          </Text>
-                        </View>
-                      ))}
-                      {dailySuggestion.exercises.length > 3 && (
-                        <Text style={{ fontSize: 11, color: Colors.graphite[500], marginTop: 4 }}>
-                          +{dailySuggestion.exercises.length - 3} more exercises
+                  {/* Header with readiness indicator */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="sparkles" size={18} color={Colors.signal[400]} />
+                      <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: Colors.signal[400] }}>
+                        {readinessAwareWorkout?.readinessScore ? 'Adjusted for You' : 'Recommended for You'}
+                      </Text>
+                    </View>
+                    {/* Readiness badge if available */}
+                    {readinessAwareWorkout?.readinessScore && (
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 12,
+                        backgroundColor: getReadinessColor(readinessAwareWorkout.readinessScore).bgHex + '20',
+                      }}>
+                        <View style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: getReadinessColor(readinessAwareWorkout.readinessScore).bgHex,
+                          marginRight: 6,
+                        }} />
+                        <Text style={{
+                          fontSize: 11,
+                          fontWeight: '600',
+                          color: getReadinessColor(readinessAwareWorkout.readinessScore).textHex,
+                        }}>
+                          {getReadinessColor(readinessAwareWorkout.readinessScore).label}
                         </Text>
-                      )}
-                    </View>
-
-                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                      <View style={{ flex: 1 }}>
-                        <StatPill label="Est." value={dailySuggestion.estimatedDuration} unit="min" />
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <StatPill label="Exercises" value={dailySuggestion.exercises.length} />
-                      </View>
-                    </View>
+                    )}
                   </View>
 
-                  <LabButton
-                    label="Start This Workout"
-                    icon={<Ionicons name="play" size={16} color="white" />}
-                    onPress={handleCreateFromSuggestion}
-                    loading={isCreatingWorkout}
-                  />
+                  {/* Prompt to check in if no readiness */}
+                  {shouldPromptReadiness && journey === 'guided' && (
+                    <Pressable
+                      onPress={() => router.push('/readiness')}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        padding: 10,
+                        borderRadius: 8,
+                        backgroundColor: Colors.amber[500] + '15',
+                        borderWidth: 1,
+                        borderColor: Colors.amber[500] + '30',
+                        marginBottom: 12,
+                      }}
+                    >
+                      <Ionicons name="pulse-outline" size={18} color={Colors.amber[400]} />
+                      <Text style={{ marginLeft: 8, fontSize: 12, color: Colors.amber[300], flex: 1 }}>
+                        Quick check-in helps us tailor your workout
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color={Colors.amber[400]} />
+                    </Pressable>
+                  )}
+
+                  {/* Suggest rest if readiness is very low */}
+                  {readinessAwareWorkout?.suggestRest ? (
+                    <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                      <Ionicons name="bed-outline" size={48} color={Colors.graphite[400]} />
+                      <Text style={{ fontSize: 18, fontWeight: '600', color: Colors.graphite[200], marginTop: 12, marginBottom: 4 }}>
+                        Rest Day Recommended
+                      </Text>
+                      <Text style={{ fontSize: 13, color: Colors.graphite[400], textAlign: 'center', marginBottom: 16 }}>
+                        {readinessAwareWorkout.restReason}
+                      </Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <LabButton
+                          label="Light Mobility"
+                          variant="outline"
+                          size="sm"
+                          icon={<Ionicons name="body-outline" size={14} color={Colors.graphite[50]} />}
+                          onPress={() => router.push('/workout/new?focus=mobility')}
+                        />
+                        <LabButton
+                          label="Train Anyway"
+                          variant="outline"
+                          size="sm"
+                          onPress={handleCreateFromSuggestion}
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={{ marginBottom: 16 }}>
+                        <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.graphite[50], marginBottom: 4 }}>
+                          {dailySuggestion.focus}
+                        </Text>
+                        <Text style={{ fontSize: 13, color: Colors.graphite[400], marginBottom: 8 }}>
+                          {readinessAwareWorkout?.adjustmentSummary || dailySuggestion.reason}
+                        </Text>
+
+                        {/* Exercise preview with adjustments */}
+                        <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 8, padding: 10 }}>
+                          {(readinessAwareWorkout?.adjustedExercises || dailySuggestion.exercises).slice(0, 3).map((ex, i) => (
+                            <View key={ex.exercise.id} style={{ marginBottom: i < 2 ? 6 : 0 }}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                <Text style={{ fontSize: 13, color: Colors.graphite[300], flex: 1 }} numberOfLines={1}>
+                                  {ex.exercise.name}
+                                </Text>
+                                <Text style={{ fontSize: 12, fontFamily: 'monospace', color: Colors.graphite[500] }}>
+                                  {ex.sets}×{ex.targetReps}
+                                </Text>
+                              </View>
+                              {/* Show adjustment note if exercise was adjusted */}
+                              {'wasAdjusted' in ex && ex.wasAdjusted && ex.adjustmentNote && (
+                                <Text style={{ fontSize: 10, color: Colors.amber[400], marginTop: 2 }}>
+                                  {ex.adjustmentNote}
+                                </Text>
+                              )}
+                            </View>
+                          ))}
+                          {dailySuggestion.exercises.length > 3 && (
+                            <Text style={{ fontSize: 11, color: Colors.graphite[500], marginTop: 4 }}>
+                              +{dailySuggestion.exercises.length - 3} more exercises
+                            </Text>
+                          )}
+                        </View>
+
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                          <View style={{ flex: 1 }}>
+                            <StatPill
+                              label="Est."
+                              value={readinessAwareWorkout?.estimatedDuration || dailySuggestion.estimatedDuration}
+                              unit="min"
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <StatPill label="Exercises" value={dailySuggestion.exercises.length} />
+                          </View>
+                        </View>
+                      </View>
+
+                      <LabButton
+                        label="Start This Workout"
+                        icon={<Ionicons name="play" size={16} color="white" />}
+                        onPress={handleCreateFromSuggestion}
+                        loading={isCreatingWorkout}
+                      />
+                    </>
+                  )}
 
                   <View style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginVertical: 16 }} />
 
@@ -394,23 +538,49 @@ export default function DashboardScreen() {
                 </View>
               </GlassCard>
             ) : (
-              /* Priority 4: New user / No pattern yet */
+              /* Priority 4: Journey-aware fallback */
               <GlassCard>
                 <View style={{ paddingVertical: 8, alignItems: 'center' }}>
                   <FoundryLabLogo size={48} style={{ marginBottom: 12 }} />
                   <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.graphite[200], marginBottom: 4 }}>
-                    Ready to Train?
+                    {journey === 'freestyler'
+                      ? 'Ready to Train?'
+                      : journey === 'planner'
+                      ? 'No Workout Scheduled'
+                      : 'Check In First'}
                   </Text>
                   <Text style={{ fontSize: 12, color: Colors.graphite[500], textAlign: 'center', marginBottom: 12 }}>
-                    Scan a workout, log manually, or let us suggest one.
+                    {journey === 'freestyler'
+                      ? 'Start logging and we\'ll remember your exercises.'
+                      : journey === 'planner'
+                      ? 'Build a new program or log a freestyle session.'
+                      : 'Log your readiness to get a personalized workout.'}
                   </Text>
                   <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <LabButton
-                      label="Generate Workout"
-                      icon={<Ionicons name="sparkles-outline" size={14} color="white" />}
-                      size="sm"
-                      onPress={() => setShowGeneratorModal(true)}
-                    />
+                    {/* Primary action based on journey */}
+                    {journey === 'freestyler' ? (
+                      <LabButton
+                        label="Start Workout"
+                        icon={<Ionicons name="add-circle-outline" size={14} color="white" />}
+                        size="sm"
+                        onPress={() => router.push('/workout/new?autoOpenPicker=true')}
+                      />
+                    ) : journey === 'planner' ? (
+                      <LabButton
+                        label="Build Program"
+                        icon={<Ionicons name="calendar-outline" size={14} color="white" />}
+                        size="sm"
+                        onPress={() => router.push('/block-builder')}
+                      />
+                    ) : (
+                      <LabButton
+                        label="Check In"
+                        icon={<Ionicons name="pulse-outline" size={14} color="white" />}
+                        size="sm"
+                        onPress={() => router.push('/readiness')}
+                      />
+                    )}
+                    {/* Secondary options */}
                     <LabButton
                       label="Scan"
                       variant="outline"
@@ -418,13 +588,15 @@ export default function DashboardScreen() {
                       icon={<Ionicons name="camera-outline" size={14} color={Colors.graphite[50]} />}
                       onPress={() => router.push('/scan-workout')}
                     />
-                    <LabButton
-                      label="Quick Log"
-                      variant="outline"
-                      size="sm"
-                      icon={<Ionicons name="add-circle-outline" size={14} color={Colors.graphite[50]} />}
-                      onPress={() => router.push('/workout/new?autoOpenPicker=true')}
-                    />
+                    {journey !== 'freestyler' && (
+                      <LabButton
+                        label="Quick Log"
+                        variant="outline"
+                        size="sm"
+                        icon={<Ionicons name="add-circle-outline" size={14} color={Colors.graphite[50]} />}
+                        onPress={() => router.push('/workout/new?autoOpenPicker=true')}
+                      />
+                    )}
                   </View>
                 </View>
               </GlassCard>
@@ -567,22 +739,66 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* Bottom Actions */}
+          {/* Bottom Actions - Journey-aware */}
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <LabButton
-                label="Block Builder"
-                variant="outline"
-                onPress={() => router.push('/block-builder')}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <LabButton
-                label="Templates"
-                variant="outline"
-                onPress={() => router.push('/workout/new')}
-              />
-            </View>
+            {journey === 'freestyler' ? (
+              <>
+                <View style={{ flex: 1 }}>
+                  <LabButton
+                    label="Quick Start"
+                    variant="outline"
+                    icon={<Ionicons name="flash-outline" size={14} color={Colors.graphite[300]} />}
+                    onPress={() => router.push('/workout/new?autoOpenPicker=true')}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <LabButton
+                    label="Build Program"
+                    variant="outline"
+                    icon={<Ionicons name="calendar-outline" size={14} color={Colors.graphite[300]} />}
+                    onPress={() => router.push('/block-builder')}
+                  />
+                </View>
+              </>
+            ) : journey === 'planner' ? (
+              <>
+                <View style={{ flex: 1 }}>
+                  <LabButton
+                    label="Block Builder"
+                    variant="outline"
+                    icon={<Ionicons name="calendar-outline" size={14} color={Colors.graphite[300]} />}
+                    onPress={() => router.push('/block-builder')}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <LabButton
+                    label="Templates"
+                    variant="outline"
+                    icon={<Ionicons name="document-outline" size={14} color={Colors.graphite[300]} />}
+                    onPress={() => router.push('/workout/new')}
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={{ flex: 1 }}>
+                  <LabButton
+                    label="Check In"
+                    variant="outline"
+                    icon={<Ionicons name="pulse-outline" size={14} color={Colors.graphite[300]} />}
+                    onPress={() => router.push('/readiness')}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <LabButton
+                    label="Ask Coach"
+                    variant="outline"
+                    icon={<Ionicons name="chatbubble-outline" size={14} color={Colors.graphite[300]} />}
+                    onPress={() => router.push('/coach')}
+                  />
+                </View>
+              </>
+            )}
           </View>
         </ScrollView>
 
