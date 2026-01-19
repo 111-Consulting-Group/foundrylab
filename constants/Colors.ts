@@ -52,6 +52,13 @@ export const Colors = {
     500: '#F59E0B',
     400: '#FBBF24',
   },
+  // Amber alias (same as oxide)
+  amber: {
+    600: '#D97706',
+    500: '#F59E0B',
+    400: '#FBBF24',
+    300: '#FCD34D',
+  },
   // Aliases to match Tailwind config
   progress: {
     600: '#059669', // Same as emerald
