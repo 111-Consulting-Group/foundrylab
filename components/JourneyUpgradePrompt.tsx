@@ -7,12 +7,30 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useCallback } from 'react';
-import { View, Text, Pressable, Animated } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, Pressable, Animated, Platform } from 'react-native';
 
 import { GlassCard, LabButton } from '@/components/ui/LabPrimitives';
 import { Colors } from '@/constants/Colors';
 import type { UserJourney } from '@/hooks/useJourneyDetection';
+
+// Platform-specific storage
+const storage = {
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    const AsyncStorage = await import('@react-native-async-storage/async-storage').then(m => m.default);
+    return AsyncStorage.getItem(key);
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+      return;
+    }
+    const AsyncStorage = await import('@react-native-async-storage/async-storage').then(m => m.default);
+    return AsyncStorage.setItem(key, value);
+  },
+};
 
 interface JourneyUpgradePromptProps {
   from: UserJourney;
@@ -55,7 +73,7 @@ export function JourneyUpgradePrompt({
   const handleDismiss = useCallback(async () => {
     setDismissed(true);
     // Store dismissal to not show again for a while
-    await AsyncStorage.setItem(
+    await storage.setItem(
       `journey_upgrade_dismissed_${from}_${to}`,
       new Date().toISOString()
     );
