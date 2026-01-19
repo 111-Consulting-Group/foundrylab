@@ -13,22 +13,33 @@ import { GlassCard, LabButton } from '@/components/ui/LabPrimitives';
 import { Colors } from '@/constants/Colors';
 import type { UserJourney } from '@/hooks/useJourneyDetection';
 
-// Platform-specific storage
+// Simple storage wrapper - uses localStorage on web, in-memory on native
+// Note: Native persistence removed to avoid AsyncStorage web build issues
 const storage = {
+  memoryStore: new Map<string, string>(),
+  
   async getItem(key: string): Promise<string | null> {
     if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return this.memoryStore.get(key) || null;
+      }
     }
-    const AsyncStorage = await import('@react-native-async-storage/async-storage').then(m => m.default);
-    return AsyncStorage.getItem(key);
+    return this.memoryStore.get(key) || null;
   },
+  
   async setItem(key: string, value: string): Promise<void> {
     if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-      return;
+      try {
+        localStorage.setItem(key, value);
+        return;
+      } catch {
+        this.memoryStore.set(key, value);
+        return;
+      }
     }
-    const AsyncStorage = await import('@react-native-async-storage/async-storage').then(m => m.default);
-    return AsyncStorage.setItem(key, value);
+    this.memoryStore.set(key, value);
   },
 };
 
