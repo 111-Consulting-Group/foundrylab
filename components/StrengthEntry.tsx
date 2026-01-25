@@ -246,8 +246,13 @@ export function StrengthEntry({
     const weightNum = isBodyweight ? 0 : parseFloat(weight) || 0;
     const repsNum = parseInt(reps) || 0;
 
-    if ((!isBodyweight && weightNum <= 0) || repsNum <= 0) {
-      Alert.alert('Missing Info', 'Please enter weight and reps.');
+    // Only require reps - weight can be 0 for bodyweight exercises
+    if (repsNum <= 0) {
+      if (Platform.OS === 'web') {
+        window.alert('Please enter reps.');
+      } else {
+        Alert.alert('Missing Info', 'Please enter reps.');
+      }
       return;
     }
 
@@ -278,7 +283,11 @@ export function StrengthEntry({
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to log set. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Failed to log set. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to log set. Please try again.');
+      }
     } finally {
       setIsLogging(false);
     }
@@ -314,7 +323,11 @@ export function StrengthEntry({
     );
     
     if (loggedSets.length === 0) {
-      Alert.alert('No Sets', 'Log at least one set before duplicating.');
+      if (Platform.OS === 'web') {
+        window.alert('Log at least one set before duplicating.');
+      } else {
+        Alert.alert('No Sets', 'Log at least one set before duplicating.');
+      }
       return;
     }
 
@@ -355,7 +368,11 @@ export function StrengthEntry({
         setRpe(lastSet.actual_rpe);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to duplicate set.');
+      if (Platform.OS === 'web') {
+        window.alert('Failed to duplicate set.');
+      } else {
+        Alert.alert('Error', 'Failed to duplicate set.');
+      }
     } finally {
       setIsLogging(false);
     }
@@ -618,7 +635,11 @@ export function StrengthEntry({
                       setReps(targetReps.toString());
                     }
                   } catch (error) {
-                    Alert.alert('Error', 'Failed to log set. Please try again.');
+                    if (Platform.OS === 'web') {
+                      window.alert('Failed to log set. Please try again.');
+                    } else {
+                      Alert.alert('Error', 'Failed to log set. Please try again.');
+                    }
                   } finally {
                     setIsLogging(false);
                   }
@@ -663,7 +684,11 @@ export function StrengthEntry({
                         segment_type: 'work',
                       });
                     } catch (error) {
-                      Alert.alert('Error', 'Failed to log set. Please try again.');
+                      if (Platform.OS === 'web') {
+                        window.alert('Failed to log set. Please try again.');
+                      } else {
+                        Alert.alert('Error', 'Failed to log set. Please try again.');
+                      }
                     } finally {
                       setIsLogging(false);
                     }

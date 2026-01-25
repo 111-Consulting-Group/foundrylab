@@ -306,16 +306,19 @@ export function generateExerciseSummary(exercise: Exercise, sets: SetWithExercis
  * - "30min Zone 2"
  */
 export function formatPrescription(
-  sets: SetWithExercise[], 
+  sets: SetWithExercise[],
   exercise?: Exercise,
   targetSets?: number,
   targetReps?: number,
   targetRPE?: number,
-  targetLoad?: number
+  targetLoad?: number,
+  isCardioOverride?: boolean
 ): string {
   if (sets.length === 0) return '';
-  
-  const isCardio = exercise?.modality === 'Cardio';
+
+  // Use override if provided (from smart detection), otherwise fall back to modality
+  // This handles exercises like sleds/carries that may be in DB as Strength but should show cardio-style
+  const isCardio = isCardioOverride ?? exercise?.modality === 'Cardio';
   
   if (isCardio) {
     // CRITICAL: Filter out warmup sets completely - they have different distances and shouldn't affect target
@@ -409,8 +412,10 @@ export function formatPrescription(
       const mins = Math.round(durations[0] / 60);
       return `${workSets.length} x ${mins}min`;
     }
-    
-    return `${workSets.length} interval${workSets.length > 1 ? 's' : ''}`;
+
+    // No meaningful prescription data yet - return empty to trigger fallback display
+    // This is better than showing "1 interval" for exercises with no logged data
+    return '';
   }
   
   // Strength prescription - use passed values first, then fall back to sets

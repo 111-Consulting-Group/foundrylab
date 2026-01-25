@@ -90,7 +90,7 @@ export function ExerciseEntryModal({
     return false;
   }, [exercise.modality, exercise.primary_metric, exercise.name]);
 
-  const prescription = formatPrescription(sets, exercise, targetSets, targetReps, targetRPE, targetLoad);
+  const prescription = formatPrescription(sets, exercise, targetSets, targetReps, targetRPE, targetLoad, isCardio);
 
   // Prevent browser warnings when closing modal on web
   useEffect(() => {
