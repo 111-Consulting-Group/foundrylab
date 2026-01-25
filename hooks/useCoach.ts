@@ -3,6 +3,17 @@
  *
  * Manages AI coach conversations with context-aware responses.
  * Handles message history, context gathering, and API communication.
+ *
+ * NEW: Supports 8 interaction modes for the Adaptive Training Coach:
+ * - intake: Conversational onboarding
+ * - reflect: Summarize understanding
+ * - history: Analyze training patterns
+ * - phase: Determine current phase
+ * - weekly_planning: Sunday planning
+ * - daily: What to do today
+ * - post_workout: Session evaluation
+ * - explain: Reasoning on demand
+ * - general: Free conversation
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,11 +22,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import {
   buildContextSnapshot,
-  buildSystemPrompt,
-  getQuickSuggestions,
+  getQuickSuggestions as getLegacyQuickSuggestions,
   parseCoachResponse,
   type QuickSuggestion,
 } from '@/lib/coachContext';
+import {
+  buildFullSystemPrompt,
+  getNextIntakeSection,
+} from '@/lib/coachPrompts';
+import {
+  detectModeFromMessage,
+  getQuickSuggestions as getModeQuickSuggestions,
+  detectIntakeSectionFromResponse,
+} from '@/lib/modeDetection';
 import { supabase } from '@/lib/supabase';
 import { useJourneySignals } from './useJourneySignals';
 import type {
@@ -35,6 +54,13 @@ import type {
   Workout,
   WorkoutWithSets,
 } from '@/types/database';
+import type {
+  CoachMode,
+  ExtendedCoachContext,
+  IntakeState,
+  IntakeSection,
+  IntakeResponses,
+} from '@/types/coach';
 
 // ============================================================================
 // Constants
@@ -230,6 +256,50 @@ export function useConversationMessages(conversationId: string | null) {
 }
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Calculate current week number from training block dates
+ */
+function calculateCurrentWeekFromBlock(block: TrainingBlock): number {
+  if (!block.start_date) return 1;
+
+  const startDate = new Date(block.start_date);
+  const now = new Date();
+  const diffTime = now.getTime() - startDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const weekNumber = Math.floor(diffDays / 7) + 1;
+
+  // Clamp to valid range
+  return Math.max(1, Math.min(weekNumber, block.duration_weeks || 4));
+}
+
+/**
+ * Build system prompt for legacy mode (non-adaptive)
+ * This is the original basic prompt for backwards compatibility
+ */
+function buildSystemPrompt(context: CoachContext): string {
+  const parts = [
+    'You are a helpful strength training coach. Be conversational, supportive, and give evidence-based advice.',
+  ];
+
+  if (context.profile) {
+    parts.push(`\nUser profile: ${context.profile.training_experience} level, goal: ${context.profile.primary_goal}`);
+  }
+
+  if (context.currentBlock) {
+    parts.push(`\nCurrent training block: ${context.currentBlock.name}`);
+  }
+
+  if (context.recentWorkouts?.length) {
+    parts.push(`\nRecent activity: ${context.recentWorkouts.length} workouts in the last period`);
+  }
+
+  return parts.join('');
+}
+
+// ============================================================================
 // Main Coach Hook
 // ============================================================================
 
@@ -238,6 +308,8 @@ interface UseCoachOptions {
   contextType?: ConversationContextType;
   workoutId?: string;
   blockId?: string;
+  /** Enable the new Adaptive Coach mode system */
+  useAdaptiveMode?: boolean;
 }
 
 export function useCoach(options: UseCoachOptions = {}) {
@@ -251,6 +323,15 @@ export function useCoach(options: UseCoachOptions = {}) {
   );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+
+  // NEW: Mode state for Adaptive Coach
+  const [currentMode, setCurrentMode] = useState<CoachMode>('general');
+  const [intakeState, setIntakeState] = useState<IntakeState>({
+    currentSection: 'goals',
+    completedSections: [],
+    responses: {},
+    isComplete: false,
+  });
 
   // Fetch context
   const { data: context, isLoading: contextLoading } = useCoachContext();
@@ -272,11 +353,86 @@ export function useCoach(options: UseCoachOptions = {}) {
     }));
   }, [messages, savedMessages]);
 
-  // Generate quick suggestions based on context
+  // Build extended context for Adaptive Coach mode
+  const extendedContext = useMemo((): ExtendedCoachContext => {
+    return {
+      profile: context?.profile ? {
+        userId: userId || '',
+        trainingExperience: context.profile.training_experience,
+        primaryGoal: context.profile.primary_goal,
+        recoverySpeed: context.profile.recovery_speed,
+        totalWorkoutsLogged: context.profile.total_workouts_logged,
+      } : null,
+      intakeState,
+      intakeComplete: intakeState.isComplete,
+      currentBlock: context?.currentBlock ? {
+        id: context.currentBlock.id,
+        name: context.currentBlock.name,
+        week: calculateCurrentWeekFromBlock(context.currentBlock),
+        totalWeeks: context.currentBlock.duration_weeks || 4,
+        phase: context.profile?.current_training_phase,
+      } : null,
+      todayReadiness: context?.todayReadiness ? {
+        score: context.todayReadiness.readiness_score,
+        sleep: context.todayReadiness.sleep_quality,
+        soreness: context.todayReadiness.muscle_soreness,
+        stress: context.todayReadiness.stress_level,
+      } : null,
+      recentWorkouts: (context?.recentWorkouts || []).map((w) => ({
+        id: w.id,
+        date: w.date_completed || w.scheduled_date || '',
+        focus: w.focus,
+        completed: !!w.date_completed,
+        exerciseCount: 0, // Would need to fetch workout_sets to get this
+      })),
+      upcomingWorkout: context?.upcomingWorkout ? {
+        id: context.upcomingWorkout.id,
+        focus: context.upcomingWorkout.focus,
+        exercises: (context.upcomingWorkout.workout_sets || []).map((s) => ({
+          name: s.exercise?.name || '',
+          sets: 1,
+          reps: s.target_reps?.toString(),
+        })),
+      } : null,
+      recentPRs: (context?.recentPRs || []).map((pr) => ({
+        exerciseName: pr.exercise_name || '',
+        type: pr.record_type || 'weight',
+        value: pr.value || 0,
+        date: pr.achieved_at || '',
+      })),
+      activeGoals: (context?.goals || []).filter((g) => g.status === 'active').map((g) => ({
+        description: g.exercise_name || '',
+        targetValue: g.target_value,
+        currentValue: g.current_value,
+        targetDate: g.target_date,
+      })),
+      movementMemory: [], // Would need to fetch from movement_memory table
+      activeDisruptions: [], // Would need to fetch from user_disruptions table
+      concurrentTraining: intakeState.responses.concurrent_activities ? {
+        activities: intakeState.responses.concurrent_activities,
+        hoursPerWeek: intakeState.responses.concurrent_hours_per_week || 0,
+      } : undefined,
+    };
+  }, [context, intakeState, userId]);
+
+  // Generate quick suggestions based on context and mode
   const quickSuggestions = useMemo((): QuickSuggestion[] => {
     if (!context) return [];
-    return getQuickSuggestions(context);
-  }, [context]);
+
+    // Use mode-aware suggestions for Adaptive Coach
+    if (options.useAdaptiveMode) {
+      const modeSuggestions = getModeQuickSuggestions(currentMode, extendedContext);
+      return modeSuggestions.map((s, i) => ({
+        id: `mode-${i}`,
+        label: s,
+        prompt: s,
+        icon: 'chatbubble-outline',
+      }));
+    }
+
+    // Fall back to legacy suggestions
+    return getLegacyQuickSuggestions(context);
+  }, [context, options.useAdaptiveMode, currentMode, extendedContext]);
 
   // Create new conversation mutation
   const createConversation = useMutation({
@@ -366,6 +522,42 @@ export function useCoach(options: UseCoachOptions = {}) {
       // Build context snapshot
       const contextSnapshot = buildContextSnapshot(context);
 
+      // Mode detection for Adaptive Coach
+      let activeMode = currentMode;
+      if (options.useAdaptiveMode) {
+        const detectedMode = detectModeFromMessage(sanitizedMessage, extendedContext);
+        if (detectedMode !== activeMode) {
+          activeMode = detectedMode;
+          setCurrentMode(detectedMode);
+        }
+
+        // Handle intake section progression based on user response
+        if (activeMode === 'intake' && !intakeState.isComplete) {
+          const { answersCurrentSection, extractedData } = detectIntakeSectionFromResponse(
+            sanitizedMessage,
+            intakeState.currentSection
+          );
+
+          if (answersCurrentSection && Object.keys(extractedData).length > 0) {
+            const newResponses = { ...intakeState.responses, ...extractedData } as IntakeResponses;
+            const newCompletedSections = intakeState.completedSections.includes(intakeState.currentSection)
+              ? intakeState.completedSections
+              : [...intakeState.completedSections, intakeState.currentSection];
+
+            const nextSection = getNextIntakeSection(newCompletedSections);
+
+            setIntakeState({
+              ...intakeState,
+              responses: newResponses,
+              completedSections: newCompletedSections,
+              currentSection: nextSection || intakeState.currentSection,
+              isComplete: nextSection === null,
+              completedAt: nextSection === null ? new Date().toISOString() : undefined,
+            });
+          }
+        }
+      }
+
       // Add user message to UI immediately
       const userChatMessage: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -409,6 +601,11 @@ export function useCoach(options: UseCoachOptions = {}) {
           throw new Error('Please log in to use the coach');
         }
 
+        // Build appropriate system prompt
+        const systemPrompt = options.useAdaptiveMode
+          ? buildFullSystemPrompt(activeMode, extendedContext, sanitizedMessage)
+          : buildSystemPrompt(context);
+
         // Call AI Coach Edge Function (secure - API key is server-side)
         const response = await fetch(
           `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-coach`,
@@ -423,9 +620,9 @@ export function useCoach(options: UseCoachOptions = {}) {
                 ...historyMessages,
                 { role: 'user', content: sanitizedMessage },
               ],
-              systemPrompt: buildSystemPrompt(context),
-              temperature: 0.7,
-              maxTokens: 1000,
+              systemPrompt,
+              temperature: options.useAdaptiveMode ? 0.8 : 0.7,
+              maxTokens: options.useAdaptiveMode ? 1500 : 1000,
             }),
             signal: abortControllerRef.current.signal,
           }
@@ -496,14 +693,27 @@ export function useCoach(options: UseCoachOptions = {}) {
       saveMessage,
       chatMessages,
       options.contextType,
+      options.useAdaptiveMode,
+      currentMode,
+      intakeState,
+      extendedContext,
       trackSignal,
     ]
   );
 
   // Start new conversation
-  const startNewConversation = useCallback(() => {
+  const startNewConversation = useCallback((resetMode = true) => {
     setCurrentConversationId(null);
     setMessages([]);
+    if (resetMode) {
+      setCurrentMode('general');
+      setIntakeState({
+        currentSection: 'goals',
+        completedSections: [],
+        responses: {},
+        isComplete: false,
+      });
+    }
   }, []);
 
   // Load existing conversation
@@ -519,6 +729,13 @@ export function useCoach(options: UseCoachOptions = {}) {
     isLoading: contextLoading,
     currentConversationId,
     context,
+
+    // Adaptive Coach Mode State
+    currentMode,
+    setCurrentMode,
+    intakeState,
+    setIntakeState,
+    extendedContext,
 
     // Actions
     sendMessage,
