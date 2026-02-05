@@ -4,7 +4,8 @@ import { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, Alert, Platform, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CoachButton } from '@/components/CoachChat';
+import { FloatingCoachButton } from '@/components/coach';
+import { CoachCommandCenter } from '@/components/coach/CoachCommandCenter';
 import { useLogout } from '@/hooks/useAuth';
 import {
   GlassCard,
@@ -298,6 +299,24 @@ export default function DashboardScreen() {
               </Pressable>
             </View>
           </View>
+
+          {/* Coach Command Center - Hero entry point for weekly planning */}
+          <CoachCommandCenter
+            currentPhase={activeBlock?.phase || (activeSession ? 'Training' : 'Ready to plan')}
+            hasScheduledWorkout={!!activeSession}
+            todaysFocus={activeSession?.focus}
+            daysLogged={weekSummary?.workoutsCompleted || 0}
+            totalDays={weekSummary?.workoutsPlanned || 0}
+            onPlanWeek={() => router.push('/week-plan')}
+            onLogWorkout={() => {
+              if (activeSession) {
+                router.push(`/workout/${activeSession.id}`);
+              } else {
+                router.push('/workout/new?autoOpenPicker=true');
+              }
+            }}
+            onOpenCoach={() => router.push('/coach')}
+          />
 
           {/* Journey Upgrade Prompt - shows when behavior suggests a journey change */}
           {suggestedUpgrade && !isNewUser && (
@@ -876,9 +895,7 @@ export default function DashboardScreen() {
         </ScrollView>
 
         {/* AI Coach FAB */}
-        <View style={{ position: 'absolute', bottom: 100, right: 16 }}>
-          <CoachButton onPress={() => router.push('/coach')} />
-        </View>
+        <FloatingCoachButton onPress={() => router.push('/coach')} />
 
         {/* Workout Generator Modal */}
         <Modal

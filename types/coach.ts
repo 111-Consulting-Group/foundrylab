@@ -64,6 +64,20 @@ export interface IntakeState {
 }
 
 /**
+ * Running schedule for hybrid training
+ */
+export type RunType = 'easy_run' | 'tempo' | 'intervals' | 'long_run' | 'recovery';
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+export type TrainingPriority = 'equal' | 'running' | 'lifting';
+
+export interface RunningSchedule {
+  days: DayOfWeek[];               // Which days you run
+  types: RunType[];                // What types of runs (matched to days if same length)
+  weekly_mileage?: number;         // Approximate weekly mileage
+  priority: TrainingPriority;      // Which takes precedence when scheduling
+}
+
+/**
  * User responses from intake
  */
 export interface IntakeResponses {
@@ -79,6 +93,9 @@ export interface IntakeResponses {
   // Concurrent training
   concurrent_activities?: ('running' | 'cycling' | 'swimming' | 'sports' | 'hiking' | 'other')[];
   concurrent_hours_per_week?: number;
+
+  // Running schedule (for hybrid athletes)
+  running_schedule?: RunningSchedule;
 
   // Constraints
   injuries?: string;
@@ -180,7 +197,8 @@ export type CoachAction =
   | UpdateTargetsAction
   | AddDisruptionAction
   | SetGoalAction
-  | UpdateProfileAction;
+  | UpdateProfileAction
+  | ReplaceProgramAction;
 
 export interface AdjustWorkoutAction {
   type: 'adjust_workout';
@@ -244,9 +262,81 @@ export interface UpdateProfileAction {
   updates: Partial<IntakeResponses>;
 }
 
+export interface ReplaceProgramAction {
+  type: 'replace_program';
+  blockId?: string;
+  weekCount: number;
+  daysPerWeek: number;
+  config: {
+    goal: string;
+    phase?: string;
+    focusAreas?: string[];
+  };
+  reason: string;
+}
+
 // ============================================================================
 // WEEKLY PLANNING
 // ============================================================================
+
+/**
+ * Session type for hybrid athletes
+ */
+export type SessionType =
+  | 'hypertrophy'
+  | 'strength'
+  | 'zone2'
+  | 'tempo'
+  | 'intervals'
+  | 'long_run'
+  | 'easy_run'
+  | 'rest';
+
+/**
+ * Muscle groups for volume targeting
+ */
+export type MuscleGroup =
+  | 'chest'
+  | 'back'
+  | 'shoulders'
+  | 'biceps'
+  | 'triceps'
+  | 'legs'
+  | 'glutes'
+  | 'core';
+
+/**
+ * Weekly targets set by the user for week planning
+ */
+export interface WeeklyTargets {
+  // Lifting sessions
+  hypertrophySessions: { min: number; max: number };
+  strengthSessions?: { min: number; max: number };
+
+  // Cardio
+  zone2Sessions: { min: number; max: number; durationMinutes: number };
+  tempoSessions?: number;
+  intervalSessions?: number;
+  longRunSessions?: number;
+
+  // Constraints
+  restDays: number;
+  availableDays: DayOfWeek[];
+
+  // Volume targets (optional)
+  weeklyVolumeTargets?: Partial<Record<MuscleGroup, number>>;
+}
+
+/**
+ * Default targets for quick start
+ */
+export const DEFAULT_WEEKLY_TARGETS: WeeklyTargets = {
+  hypertrophySessions: { min: 3, max: 4 },
+  zone2Sessions: { min: 2, max: 3, durationMinutes: 45 },
+  tempoSessions: 1,
+  restDays: 1,
+  availableDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+};
 
 /**
  * A generated weekly plan
@@ -257,6 +347,7 @@ export interface WeeklyPlan {
   days: PlannedDay[];
   rationale: string;
   adjustmentsApplied?: string[];
+  targets?: WeeklyTargets; // The targets used to generate this plan
 }
 
 /**
@@ -266,10 +357,13 @@ export interface PlannedDay {
   dayNumber: number; // 1-7 (Monday = 1)
   dayName: string;
   isRestDay: boolean;
+  sessionType?: SessionType; // Type of session for this day
   focus?: string; // 'Upper Body', 'Legs', etc.
   exercises?: PlannedExercise[];
   notes?: string;
   alternativeIfNeeded?: string;
+  isLocked?: boolean; // User manually adjusted this day
+  estimatedDuration?: number; // minutes
 }
 
 /**
@@ -425,6 +519,9 @@ export interface ExtendedCoachContext {
     activities: string[];
     hoursPerWeek: number;
   };
+
+  // Running schedule (for hybrid athletes)
+  runningSchedule?: RunningSchedule;
 }
 
 // ============================================================================
