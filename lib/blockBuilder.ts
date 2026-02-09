@@ -73,6 +73,7 @@ export interface GeneratedSet {
   isWarmup: boolean;
   restSeconds: number;
   percentOf1RM?: number; // For strength-focused programs
+  tempo?: string; // Format: eccentric-pause-concentric-pause (e.g., "3-1-1-1")
 }
 
 export interface ProgressProjection {
@@ -699,6 +700,48 @@ export function calculateProgressiveOverload(
 }
 
 /**
+ * Get tempo prescription based on training phase and rep range
+ * Tempo format: eccentric-pause at bottom-concentric-pause at top
+ *
+ * @param phase - The current training phase config
+ * @param targetReps - Target reps for the set
+ * @param isWarmup - Whether this is a warmup set
+ * @returns Tempo string (e.g., "3-1-1-1")
+ */
+export function getTempoForPhase(
+  phase: PhaseConfig,
+  targetReps: number,
+  isWarmup: boolean = false
+): string {
+  // Warmup sets: controlled, moderate pace
+  if (isWarmup) {
+    return '2-0-2-0';
+  }
+
+  // Deload phase: full control, moderate pace
+  if (phase.phase === 'deload') {
+    return '2-0-2-0';
+  }
+
+  // Realization/peaking phase: explosive
+  if (phase.phase === 'realization') {
+    return '2-0-X-0'; // X = explosive concentric
+  }
+
+  // Based on rep range (lower reps = more strength-focused, higher = more hypertrophy)
+  if (targetReps <= 5) {
+    // Strength focus: controlled descent, explosive up
+    return '2-0-1-0';
+  } else if (targetReps <= 8) {
+    // Power building: moderate time under tension
+    return '3-0-1-0';
+  } else {
+    // Hypertrophy: maximum time under tension
+    return '3-1-1-1';
+  }
+}
+
+/**
  * Generate sets for an exercise based on phase config
  */
 export function generateSetsForExercise(
@@ -737,6 +780,7 @@ export function generateSetsForExercise(
       targetRPE: 4,
       isWarmup: true,
       restSeconds: 60,
+      tempo: getTempoForPhase(phase, 10, true),
     });
     sets.push({
       setNumber: 2,
@@ -744,6 +788,7 @@ export function generateSetsForExercise(
       targetRPE: 5,
       isWarmup: true,
       restSeconds: 60,
+      tempo: getTempoForPhase(phase, 5, true),
     });
   }
 
@@ -755,6 +800,7 @@ export function generateSetsForExercise(
       targetRPE: Math.round(targetRPE * 10) / 10,
       isWarmup: false,
       restSeconds,
+      tempo: getTempoForPhase(phase, reps, false),
     });
   }
 

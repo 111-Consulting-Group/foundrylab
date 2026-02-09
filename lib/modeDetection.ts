@@ -8,10 +8,79 @@ import type {
   ExtendedCoachContext,
   IntakeSection,
   IntakeResponses,
+  RunType,
+  DayOfWeek,
+  RunningSchedule,
 } from '@/types/coach';
 
 // Type for concurrent activities
 type ConcurrentActivity = NonNullable<IntakeResponses['concurrent_activities']>[number];
+
+// ============================================================================
+// RUNNING SCHEDULE PARSING
+// ============================================================================
+
+/**
+ * Parse running schedule from user's natural language response
+ */
+function parseRunningSchedule(message: string): RunningSchedule | undefined {
+  const lowerMessage = message.toLowerCase();
+
+  // Parse days of the week
+  const days: DayOfWeek[] = [];
+  const dayPatterns: [RegExp, DayOfWeek][] = [
+    [/\bmon(?:day)?\b/i, 'monday'],
+    [/\btue(?:s(?:day)?)?\b/i, 'tuesday'],
+    [/\bwed(?:nesday)?\b/i, 'wednesday'],
+    [/\bthu(?:rs(?:day)?)?\b/i, 'thursday'],
+    [/\bfri(?:day)?\b/i, 'friday'],
+    [/\bsat(?:urday)?\b/i, 'saturday'],
+    [/\bsun(?:day)?\b/i, 'sunday'],
+  ];
+
+  for (const [pattern, day] of dayPatterns) {
+    if (pattern.test(lowerMessage)) {
+      days.push(day);
+    }
+  }
+
+  // Parse run types
+  const types: RunType[] = [];
+  if (/\beasy\b/i.test(lowerMessage)) types.push('easy_run');
+  if (/\btempo\b/i.test(lowerMessage)) types.push('tempo');
+  if (/\binterval|speed|track\b/i.test(lowerMessage)) types.push('intervals');
+  if (/\blong\s*run|long\s*day\b/i.test(lowerMessage)) types.push('long_run');
+  if (/\brecovery\b/i.test(lowerMessage)) types.push('recovery');
+
+  // If no specific types mentioned but running is discussed, default to easy runs
+  if (types.length === 0 && days.length > 0) {
+    types.push('easy_run');
+  }
+
+  // Parse weekly mileage
+  const mileageMatch = lowerMessage.match(/(\d+)\s*(?:miles?|mi)/i);
+  const weeklyMileage = mileageMatch ? parseInt(mileageMatch[1]) : undefined;
+
+  // Default priority to equal unless specified
+  let priority: 'equal' | 'running' | 'lifting' = 'equal';
+  if (/running\s*(?:is\s*)?(?:more\s*)?priority|prioritize\s*running|running\s*first/i.test(lowerMessage)) {
+    priority = 'running';
+  } else if (/lifting\s*(?:is\s*)?(?:more\s*)?priority|prioritize\s*lifting|lifting\s*first/i.test(lowerMessage)) {
+    priority = 'lifting';
+  }
+
+  // Only return a schedule if we extracted meaningful data
+  if (days.length > 0 || types.length > 0 || weeklyMileage) {
+    return {
+      days,
+      types,
+      weekly_mileage: weeklyMileage,
+      priority,
+    };
+  }
+
+  return undefined;
+}
 
 // ============================================================================
 // INTENT PATTERNS
@@ -289,12 +358,19 @@ export function detectIntakeSectionFromResponse(
 
       const hoursMatch = lowerMessage.match(/(\d+)\s*(?:hours?|hrs?)/i);
 
+      // Parse running schedule details if running is mentioned
+      let runningSchedule: RunningSchedule | undefined;
+      if (activities.includes('running')) {
+        runningSchedule = parseRunningSchedule(lowerMessage);
+      }
+
       if (activities.length > 0 || lowerMessage.includes('no') || lowerMessage.includes('none')) {
         return {
           answersCurrentSection: true,
           extractedData: {
             concurrent_activities: activities.length > 0 ? activities : [],
             ...(hoursMatch && { concurrent_hours_per_week: parseInt(hoursMatch[1]) }),
+            ...(runningSchedule && { running_schedule: runningSchedule }),
           },
         };
       }

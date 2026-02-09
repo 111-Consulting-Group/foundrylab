@@ -1,8 +1,9 @@
+console.log('🔵 (tabs)/_layout.tsx loading...');
+
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, useRouter, Redirect } from 'expo-router';
-import { Platform, TouchableOpacity, Alert, View, Pressable, Text } from 'react-native';
+import { Tabs, Redirect } from 'expo-router';
+import { Platform, Alert } from 'react-native';
 import { useEffect, useState } from 'react';
-import { BlurView } from 'expo-blur';
 
 import { useLogout } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/useAppStore';

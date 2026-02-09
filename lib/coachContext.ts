@@ -434,46 +434,94 @@ function formatDate(dateStr: string): string {
 export interface ParsedCoachResponse {
   message: string;
   suggestedAction?: {
-    type: 'adjust_workout' | 'swap_exercise' | 'modify_block' | 'add_note' | 'set_goal' | 'schedule_deload';
+    type: 'adjust_workout' | 'swap_exercise' | 'modify_block' | 'add_note' | 'set_goal' | 'schedule_deload' | 'replace_program';
     label: string;
     details: Record<string, unknown>;
   };
 }
 
 /**
+ * Generate a human-readable label for action types
+ */
+function getActionLabel(type: string, details: Record<string, unknown>): string {
+  switch (type) {
+    case 'replace_program': {
+      const weeks = details.weekCount || 1;
+      const days = details.daysPerWeek || 4;
+      return `Apply this ${weeks > 1 ? `${weeks}-week` : 'week\'s'} plan (${days} days/week)`;
+    }
+    case 'adjust_workout':
+      return 'Adjust workout';
+    case 'swap_exercise':
+      return 'Swap exercise';
+    case 'schedule_deload':
+      return 'Schedule deload';
+    case 'set_goal':
+      return 'Set goal';
+    default:
+      return `Apply ${type.replace(/_/g, ' ')}`;
+  }
+}
+
+/**
  * Parse coach response for actionable items
  */
 export function parseCoachResponse(response: string): ParsedCoachResponse {
-  // Look for action markers in response
-  const actionPatterns = [
-    { pattern: /\[ACTION:ADJUST_WORKOUT\](.*?)\[\/ACTION\]/s, type: 'adjust_workout' as const },
-    { pattern: /\[ACTION:SWAP_EXERCISE\](.*?)\[\/ACTION\]/s, type: 'swap_exercise' as const },
-    { pattern: /\[ACTION:DELOAD\](.*?)\[\/ACTION\]/s, type: 'schedule_deload' as const },
-  ];
-
   let suggestedAction: ParsedCoachResponse['suggestedAction'] | undefined;
+  let cleanedResponse = response;
 
-  for (const { pattern, type } of actionPatterns) {
-    const match = response.match(pattern);
-    if (match) {
-      try {
-        const details = JSON.parse(match[1].trim());
-        suggestedAction = {
-          type,
-          label: details.label || `Apply ${type.replace('_', ' ')}`,
-          details,
-        };
-        // Remove action block from message
-        response = response.replace(pattern, '').trim();
-      } catch {
-        // Invalid JSON, ignore action
+  // First, check for new XML-style action blocks: <action type="...">...</action>
+  const xmlActionPattern = /<action\s+type="([^"]+)">([\s\S]*?)<\/action>/i;
+  const xmlMatch = response.match(xmlActionPattern);
+
+  if (xmlMatch) {
+    const [fullMatch, actionType, jsonContent] = xmlMatch;
+    try {
+      const details = JSON.parse(jsonContent.trim());
+      suggestedAction = {
+        type: actionType as ParsedCoachResponse['suggestedAction']['type'],
+        label: getActionLabel(actionType, details),
+        details,
+      };
+      // Remove action block from message
+      cleanedResponse = response.replace(fullMatch, '').trim();
+    } catch {
+      // Invalid JSON in action block, try to extract key-value pairs
+      console.warn('[parseCoachResponse] Failed to parse JSON in action block:', jsonContent);
+    }
+  }
+
+  // Fallback: Look for legacy action markers if no XML action found
+  if (!suggestedAction) {
+    const legacyActionPatterns = [
+      { pattern: /\[ACTION:ADJUST_WORKOUT\](.*?)\[\/ACTION\]/s, type: 'adjust_workout' as const },
+      { pattern: /\[ACTION:SWAP_EXERCISE\](.*?)\[\/ACTION\]/s, type: 'swap_exercise' as const },
+      { pattern: /\[ACTION:DELOAD\](.*?)\[\/ACTION\]/s, type: 'schedule_deload' as const },
+      { pattern: /\[ACTION:REPLACE_PROGRAM\](.*?)\[\/ACTION\]/s, type: 'replace_program' as const },
+    ];
+
+    for (const { pattern, type } of legacyActionPatterns) {
+      const match = cleanedResponse.match(pattern);
+      if (match) {
+        try {
+          const details = JSON.parse(match[1].trim());
+          suggestedAction = {
+            type,
+            label: details.label || getActionLabel(type, details),
+            details,
+          };
+          // Remove action block from message
+          cleanedResponse = cleanedResponse.replace(pattern, '').trim();
+        } catch {
+          // Invalid JSON, ignore action
+        }
+        break;
       }
-      break;
     }
   }
 
   return {
-    message: response,
+    message: cleanedResponse,
     suggestedAction,
   };
 }

@@ -804,6 +804,78 @@ export function useDeleteWorkoutSet() {
   });
 }
 
+// Delete all future (incomplete) workouts from a block
+export function useDeleteFutureWorkouts() {
+  const queryClient = useQueryClient();
+  const userId = useAppStore((state) => state.userId);
+
+  return useMutation({
+    mutationFn: async ({ blockId }: { blockId?: string }): Promise<{ deleted: number; blockId: string }> => {
+      if (!userId) throw new Error('User not authenticated');
+
+      // If no blockId provided, find the active block
+      let targetBlockId = blockId;
+      if (!targetBlockId) {
+        const { data: activeBlock } = await supabase
+          .from('training_blocks')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .single();
+
+        if (!activeBlock) {
+          throw new Error('No active training block found');
+        }
+        targetBlockId = activeBlock.id;
+      }
+
+      // Get all incomplete workouts from the block
+      const { data: workouts, error: fetchError } = await supabase
+        .from('workouts')
+        .select('id')
+        .eq('block_id', targetBlockId)
+        .is('date_completed', null);
+
+      if (fetchError) throw fetchError;
+
+      if (!workouts || workouts.length === 0) {
+        return { deleted: 0, blockId: targetBlockId };
+      }
+
+      const workoutIds = workouts.map((w) => w.id);
+
+      // Delete workout_sets first (foreign key constraint)
+      const { error: setsError } = await supabase
+        .from('workout_sets')
+        .delete()
+        .in('workout_id', workoutIds);
+
+      if (setsError) throw setsError;
+
+      // Delete the workouts
+      const { error: workoutsError } = await supabase
+        .from('workouts')
+        .delete()
+        .in('id', workoutIds);
+
+      if (workoutsError) throw workoutsError;
+
+      return { deleted: workouts.length, blockId: targetBlockId };
+    },
+    onSuccess: (result) => {
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: workoutKeys.next() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.upcoming() });
+      queryClient.invalidateQueries({ queryKey: workoutKeys.incomplete() });
+      if (result.blockId) {
+        queryClient.invalidateQueries({ queryKey: workoutKeys.list({ blockId: result.blockId }) });
+        queryClient.invalidateQueries({ queryKey: trainingBlockKeys.detail(result.blockId) });
+        queryClient.invalidateQueries({ queryKey: ['blockProgress', result.blockId] });
+      }
+    },
+  });
+}
+
 // Get previous performance for an exercise
 export function usePreviousPerformance(exerciseId: string, currentWorkoutId?: string) {
   const userId = useAppStore((state) => state.userId);

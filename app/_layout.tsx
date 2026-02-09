@@ -1,3 +1,6 @@
+// Debug: This should appear first in browser console
+console.log('🚀 _layout.tsx loading...');
+
 import '../global.css';
 
 import FontAwesome from '@expo/vector-icons/FontAwesome';

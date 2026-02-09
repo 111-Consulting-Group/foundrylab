@@ -1,24 +1,12 @@
+console.log('🟡 useAppStore.ts loading...');
+
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { MMKV } from 'react-native-mmkv';
 
 import type { UserProfile, WorkoutSet } from '@/types/database';
+import { zustandStorage } from './storage';
 
-// MMKV storage adapter for Zustand persistence
-const storage = new MMKV();
-
-const zustandStorage = {
-  getItem: (name: string): string | null => {
-    const value = storage.getString(name);
-    return value ?? null;
-  },
-  setItem: (name: string, value: string): void => {
-    storage.set(name, value);
-  },
-  removeItem: (name: string): void => {
-    storage.delete(name);
-  },
-};
+console.log('🟡 useAppStore.ts imports loaded, storage:', typeof zustandStorage);
 
 // Active workout state for in-progress logging
 interface ActiveWorkoutState {

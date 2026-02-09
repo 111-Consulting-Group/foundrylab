@@ -221,9 +221,9 @@ function CompactMemoryCard({
       <View style={{ padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Ionicons name="time-outline" size={14} color={Colors.graphite[400]} />
-          {memory.displayText && memory.displayText.trim() ? (
+          {memory.displayText && typeof memory.displayText === 'string' && memory.displayText.trim() && !/^[\s.]+$/.test(memory.displayText.trim()) ? (
             <Text style={{ fontSize: 14, marginLeft: 8, color: Colors.graphite[300] }}>
-              Last: <Text style={{ fontWeight: '600' }}>{memory.displayText}</Text>
+              <Text>Last: </Text><Text style={{ fontWeight: '600' }}>{memory.displayText}</Text>
             </Text>
           ) : (
             <Text style={{ fontSize: 14, marginLeft: 8, color: Colors.graphite[300] }}>
@@ -231,7 +231,7 @@ function CompactMemoryCard({
             </Text>
           )}
         </View>
-        {memory.lastDateRelative && memory.lastDateRelative.trim() && (
+        {memory.lastDateRelative && typeof memory.lastDateRelative === 'string' && memory.lastDateRelative.trim() && !/^[\s.]+$/.test(memory.lastDateRelative.trim()) && (
           <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
             {memory.lastDateRelative}
           </Text>
@@ -266,7 +266,7 @@ function CompactMemoryCard({
             <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.graphite[50] }}>
               {suggestion.recommendation?.weight ?? 0} lbs x {suggestion.recommendation?.reps ?? 0} reps
             </Text>
-            {suggestion.reasoning && suggestion.reasoning.trim() && suggestion.reasoning.trim().length > 1 && (
+            {suggestion.reasoning && typeof suggestion.reasoning === 'string' && suggestion.reasoning.trim().length > 1 && !/^[\s.]+$/.test(suggestion.reasoning.trim()) && (
               <Text style={{ fontSize: 12, color: Colors.graphite[400] }}>
                 {suggestion.reasoning.trim()}
               </Text>

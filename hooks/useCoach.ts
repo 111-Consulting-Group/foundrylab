@@ -19,7 +19,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useAppStore } from '@/stores/useAppStore';
+import { executeCoachAction, parseCoachAction } from '@/lib/coachActions';
 import {
   buildContextSnapshot,
   getQuickSuggestions as getLegacyQuickSuggestions,
@@ -30,13 +30,22 @@ import {
   buildFullSystemPrompt,
   getNextIntakeSection,
 } from '@/lib/coachPrompts';
+import { fetchCoachResponse } from '@/lib/coachService';
+import { detectCurrentPhase } from '@/lib/historyAnalysis';
+import { saveIntakeToProfile } from '@/lib/intakeService';
 import {
+  detectIntakeSectionFromResponse,
   detectModeFromMessage,
   getQuickSuggestions as getModeQuickSuggestions,
-  detectIntakeSectionFromResponse,
 } from '@/lib/modeDetection';
 import { supabase } from '@/lib/supabase';
-import { useJourneySignals } from './useJourneySignals';
+import { useAppStore } from '@/stores/useAppStore';
+import type {
+  CoachMode,
+  ExtendedCoachContext,
+  IntakeResponses,
+  IntakeState
+} from '@/types/coach';
 import type {
   ChatMessage,
   CoachContext,
@@ -47,20 +56,17 @@ import type {
   DailyReadiness,
   Goal,
   GoalWithExercise,
+  MovementMemory,
   PersonalRecord,
   PersonalRecordWithExercise,
   TrainingBlock,
   TrainingProfile,
+  UserDisruption,
   Workout,
   WorkoutWithSets,
 } from '@/types/database';
-import type {
-  CoachMode,
-  ExtendedCoachContext,
-  IntakeState,
-  IntakeSection,
-  IntakeResponses,
-} from '@/types/coach';
+import { useCoachWorkoutGenerator } from './useCoachWorkoutGenerator';
+import { useJourneySignals } from './useJourneySignals';
 
 // ============================================================================
 // Constants
@@ -103,6 +109,8 @@ export function useCoachContext() {
         workoutsResult,
         prsResult,
         goalsResult,
+        movementMemoryResult,
+        disruptionsResult,
       ] = await Promise.all([
         // Training profile
         supabase
@@ -150,6 +158,34 @@ export function useCoachContext() {
           .select('*, exercises(name)')
           .eq('user_id', userId)
           .eq('status', 'active'),
+
+        // Movement memory (top 20 by exposure) - may not exist if migration not applied
+        (async () => {
+          try {
+            return await supabase
+              .from('movement_memory')
+              .select('*, exercises(name)')
+              .eq('user_id', userId)
+              .order('exposure_count', { ascending: false })
+              .limit(20);
+          } catch {
+            return { data: null, error: { message: 'Table not found' } };
+          }
+        })(),
+
+        // Active disruptions (using view that computes is_active) - may not exist
+        (async () => {
+          try {
+            return await supabase
+              .from('active_user_disruptions')
+              .select('*')
+              .eq('user_id', userId)
+              .eq('is_active', true)
+              .order('start_date', { ascending: false });
+          } catch {
+            return { data: null, error: { message: 'View not found' } };
+          }
+        })(),
       ]);
 
       // Get upcoming workout if we have an active block
@@ -183,6 +219,14 @@ export function useCoachContext() {
         exercise_name: g.exercises?.name || g.exercise_name || 'Unknown',
       }));
 
+      // Map movement memory with exercise names
+      const movementMemoryWithNames = (movementMemoryResult.data || []).map(
+        (mm: MovementMemory & { exercises?: { name: string } }) => ({
+          ...mm,
+          exercise_name: mm.exercises?.name || 'Unknown',
+        })
+      );
+
       return {
         profile: profileResult.data as TrainingProfile | null,
         currentBlock: blockResult.data as TrainingBlock | null,
@@ -191,6 +235,8 @@ export function useCoachContext() {
         upcomingWorkout,
         recentPRs: prsWithNames as PersonalRecordWithExercise[],
         goals: goalsWithNames as GoalWithExercise[],
+        movementMemory: movementMemoryWithNames as (MovementMemory & { exercise_name: string })[],
+        disruptions: (disruptionsResult.data || []) as UserDisruption[],
       };
     },
     enabled: !!userId,
@@ -333,6 +379,21 @@ export function useCoach(options: UseCoachOptions = {}) {
     isComplete: false,
   });
 
+  // Save intake to profile when completed
+  useEffect(() => {
+    if (intakeState.isComplete && userId && options.useAdaptiveMode) {
+      saveIntakeToProfile(userId, intakeState)
+        .then((result) => {
+          if (!result.success) {
+            console.error('Failed to save intake:', result.error);
+          }
+        })
+        .catch((err) => {
+          console.error('Error saving intake:', err);
+        });
+    }
+  }, [intakeState.isComplete, userId, options.useAdaptiveMode, intakeState]);
+
   // Fetch context
   const { data: context, isLoading: contextLoading } = useCoachContext();
 
@@ -355,6 +416,65 @@ export function useCoach(options: UseCoachOptions = {}) {
 
   // Build extended context for Adaptive Coach mode
   const extendedContext = useMemo((): ExtendedCoachContext => {
+    // Build movement memory for extended context
+    const movementMemoryMapped = (context?.movementMemory || []).map((mm) => ({
+      exerciseName: mm.exercise_name,
+      lastWeight: mm.last_weight || undefined,
+      lastReps: mm.last_reps || undefined,
+      trend: mm.trend,
+      confidence: mm.confidence_level.toUpperCase() as 'LOW' | 'MED' | 'HIGH',
+    }));
+
+    // Map disruptions to coach format
+    const activeDisruptions = (context?.disruptions || []).map((d) => ({
+      id: d.id,
+      type: d.disruption_type as 'illness' | 'travel' | 'injury' | 'life_stress' | 'schedule',
+      start_date: d.start_date,
+      end_date: d.end_date || undefined,
+      severity: d.severity as 'minor' | 'moderate' | 'major',
+      notes: d.notes || undefined,
+    }));
+
+    // Detect phase if we have enough data
+    const detectedPhase = context?.disruptions && context?.movementMemory
+      ? detectCurrentPhase(
+        {
+          totalWorkouts: context.recentWorkouts.filter((w) => w.date_completed).length,
+          workoutsPerWeek: 0, // Simplified - would calculate properly
+          averageSessionMinutes: 0,
+          totalVolume: 0,
+          volumeByMuscleGroup: {},
+          preferredDays: [],
+          typicalDuration: 0,
+          progressingExercises: movementMemoryMapped.filter((mm) => mm.trend === 'progressing').map((mm) => ({
+            exerciseId: '',
+            exerciseName: mm.exerciseName,
+            trend: 'progressing' as const,
+            exposureCount: 0,
+          })),
+          stagnantExercises: movementMemoryMapped.filter((mm) => mm.trend === 'stagnant').map((mm) => ({
+            exerciseId: '',
+            exerciseName: mm.exerciseName,
+            trend: 'stagnant' as const,
+            exposureCount: 0,
+          })),
+          regressingExercises: movementMemoryMapped.filter((mm) => mm.trend === 'regressing').map((mm) => ({
+            exerciseId: '',
+            exerciseName: mm.exerciseName,
+            trend: 'regressing' as const,
+            exposureCount: 0,
+          })),
+          missedWorkouts: 0,
+          gaps: [],
+          dataQuality: 'MED' as const,
+          weeksAnalyzed: 6,
+        },
+        context.disruptions,
+        context.profile?.current_training_phase || null,
+        context.profile?.weeks_in_current_phase || 0
+      )
+      : undefined;
+
     return {
       profile: context?.profile ? {
         userId: userId || '',
@@ -364,7 +484,7 @@ export function useCoach(options: UseCoachOptions = {}) {
         totalWorkoutsLogged: context.profile.total_workouts_logged,
       } : null,
       intakeState,
-      intakeComplete: intakeState.isComplete,
+      intakeComplete: intakeState.isComplete || !!context?.profile?.intake_completed_at,
       currentBlock: context?.currentBlock ? {
         id: context.currentBlock.id,
         name: context.currentBlock.name,
@@ -378,6 +498,7 @@ export function useCoach(options: UseCoachOptions = {}) {
         soreness: context.todayReadiness.muscle_soreness,
         stress: context.todayReadiness.stress_level,
       } : null,
+      detectedPhase,
       recentWorkouts: (context?.recentWorkouts || []).map((w) => ({
         id: w.id,
         date: w.date_completed || w.scheduled_date || '',
@@ -406,12 +527,22 @@ export function useCoach(options: UseCoachOptions = {}) {
         currentValue: g.current_value,
         targetDate: g.target_date,
       })),
-      movementMemory: [], // Would need to fetch from movement_memory table
-      activeDisruptions: [], // Would need to fetch from user_disruptions table
+      movementMemory: movementMemoryMapped,
+      activeDisruptions,
       concurrentTraining: intakeState.responses.concurrent_activities ? {
         activities: intakeState.responses.concurrent_activities,
         hoursPerWeek: intakeState.responses.concurrent_hours_per_week || 0,
+      } : context?.profile?.concurrent_activities?.length ? {
+        activities: context.profile.concurrent_activities,
+        hoursPerWeek: context.profile.concurrent_hours_per_week || 0,
       } : undefined,
+      // Running schedule for hybrid athletes - prefer intake state, fall back to saved profile
+      runningSchedule: intakeState.responses.running_schedule || (context?.profile?.running_schedule ? {
+        days: context.profile.running_schedule.days as any,
+        types: context.profile.running_schedule.types as any,
+        weekly_mileage: context.profile.running_schedule.weekly_mileage,
+        priority: context.profile.running_schedule.priority,
+      } : undefined),
     };
   }, [context, intakeState, userId]);
 
@@ -606,34 +737,17 @@ export function useCoach(options: UseCoachOptions = {}) {
           ? buildFullSystemPrompt(activeMode, extendedContext, sanitizedMessage)
           : buildSystemPrompt(context);
 
-        // Call AI Coach Edge Function (secure - API key is server-side)
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-coach`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              messages: [
-                ...historyMessages,
-                { role: 'user', content: sanitizedMessage },
-              ],
-              systemPrompt,
-              temperature: options.useAdaptiveMode ? 0.8 : 0.7,
-              maxTokens: options.useAdaptiveMode ? 1500 : 1000,
-            }),
-            signal: abortControllerRef.current.signal,
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to get coach response');
-        }
-
-        const data = await response.json();
+        // Call AI Coach Edge Function via service
+        const data = await fetchCoachResponse({
+          messages: [
+            ...historyMessages,
+            { role: 'user', content: sanitizedMessage },
+          ],
+          systemPrompt,
+          temperature: options.useAdaptiveMode ? 0.8 : 0.7,
+          maxTokens: options.useAdaptiveMode ? 1500 : 1000,
+          signal: abortControllerRef.current.signal,
+        });
         const assistantContent = data.message || 'I apologize, I had trouble responding. Please try again.';
 
         // Parse response for actions
@@ -644,11 +758,11 @@ export function useCoach(options: UseCoachOptions = {}) {
           prev.map((m) =>
             m.id === streamingId
               ? {
-                  ...m,
-                  content: parsed.message,
-                  isStreaming: false,
-                  suggestedAction: parsed.suggestedAction,
-                }
+                ...m,
+                content: parsed.message,
+                isStreaming: false,
+                suggestedAction: parsed.suggestedAction,
+              }
               : m
           )
         );
@@ -674,10 +788,10 @@ export function useCoach(options: UseCoachOptions = {}) {
           prev.map((m) =>
             m.id === streamingId
               ? {
-                  ...m,
-                  content: 'Sorry, I had trouble connecting. Please try again.',
-                  isStreaming: false,
-                }
+                ...m,
+                content: 'Sorry, I had trouble connecting. Please try again.',
+                isStreaming: false,
+              }
               : m
           )
         );
@@ -754,66 +868,119 @@ export function useCoach(options: UseCoachOptions = {}) {
 /**
  * Hook for applying suggested actions from coach
  *
- * NOTE: Action handlers are not yet fully implemented.
- * Currently logs the action and marks it as acknowledged.
- * Full implementation would integrate with workout/block mutations.
+ * Executes coach-suggested actions that modify workouts, blocks, goals, etc.
+ * Special handling for replace_program which triggers workout generation.
  */
 export function useApplyCoachAction() {
   const queryClient = useQueryClient();
+  const userId = useAppStore((state) => state.userId);
+  const workoutGenerator = useCoachWorkoutGenerator();
 
   return useMutation({
     mutationFn: async (action: ChatMessage['suggestedAction']) => {
       if (!action) throw new Error('No action to apply');
+      if (!userId) throw new Error('Not authenticated');
 
       // Validate action has required fields
       if (!action.type || !action.label) {
         throw new Error('Invalid action: missing type or label');
       }
 
-      // Handle different action types
-      // NOTE: These are placeholder implementations that acknowledge the action
-      // Full implementations would modify workouts/blocks in the database
-      switch (action.type) {
-        case 'adjust_workout':
-          // Future: Apply intensity/volume adjustments to workout sets
-          console.log('[Coach Action] Workout adjustment acknowledged:', action.details);
-          // Mark action as applied (UI feedback)
-          return { ...action, applied: true };
+      // Parse the suggested action into a typed CoachAction
+      const coachAction = parseCoachAction(action);
 
+      if (!coachAction) {
+        // Unknown action type - log and acknowledge for backwards compatibility
+        console.warn('[Coach Action] Unknown action type, acknowledging:', action.type);
+        return { ...action, applied: true };
+      }
+
+      // Special handling for replace_program - use workout generator
+      if (coachAction.type === 'replace_program') {
+        const generatorResult = await workoutGenerator.mutateAsync({
+          weekCount: coachAction.weekCount,
+          daysPerWeek: coachAction.daysPerWeek,
+          goal: coachAction.config.goal,
+          phase: coachAction.config.phase,
+          focusAreas: coachAction.config.focusAreas,
+        });
+
+        if (!generatorResult.success) {
+          throw new Error(generatorResult.message);
+        }
+
+        return {
+          ...action,
+          applied: true,
+          result: {
+            blockId: generatorResult.blockId,
+            workoutCount: generatorResult.workoutCount,
+            message: generatorResult.message,
+          },
+        };
+      }
+
+      // Execute other actions normally
+      const result = await executeCoachAction(coachAction, userId);
+
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      // Return action with applied flag and result data
+      return {
+        ...action,
+        applied: true,
+        result: result.data,
+      };
+    },
+    onSuccess: (data) => {
+      // Invalidate relevant queries to refresh UI based on action type
+      const actionType = data?.type;
+
+      // Always invalidate coach context
+      queryClient.invalidateQueries({ queryKey: [COACH_QUERIES.context] });
+
+      // Action-specific invalidations
+      switch (actionType) {
+        case 'adjust_workout':
         case 'swap_exercise':
-          // Future: Swap exercise in workout template
-          console.log('[Coach Action] Exercise swap acknowledged:', action.details);
-          return { ...action, applied: true };
+          queryClient.invalidateQueries({ queryKey: ['workouts'] });
+          queryClient.invalidateQueries({ queryKey: ['workout-sets'] });
+          break;
 
         case 'schedule_deload':
-          // Future: Insert deload week into training block
-          console.log('[Coach Action] Deload scheduling acknowledged:', action.details);
-          return { ...action, applied: true };
+          queryClient.invalidateQueries({ queryKey: ['workouts'] });
+          queryClient.invalidateQueries({ queryKey: ['training-blocks'] });
+          break;
 
-        case 'modify_block':
-          // Future: Modify training block parameters
-          console.log('[Coach Action] Block modification acknowledged:', action.details);
-          return { ...action, applied: true };
+        case 'update_targets':
+          queryClient.invalidateQueries({ queryKey: ['movement-memory'] });
+          break;
 
-        case 'add_note':
-          // Future: Add note to workout or exercise
-          console.log('[Coach Action] Note addition acknowledged:', action.details);
-          return { ...action, applied: true };
+        case 'add_disruption':
+          queryClient.invalidateQueries({ queryKey: ['disruptions'] });
+          break;
 
         case 'set_goal':
-          // Future: Create a new goal
-          console.log('[Coach Action] Goal setting acknowledged:', action.details);
-          return { ...action, applied: true };
+          queryClient.invalidateQueries({ queryKey: ['goals'] });
+          break;
+
+        case 'update_profile':
+          queryClient.invalidateQueries({ queryKey: ['training-profiles'] });
+          break;
+
+        case 'replace_program':
+          // Workout generator already invalidates these, but ensure they're fresh
+          queryClient.invalidateQueries({ queryKey: ['workouts'] });
+          queryClient.invalidateQueries({ queryKey: ['training-blocks'] });
+          break;
 
         default:
-          console.warn('[Coach Action] Unknown action type:', action.type);
-          throw new Error(`Unknown action type: ${action.type}`);
+          // Generic invalidation
+          queryClient.invalidateQueries({ queryKey: ['workouts'] });
+          queryClient.invalidateQueries({ queryKey: ['training-blocks'] });
       }
-    },
-    onSuccess: () => {
-      // Invalidate relevant queries to refresh UI
-      queryClient.invalidateQueries({ queryKey: ['workouts'] });
-      queryClient.invalidateQueries({ queryKey: ['training-blocks'] });
     },
     onError: (error) => {
       console.error('[Coach Action] Failed to apply action:', error);

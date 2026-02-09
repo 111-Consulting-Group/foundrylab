@@ -198,7 +198,10 @@ export type CoachAction =
   | AddDisruptionAction
   | SetGoalAction
   | UpdateProfileAction
-  | ReplaceProgramAction;
+  | UpdateProfileAction
+  | UpdateProfileAction
+  | ReplaceProgramAction
+  | OpenWeekPlannerAction;
 
 export interface AdjustWorkoutAction {
   type: 'adjust_workout';
@@ -271,6 +274,15 @@ export interface ReplaceProgramAction {
     goal: string;
     phase?: string;
     focusAreas?: string[];
+  };
+  reason: string;
+}
+
+export interface OpenWeekPlannerAction {
+  type: 'open_week_planner';
+  constraints?: {
+    disruption?: string;
+    focus?: string;
   };
   reason: string;
 }

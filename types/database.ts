@@ -871,6 +871,8 @@ export type TrainingPhase = 'accumulation' | 'intensification' | 'realization' |
 export type RecoverySpeed = 'fast' | 'normal' | 'slow';
 export type AdjustmentTrigger = 'readiness' | 'time_constraint' | 'pain_report' | 'missed_workout' | 'user_request';
 export type AdjustmentType = 'intensity_reduction' | 'volume_reduction' | 'exercise_swap' | 'workout_merge' | 'rest_day' | 'deload';
+export type DisruptionType = 'illness' | 'travel' | 'injury' | 'life_stress' | 'schedule';
+export type DisruptionSeverity = 'minor' | 'moderate' | 'major';
 export type AdjustmentFeedback = 'too_easy' | 'just_right' | 'too_hard' | 'skipped';
 export type GoalType = 'e1rm' | 'weight' | 'reps' | 'volume' | 'watts' | 'pace' | 'distance' | 'custom';
 export type GoalStatus = 'active' | 'achieved' | 'abandoned' | 'paused';
@@ -940,6 +942,21 @@ export interface TrainingProfile {
   total_workouts_logged: number;
   total_volume_logged: number;
   check_ins_completed: number;
+  // Intake tracking fields
+  intake_completed_at: string | null;
+  intake_version: string | null;
+  autonomy_preference: number | null; // 1-10 scale
+  concurrent_activities: string[];
+  concurrent_hours_per_week: number | null;
+  injuries: string | null;
+  exercise_aversions: string[];
+  // Running schedule for hybrid athletes
+  running_schedule: {
+    days: string[];
+    types: string[];
+    weekly_mileage?: number;
+    priority: 'equal' | 'running' | 'lifting';
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -948,6 +965,37 @@ export interface AnnualGoal {
   goal: string;
   targetDate?: string;
   priority: 'high' | 'medium' | 'low';
+}
+
+// User Disruptions (illness, travel, injury, etc.)
+export interface UserDisruption {
+  id: string;
+  user_id: string;
+  disruption_type: DisruptionType;
+  start_date: string;
+  end_date: string | null;
+  severity: DisruptionSeverity;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserDisruptionInsert {
+  user_id?: string;
+  disruption_type: DisruptionType;
+  start_date: string;
+  end_date?: string | null;
+  severity?: DisruptionSeverity;
+  notes?: string | null;
+}
+
+export interface UserDisruptionUpdate {
+  disruption_type?: DisruptionType;
+  start_date?: string;
+  end_date?: string | null;
+  severity?: DisruptionSeverity;
+  notes?: string | null;
 }
 
 export interface TrainingProfileUpdate {
@@ -1077,7 +1125,17 @@ export function calculateVolume(weight: number, reps: number, sets: number = 1):
 export type ConversationContextType = 'general' | 'workout' | 'block_planning' | 'recovery' | 'technique';
 export type MessageRole = 'user' | 'assistant' | 'system';
 export type QuickActionType = 'adjust_intensity' | 'swap_exercise' | 'add_deload' | 'modify_volume' | 'change_split' | 'custom';
-export type SuggestedActionType = 'adjust_workout' | 'swap_exercise' | 'modify_block' | 'add_note' | 'set_goal' | 'schedule_deload';
+export type SuggestedActionType =
+  | 'adjust_workout'
+  | 'swap_exercise'
+  | 'schedule_deload'
+  | 'update_targets'
+  | 'add_disruption'
+  | 'set_goal'
+  | 'update_profile'
+  | 'replace_program'  // Delete future workouts and generate new program
+  | 'modify_block'  // Legacy - can map to adjust_workout or schedule_deload
+  | 'add_note';     // Legacy - not currently implemented
 
 export interface CoachConversation {
   id: string;
@@ -1182,6 +1240,9 @@ export interface CoachContext {
   upcomingWorkout: WorkoutWithSets | null;
   recentPRs: PersonalRecordWithExercise[];
   goals: GoalWithExercise[];
+  // Extended context for Adaptive Coach
+  movementMemory?: (MovementMemory & { exercise_name: string })[];
+  disruptions?: UserDisruption[];
 }
 
 // ============================================================================

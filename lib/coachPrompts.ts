@@ -6,9 +6,8 @@
 import type {
   CoachMode,
   ExtendedCoachContext,
-  IntakeSection,
   HistoryAnalysis,
-  PhaseDetection,
+  IntakeSection
 } from '@/types/coach';
 
 // ============================================================================
@@ -71,7 +70,14 @@ Things like:
 - Recreational sports
 - Hiking
 
-If so, roughly how many hours per week? This helps me manage your total training load.`,
+If so, roughly how many hours per week?
+
+**If you're running regularly, I'd love to know more:**
+- Which days do you typically run?
+- What types of runs? (easy, tempo, intervals, long run)
+- Roughly how many miles per week?
+
+This helps me schedule your lifting around your running so neither suffers.`,
 
   constraints: `**Any injuries or movements you need to work around?**
 
@@ -237,36 +243,76 @@ function buildWeeklyPlanningPrompt(context: ExtendedCoachContext): string {
   const today = new Date();
   const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' });
 
+  const daysPerWeek = getDaysPerWeek(context);
+  const goal = context.profile?.primaryGoal || context.intakeState?.responses?.primary_goal || 'strength';
+  const phase = context.detectedPhase?.phase || 'accumulating';
+  const runningSchedule = context.intakeState?.responses?.running_schedule;
+  const hasRunning = runningSchedule || context.concurrentTraining?.activities.includes('running');
+
+  // Build running-aware prompt
+  let runningContext = '';
+  if (hasRunning) {
+    runningContext = `
+**RUNNING SCHEDULE:**
+${formatRunningSchedule(context)}
+
+**IMPORTANT - HYBRID TRAINING RULES:**
+- Never schedule heavy lower body on the day before or after a hard run (tempo, intervals, long run)
+- Easy runs can be stacked with upper body or light lower body
+- Protect both training modalities equally unless user specifies priority
+- Hard days for running = tempo runs, intervals, speed work, long runs
+- Easy days for running = recovery runs, easy runs
+
+**When building the lifting plan:**
+1. First identify hard running days (tempo, intervals, long run)
+2. Schedule lower body lifting 24-48hrs BEFORE hard run days (not after)
+3. Upper body can go anywhere
+4. Leave at least 1-2 full rest days per week
+`;
+  }
+
   return `It's ${dayOfWeek} and the user wants to plan their week.
 
 Here's what you know:
-- Goal: ${context.profile?.primaryGoal || 'Not specified'}
-- Available days: ${getDaysPerWeek(context)}
+- Goal: ${goal}
+- Available lifting days: ${daysPerWeek}
 - Concurrent training: ${formatConcurrentTraining(context)}
 - Recent disruptions: ${formatRecentDisruptions(context)}
-- Current phase: ${context.detectedPhase?.phase || 'unknown'}
+- Current phase: ${phase}
 - Readiness: ${context.todayReadiness?.score || 'Not checked'}/100
-
+- Injuries/Constraints: ${context.intakeState?.responses?.injuries || 'None reported'}
+- Exercise Aversions: ${context.intakeState?.responses?.exercise_aversions || 'None'}
+${runningContext}
 RECENT TRAINING:
 ${formatRecentWorkouts(context)}
 
 MOVEMENT MEMORY (for progression targets):
 ${formatMovementMemory(context)}
 
+${hasRunning ? `Since this is a hybrid athlete, first ask: "What's your running plan this week? Which days and what type of runs?"
+
+After they respond, build the lifting plan around their running schedule.` : ''}
+
 Build them a plan for this week that:
 - Enforces progressive overload where appropriate
 - Rebuilds where data or recovery is weak
-- Respects their concurrent training load
+- Respects their concurrent training load${hasRunning ? ' (especially hard running days)' : ''}
 - Does not overreach
 
 Include:
-- What to do each training day
+- What to do each training day${hasRunning ? ' (showing how it fits with running)' : ''}
 - Clear progression targets (even if small)
 - Optional substitutions if something feels off
 
 After the plan, explain why you built it this way.
 
-**No JSON. No schemas. Just coaching.**`;
+**IMPORTANT: After describing the plan, include an action block so the user can open the planner:**
+
+<action type="open_week_planner">
+{"reason": "Open the weekly planner to review and adjust your schedule."}
+</action>
+
+This action block will let the user open the planning tool with one tap.`;
 }
 
 // ============================================================================
@@ -386,6 +432,11 @@ CONTEXT AVAILABLE:
 - Readiness: ${context.todayReadiness?.score || 'Not checked'}/100
 - Active goals: ${context.activeGoals.length}
 - Phase: ${context.detectedPhase?.phase || 'Not determined'}
+
+If the user mentions being sick, injured, or travelling:
+1. Determine if they need a disruption added.
+2. If so, suggest <action type="add_disruption">...
+3. OR offer to replan the week: <action type="open_week_planner">{"constraints":{"disruption":"illness"}}</action>
 
 If the question relates to their training, use the data. If it's general fitness knowledge, answer helpfully while staying in character as their coach.`;
 }
@@ -584,6 +635,46 @@ function formatConcurrentTraining(context: ExtendedCoachContext): string {
   if (!c || !c.activities.length) return 'None reported';
 
   return `${c.activities.join(', ')} (~${c.hoursPerWeek} hrs/week)`;
+}
+
+function formatRunningSchedule(context: ExtendedCoachContext): string {
+  // Check both direct runningSchedule and intakeState for the schedule
+  const schedule = context.runningSchedule || context.intakeState?.responses?.running_schedule;
+
+  if (!schedule) {
+    // Check if running is mentioned but no detailed schedule
+    if (context.concurrentTraining?.activities.includes('running')) {
+      return 'Running mentioned but no specific schedule provided. Ask about this week\'s running plan.';
+    }
+    return 'No running schedule provided.';
+  }
+
+  const lines: string[] = [];
+
+  if (schedule.days.length > 0) {
+    // Map run types to days if both arrays exist and match in length
+    if (schedule.types.length === schedule.days.length) {
+      const dayRuns = schedule.days.map((day, i) => {
+        const runType = schedule.types[i].replace('_', ' ');
+        return `  - ${day.charAt(0).toUpperCase() + day.slice(1)}: ${runType}`;
+      });
+      lines.push('Run days:');
+      lines.push(...dayRuns);
+    } else {
+      lines.push(`Run days: ${schedule.days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}`);
+      if (schedule.types.length > 0) {
+        lines.push(`Run types: ${schedule.types.map(t => t.replace('_', ' ')).join(', ')}`);
+      }
+    }
+  }
+
+  if (schedule.weekly_mileage) {
+    lines.push(`Weekly mileage: ~${schedule.weekly_mileage} miles`);
+  }
+
+  lines.push(`Priority: ${schedule.priority === 'equal' ? 'Balance both equally' : schedule.priority === 'running' ? 'Running takes priority' : 'Lifting takes priority'}`);
+
+  return lines.join('\n') || 'No details available';
 }
 
 function formatRecentDisruptions(context: ExtendedCoachContext): string {
