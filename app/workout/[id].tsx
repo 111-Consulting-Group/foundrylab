@@ -876,6 +876,7 @@ export default function ActiveWorkoutScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
       {/* Ambient Background Glows */}
       <View
+        pointerEvents="none"
         style={{
           position: 'absolute',
           top: -100,
@@ -887,6 +888,7 @@ export default function ActiveWorkoutScreen() {
         }}
       />
       <View
+        pointerEvents="none"
         style={{
           position: 'absolute',
           bottom: 50,

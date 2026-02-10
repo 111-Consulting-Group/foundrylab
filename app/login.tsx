@@ -78,6 +78,7 @@ export default function LoginScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
       {/* Ambient Background Glows */}
       <View
+        pointerEvents="none"
         style={{
           position: 'absolute',
           top: -150,
@@ -89,6 +90,7 @@ export default function LoginScreen() {
         }}
       />
       <View
+        pointerEvents="none"
         style={{
           position: 'absolute',
           bottom: -100,

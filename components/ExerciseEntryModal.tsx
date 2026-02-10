@@ -135,6 +135,7 @@ export function ExerciseEntryModal({
         <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
           {/* Ambient Background Glows */}
           <View
+            pointerEvents="none"
             style={{
               position: 'absolute',
               top: -50,
@@ -146,6 +147,7 @@ export function ExerciseEntryModal({
             }}
           />
           <View
+            pointerEvents="none"
             style={{
               position: 'absolute',
               bottom: 50,

@@ -38,8 +38,8 @@ export default function CoachScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
       {/* Ambient Background Glows */}
-      <View style={{ position: 'absolute', top: -100, right: -80, width: 300, height: 300, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 150 }} />
-      <View style={{ position: 'absolute', bottom: 100, left: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 140 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -100, right: -80, width: 300, height: 300, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 150 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 100, left: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 140 }} />
 
       <CoachCopilot
         contextType={params.contextType}

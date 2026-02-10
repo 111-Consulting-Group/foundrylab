@@ -130,8 +130,8 @@ export default function FeedScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
       {/* Ambient Background Glows */}
-      <View style={{ position: 'absolute', top: -80, left: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.07)', borderRadius: 140 }} />
-      <View style={{ position: 'absolute', bottom: 100, right: -80, width: 240, height: 240, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 120 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -80, left: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.07)', borderRadius: 140 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 100, right: -80, width: 240, height: 240, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 120 }} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
         <ScrollView
