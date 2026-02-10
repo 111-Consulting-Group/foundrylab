@@ -726,12 +726,6 @@ export function useCoach(options: UseCoachOptions = {}) {
           content: m.content,
         }));
 
-        // Get auth session for Edge Function
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          throw new Error('Please log in to use the coach');
-        }
-
         // Build appropriate system prompt
         const systemPrompt = options.useAdaptiveMode
           ? buildFullSystemPrompt(activeMode, extendedContext, sanitizedMessage)
