@@ -643,83 +643,88 @@ export function useCoach(options: UseCoachOptions = {}) {
       abortControllerRef.current?.abort();
       abortControllerRef.current = new AbortController();
 
-      // Create conversation if needed
-      let convId = currentConversationId;
-      if (!convId) {
-        const conv = await createConversation.mutateAsync(options.contextType || 'general');
-        convId = conv.id;
-      }
-
-      // Build context snapshot
-      const contextSnapshot = buildContextSnapshot(context);
-
-      // Mode detection for Adaptive Coach
-      let activeMode = currentMode;
-      if (options.useAdaptiveMode) {
-        const detectedMode = detectModeFromMessage(sanitizedMessage, extendedContext);
-        if (detectedMode !== activeMode) {
-          activeMode = detectedMode;
-          setCurrentMode(detectedMode);
-        }
-
-        // Handle intake section progression based on user response
-        if (activeMode === 'intake' && !intakeState.isComplete) {
-          const { answersCurrentSection, extractedData } = detectIntakeSectionFromResponse(
-            sanitizedMessage,
-            intakeState.currentSection
-          );
-
-          if (answersCurrentSection && Object.keys(extractedData).length > 0) {
-            const newResponses = { ...intakeState.responses, ...extractedData } as IntakeResponses;
-            const newCompletedSections = intakeState.completedSections.includes(intakeState.currentSection)
-              ? intakeState.completedSections
-              : [...intakeState.completedSections, intakeState.currentSection];
-
-            const nextSection = getNextIntakeSection(newCompletedSections);
-
-            setIntakeState({
-              ...intakeState,
-              responses: newResponses,
-              completedSections: newCompletedSections,
-              currentSection: nextSection || intakeState.currentSection,
-              isComplete: nextSection === null,
-              completedAt: nextSection === null ? new Date().toISOString() : undefined,
-            });
-          }
-        }
-      }
-
-      // Add user message to UI immediately
-      const userChatMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: sanitizedMessage,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, userChatMessage]);
-
-      // Save user message
-      await saveMessage(convId, 'user', sanitizedMessage, contextSnapshot);
-
-      // Track journey signal for coach interaction
-      trackSignal('use_coach', { action: 'message', context_type: options.contextType });
-
-      // Add streaming placeholder
+      // Track whether the streaming placeholder has been added so errors
+      // can be surfaced in the correct place in the message list.
       const streamingId = `assistant-${Date.now()}`;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: streamingId,
-          role: 'assistant',
-          content: '',
-          timestamp: new Date(),
-          isStreaming: true,
-        },
-      ]);
-      setIsStreaming(true);
+      let streamingStarted = false;
 
       try {
+        // Create conversation if needed
+        let convId = currentConversationId;
+        if (!convId) {
+          const conv = await createConversation.mutateAsync(options.contextType || 'general');
+          convId = conv.id;
+        }
+
+        // Build context snapshot
+        const contextSnapshot = buildContextSnapshot(context);
+
+        // Mode detection for Adaptive Coach
+        let activeMode = currentMode;
+        if (options.useAdaptiveMode) {
+          const detectedMode = detectModeFromMessage(sanitizedMessage, extendedContext);
+          if (detectedMode !== activeMode) {
+            activeMode = detectedMode;
+            setCurrentMode(detectedMode);
+          }
+
+          // Handle intake section progression based on user response
+          if (activeMode === 'intake' && !intakeState.isComplete) {
+            const { answersCurrentSection, extractedData } = detectIntakeSectionFromResponse(
+              sanitizedMessage,
+              intakeState.currentSection
+            );
+
+            if (answersCurrentSection && Object.keys(extractedData).length > 0) {
+              const newResponses = { ...intakeState.responses, ...extractedData } as IntakeResponses;
+              const newCompletedSections = intakeState.completedSections.includes(intakeState.currentSection)
+                ? intakeState.completedSections
+                : [...intakeState.completedSections, intakeState.currentSection];
+
+              const nextSection = getNextIntakeSection(newCompletedSections);
+
+              setIntakeState({
+                ...intakeState,
+                responses: newResponses,
+                completedSections: newCompletedSections,
+                currentSection: nextSection || intakeState.currentSection,
+                isComplete: nextSection === null,
+                completedAt: nextSection === null ? new Date().toISOString() : undefined,
+              });
+            }
+          }
+        }
+
+        // Add user message to UI immediately
+        const userChatMessage: ChatMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user',
+          content: sanitizedMessage,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, userChatMessage]);
+
+        // Save user message
+        await saveMessage(convId, 'user', sanitizedMessage, contextSnapshot);
+
+        // Track journey signal for coach interaction
+        trackSignal('use_coach', { action: 'message', context_type: options.contextType });
+
+        // Add streaming placeholder
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: streamingId,
+            role: 'assistant',
+            content: '',
+            timestamp: new Date(),
+            isStreaming: true,
+          },
+        ]);
+        setIsStreaming(true);
+        streamingStarted = true;
+
         // Build conversation history for API
         const historyMessages = chatMessages.slice(-10).map((m) => ({
           role: m.role as 'user' | 'assistant',
@@ -731,17 +736,28 @@ export function useCoach(options: UseCoachOptions = {}) {
           ? buildFullSystemPrompt(activeMode, extendedContext, sanitizedMessage)
           : buildSystemPrompt(context);
 
+        // Set a timeout so the request doesn't hang indefinitely
+        const timeoutId = setTimeout(() => {
+          abortControllerRef.current?.abort();
+        }, 60_000);
+
         // Call AI Coach Edge Function via service
-        const data = await fetchCoachResponse({
-          messages: [
-            ...historyMessages,
-            { role: 'user', content: sanitizedMessage },
-          ],
-          systemPrompt,
-          temperature: options.useAdaptiveMode ? 0.8 : 0.7,
-          maxTokens: options.useAdaptiveMode ? 1500 : 1000,
-          signal: abortControllerRef.current.signal,
-        });
+        let data: { message?: string };
+        try {
+          data = await fetchCoachResponse({
+            messages: [
+              ...historyMessages,
+              { role: 'user', content: sanitizedMessage },
+            ],
+            systemPrompt,
+            temperature: options.useAdaptiveMode ? 0.8 : 0.7,
+            maxTokens: options.useAdaptiveMode ? 1500 : 1000,
+            signal: abortControllerRef.current.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
         const assistantContent = data.message || 'I apologize, I had trouble responding. Please try again.';
 
         // Parse response for actions
@@ -801,7 +817,7 @@ export function useCoach(options: UseCoachOptions = {}) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;
         }
-        console.error('Coach API error:', error);
+        console.error('Coach error:', error);
 
         // Surface specific error messages based on error type
         let errorMessage = 'Sorry, I had trouble connecting. Please try again.';
@@ -811,17 +827,32 @@ export function useCoach(options: UseCoachOptions = {}) {
           errorMessage = error.message || errorMessage;
         }
 
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === streamingId
-              ? {
-                ...m,
-                content: errorMessage,
-                isStreaming: false,
-              }
-              : m
-          )
-        );
+        if (streamingStarted) {
+          // Update the existing streaming placeholder with the error
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === streamingId
+                ? {
+                  ...m,
+                  content: errorMessage,
+                  isStreaming: false,
+                }
+                : m
+            )
+          );
+        } else {
+          // Streaming hadn't started yet — append an error message
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: streamingId,
+              role: 'assistant' as const,
+              content: errorMessage,
+              timestamp: new Date(),
+              isStreaming: false,
+            },
+          ]);
+        }
       } finally {
         setIsStreaming(false);
       }

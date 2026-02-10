@@ -41,7 +41,6 @@ export default function LoginScreen() {
         const message = getAuthErrorMessage(signInError);
         setError(message);
         Alert.alert('Sign In Error', message);
-        setLoading(false);
         return;
       }
 
@@ -64,13 +63,13 @@ export default function LoginScreen() {
         const errorMsg = 'Login failed - no user data returned';
         setError(errorMsg);
         Alert.alert('Error', errorMsg);
-        setLoading(false);
       }
     } catch (err: any) {
       console.error('Login error:', err);
       const message = getAuthErrorMessage(err);
       setError(message);
       Alert.alert('Error', message);
+    } finally {
       setLoading(false);
     }
   }
