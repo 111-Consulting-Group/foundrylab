@@ -30,7 +30,7 @@ import {
   buildFullSystemPrompt,
   getNextIntakeSection,
 } from '@/lib/coachPrompts';
-import { fetchCoachResponse } from '@/lib/coachService';
+import { CoachServiceError, fetchCoachResponse } from '@/lib/coachService';
 import { detectCurrentPhase } from '@/lib/historyAnalysis';
 import { saveIntakeToProfile } from '@/lib/intakeService';
 import {
@@ -784,12 +784,21 @@ export function useCoach(options: UseCoachOptions = {}) {
           return;
         }
         console.error('Coach API error:', error);
+
+        // Surface specific error messages based on error type
+        let errorMessage = 'Sorry, I had trouble connecting. Please try again.';
+        if (error instanceof CoachServiceError) {
+          errorMessage = error.message;
+        } else if (error instanceof Error) {
+          errorMessage = error.message || errorMessage;
+        }
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === streamingId
               ? {
                 ...m,
-                content: 'Sorry, I had trouble connecting. Please try again.',
+                content: errorMessage,
                 isStreaming: false,
               }
               : m
