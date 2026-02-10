@@ -198,10 +198,11 @@ export type CoachAction =
   | AddDisruptionAction
   | SetGoalAction
   | UpdateProfileAction
-  | UpdateProfileAction
-  | UpdateProfileAction
   | ReplaceProgramAction
-  | OpenWeekPlannerAction;
+  | OpenWeekPlannerAction
+  | LogReadinessAction
+  | LogWorkoutSetsAction
+  | AdjustWeekAction;
 
 export interface AdjustWorkoutAction {
   type: 'adjust_workout';
@@ -285,6 +286,51 @@ export interface OpenWeekPlannerAction {
     focus?: string;
   };
   reason: string;
+}
+
+/**
+ * Log readiness from natural language chat
+ * e.g. "Slept great, feeling fresh, low stress"
+ */
+export interface LogReadinessAction {
+  type: 'log_readiness';
+  sleep_quality: 1 | 2 | 3 | 4 | 5;
+  muscle_soreness: 1 | 2 | 3 | 4 | 5;
+  stress_level: 1 | 2 | 3 | 4 | 5;
+  notes?: string;
+}
+
+/**
+ * Log workout sets from natural language chat
+ * e.g. "Back squats 185x10 for 4 sets, felt strong"
+ */
+export interface LogWorkoutSetsAction {
+  type: 'log_workout_sets';
+  exercises: {
+    exerciseName: string;
+    sets: {
+      weight?: number;
+      reps: number;
+      rpe?: number;
+    }[];
+    notes?: string;
+  }[];
+  sessionNotes?: string;
+}
+
+/**
+ * Adjust the remaining days in the current week's plan
+ * e.g. "Kid's sick, need to reshuffle my week"
+ */
+export interface AdjustWeekAction {
+  type: 'adjust_week';
+  reason: string;
+  constraints?: {
+    maxSessionMinutes?: number;
+    skipDays?: string[];
+    reduceIntensity?: boolean;
+    prioritize?: 'volume' | 'intensity' | 'recovery';
+  };
 }
 
 // ============================================================================

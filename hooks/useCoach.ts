@@ -753,22 +753,46 @@ export function useCoach(options: UseCoachOptions = {}) {
         // Parse response for actions
         const parsed = parseCoachResponse(assistantContent);
 
+        // Auto-execute certain actions immediately (readiness, workout logging)
+        // These don't need user confirmation — the coach parsed intent from the user's words
+        const autoExecuteTypes = ['log_readiness', 'log_workout_sets', 'adjust_week'];
+        let actionResult: string | undefined;
+        if (parsed.suggestedAction && autoExecuteTypes.includes(parsed.suggestedAction.type) && userId) {
+          try {
+            const typedAction = parseCoachAction(parsed.suggestedAction);
+            if (typedAction) {
+              const result = await executeCoachAction(typedAction, userId);
+              if (result.success) {
+                actionResult = result.message;
+                // Invalidate relevant queries so UI updates
+                queryClient.invalidateQueries({ queryKey: ['readiness'] });
+                queryClient.invalidateQueries({ queryKey: ['workouts'] });
+              }
+            }
+          } catch (err) {
+            console.error('[Coach] Auto-execute action failed:', err);
+          }
+        }
+
+        // For auto-executed actions, don't show the action button
+        const showActionButton = parsed.suggestedAction && !autoExecuteTypes.includes(parsed.suggestedAction.type);
+
         // Update UI with final response
         setMessages((prev) =>
           prev.map((m) =>
             m.id === streamingId
               ? {
                 ...m,
-                content: parsed.message,
+                content: parsed.message + (actionResult ? `\n\n_${actionResult}_` : ''),
                 isStreaming: false,
-                suggestedAction: parsed.suggestedAction,
+                suggestedAction: showActionButton ? parsed.suggestedAction : undefined,
               }
               : m
           )
         );
 
         // Save assistant message
-        await saveMessage(convId, 'assistant', parsed.message, undefined, parsed.suggestedAction);
+        await saveMessage(convId, 'assistant', parsed.message, undefined, showActionButton ? parsed.suggestedAction : undefined);
 
         // Update conversation title if first message
         if (chatMessages.length === 0) {
@@ -821,6 +845,7 @@ export function useCoach(options: UseCoachOptions = {}) {
       intakeState,
       extendedContext,
       trackSignal,
+      queryClient,
     ]
   );
 

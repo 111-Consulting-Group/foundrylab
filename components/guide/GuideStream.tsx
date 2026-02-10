@@ -61,20 +61,31 @@ const CopilotWelcome = React.memo(function CopilotWelcome({
             : "Check in so I can finalize today's plan.");
 
     // Build contextual suggestion chips
-    const suggestions: { label: string; icon: keyof typeof Ionicons.glyphMap }[] = [];
+    const suggestions: { label: string; icon: keyof typeof Ionicons.glyphMap; chatMessage?: string }[] = [];
+    const dayOfWeek = new Date().getDay(); // 0 = Sunday
 
     if (!hasReadiness) {
-        suggestions.push({ label: 'Check in now', icon: 'pulse' });
+        // Prompt natural language check-in via chat (not a separate screen)
+        suggestions.push({
+            label: 'Check in',
+            icon: 'pulse',
+            chatMessage: "I'm checking in for today — here's how I feel:",
+        });
     } else {
         suggestions.push({ label: "What's my plan today?", icon: 'barbell' });
+    }
+
+    if (dayOfWeek === 0) {
+        // Sunday — weekly planning day
+        suggestions.push({ label: 'Plan my week', icon: 'calendar' });
     }
 
     if (activeBlock) {
         suggestions.push({ label: 'How am I progressing?', icon: 'trending-up' });
     }
 
+    suggestions.push({ label: 'Log a workout', icon: 'create', chatMessage: "Here's what I did:" });
     suggestions.push({ label: 'Adjust my training', icon: 'options' });
-    suggestions.push({ label: 'I need a rest day', icon: 'bed' });
 
     return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 40 }}>
@@ -121,11 +132,7 @@ const CopilotWelcome = React.memo(function CopilotWelcome({
                     <Pressable
                         key={suggestion.label}
                         onPress={() => {
-                            if (suggestion.label === 'Check in now') {
-                                router.push('/readiness');
-                            } else {
-                                onSuggestionPress(suggestion.label);
-                            }
+                            onSuggestionPress(suggestion.chatMessage || suggestion.label);
                         }}
                         style={({ pressed }) => ({
                             flexDirection: 'row',
@@ -135,11 +142,11 @@ const CopilotWelcome = React.memo(function CopilotWelcome({
                             borderRadius: 20,
                             backgroundColor: pressed
                                 ? 'rgba(255, 255, 255, 0.1)'
-                                : suggestion.label === 'Check in now'
+                                : suggestion.label === 'Check in'
                                     ? 'rgba(59, 130, 246, 0.15)'
                                     : 'rgba(255, 255, 255, 0.05)',
                             borderWidth: 1,
-                            borderColor: suggestion.label === 'Check in now'
+                            borderColor: suggestion.label === 'Check in'
                                 ? 'rgba(59, 130, 246, 0.3)'
                                 : 'rgba(255, 255, 255, 0.1)',
                         })}
@@ -147,13 +154,13 @@ const CopilotWelcome = React.memo(function CopilotWelcome({
                         <Ionicons
                             name={suggestion.icon}
                             size={14}
-                            color={suggestion.label === 'Check in now' ? Colors.signal[400] : Colors.graphite[300]}
+                            color={suggestion.label === 'Check in' ? Colors.signal[400] : Colors.graphite[300]}
                             style={{ marginRight: 6 }}
                         />
                         <Text style={{
                             fontSize: 13,
                             fontWeight: '500',
-                            color: suggestion.label === 'Check in now' ? Colors.signal[300] : Colors.graphite[200],
+                            color: suggestion.label === 'Check in' ? Colors.signal[300] : Colors.graphite[200],
                         }}>
                             {suggestion.label}
                         </Text>

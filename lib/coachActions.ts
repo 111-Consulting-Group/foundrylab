@@ -14,6 +14,9 @@ import type {
   SetGoalAction,
   UpdateProfileAction,
   ReplaceProgramAction,
+  LogReadinessAction,
+  LogWorkoutSetsAction,
+  AdjustWeekAction,
 } from '@/types/coach';
 
 // ============================================================================
@@ -61,6 +64,15 @@ export async function executeCoachAction(
 
     case 'replace_program':
       return executeReplaceProgram(action, userId);
+
+    case 'log_readiness':
+      return executeLogReadiness(action, userId);
+
+    case 'log_workout_sets':
+      return executeLogWorkoutSets(action, userId);
+
+    case 'adjust_week':
+      return executeAdjustWeek(action, userId);
 
     default:
       return {
@@ -723,6 +735,264 @@ async function executeReplaceProgram(
 }
 
 // ============================================================================
+// LOG READINESS (from natural language chat)
+// ============================================================================
+
+/**
+ * Log a readiness check-in parsed from natural language
+ * e.g. "Slept great, not sore at all, stress is low"
+ */
+async function executeLogReadiness(
+  action: LogReadinessAction,
+  userId: string
+): Promise<ActionResult> {
+  const { sleep_quality, muscle_soreness, stress_level, notes } = action;
+
+  // Calculate readiness score (same formula as useReadiness hook)
+  const sleepScore = sleep_quality * 20;
+  const sorenessScore = (6 - muscle_soreness) * 20; // Invert: low soreness = high readiness
+  const stressScore = (6 - stress_level) * 20; // Invert: low stress = high readiness
+  const readinessScore = Math.round((sleepScore + sorenessScore + stressScore) / 3);
+
+  // Determine suggested adjustment
+  let suggestedAdjustment: 'full' | 'moderate' | 'light' | 'rest' = 'full';
+  if (readinessScore < 40) suggestedAdjustment = 'rest';
+  else if (readinessScore < 60) suggestedAdjustment = 'light';
+  else if (readinessScore < 80) suggestedAdjustment = 'moderate';
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // Upsert: update if today's entry exists, insert if not
+  const { data: existing } = await supabase
+    .from('daily_readiness')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('check_in_date', today)
+    .single();
+
+  if (existing) {
+    const { error } = await supabase
+      .from('daily_readiness')
+      .update({
+        sleep_quality,
+        muscle_soreness,
+        stress_level,
+        readiness_score: readinessScore,
+        suggested_adjustment: suggestedAdjustment,
+        notes: notes || null,
+      })
+      .eq('id', existing.id);
+
+    if (error) {
+      return { success: false, message: `Failed to update readiness: ${error.message}` };
+    }
+  } else {
+    const { error } = await supabase
+      .from('daily_readiness')
+      .insert({
+        user_id: userId,
+        check_in_date: today,
+        sleep_quality,
+        muscle_soreness,
+        stress_level,
+        readiness_score: readinessScore,
+        suggested_adjustment: suggestedAdjustment,
+        notes: notes || null,
+      });
+
+    if (error) {
+      return { success: false, message: `Failed to log readiness: ${error.message}` };
+    }
+  }
+
+  await logCoachAction(userId, 'log_readiness', {
+    sleep_quality,
+    muscle_soreness,
+    stress_level,
+    readinessScore,
+    suggestedAdjustment,
+  });
+
+  return {
+    success: true,
+    message: `Readiness logged: ${readinessScore}/100 (${suggestedAdjustment})`,
+    data: { readinessScore, suggestedAdjustment, sleep_quality, muscle_soreness, stress_level },
+  };
+}
+
+// ============================================================================
+// LOG WORKOUT SETS (from natural language chat)
+// ============================================================================
+
+/**
+ * Log workout sets from natural language
+ * e.g. "Back squats 185x10 for 4 sets"
+ */
+async function executeLogWorkoutSets(
+  action: LogWorkoutSetsAction,
+  userId: string
+): Promise<ActionResult> {
+  const { exercises, sessionNotes } = action;
+
+  // Find or create today's workout
+  const today = new Date().toISOString().split('T')[0];
+
+  // Check for active block
+  const { data: activeBlock } = await supabase
+    .from('training_blocks')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .single();
+
+  // Find today's workout or create one
+  let workoutId: string;
+  const { data: existingWorkout } = await supabase
+    .from('workouts')
+    .select('id')
+    .eq('user_id', userId)
+    .gte('scheduled_date', today)
+    .lte('scheduled_date', today)
+    .single();
+
+  if (existingWorkout) {
+    workoutId = existingWorkout.id;
+  } else {
+    // Determine focus from exercise names
+    const focus = exercises.map((e) => e.exerciseName).join(', ').slice(0, 50) || 'General';
+
+    const { data: newWorkout, error: createError } = await supabase
+      .from('workouts')
+      .insert({
+        user_id: userId,
+        block_id: activeBlock?.id || null,
+        scheduled_date: today,
+        date_completed: new Date().toISOString(),
+        focus,
+        notes: sessionNotes || null,
+      })
+      .select('id')
+      .single();
+
+    if (createError || !newWorkout) {
+      return { success: false, message: `Failed to create workout: ${createError?.message}` };
+    }
+    workoutId = newWorkout.id;
+  }
+
+  // For each exercise, find or create exercise record, then insert sets
+  let totalSetsLogged = 0;
+
+  for (const exerciseData of exercises) {
+    // Find exercise by name (case-insensitive)
+    const { data: exercise } = await supabase
+      .from('exercises')
+      .select('id')
+      .ilike('name', exerciseData.exerciseName)
+      .single();
+
+    let exerciseId: string;
+    if (exercise) {
+      exerciseId = exercise.id;
+    } else {
+      // Create a custom exercise
+      const { data: newExercise, error: exerciseError } = await supabase
+        .from('exercises')
+        .insert({
+          name: exerciseData.exerciseName,
+          category: 'custom',
+          is_custom: true,
+          created_by: userId,
+        })
+        .select('id')
+        .single();
+
+      if (exerciseError || !newExercise) {
+        continue; // Skip this exercise if we can't create it
+      }
+      exerciseId = newExercise.id;
+    }
+
+    // Insert sets
+    const setsToInsert = exerciseData.sets.map((set, index) => ({
+      workout_id: workoutId,
+      exercise_id: exerciseId,
+      set_order: index + 1,
+      actual_reps: set.reps,
+      actual_load: set.weight || null,
+      actual_rpe: set.rpe || null,
+      notes: exerciseData.notes || null,
+    }));
+
+    const { error: setsError } = await supabase
+      .from('workout_sets')
+      .insert(setsToInsert);
+
+    if (!setsError) {
+      totalSetsLogged += setsToInsert.length;
+    }
+  }
+
+  // Mark workout as completed if not already
+  await supabase
+    .from('workouts')
+    .update({ date_completed: new Date().toISOString() })
+    .eq('id', workoutId)
+    .is('date_completed', null);
+
+  await logCoachAction(userId, 'log_workout_sets', {
+    workoutId,
+    exerciseCount: exercises.length,
+    totalSetsLogged,
+  });
+
+  return {
+    success: true,
+    message: `Logged ${totalSetsLogged} sets across ${exercises.length} exercise(s)`,
+    data: { workoutId, totalSetsLogged, exerciseCount: exercises.length },
+  };
+}
+
+// ============================================================================
+// ADJUST REMAINING WEEK
+// ============================================================================
+
+/**
+ * Signal to adjust the remaining week's plan based on a disruption or change
+ * This records the disruption and returns guidance for the coach to replan
+ */
+async function executeAdjustWeek(
+  action: AdjustWeekAction,
+  userId: string
+): Promise<ActionResult> {
+  const { reason, constraints } = action;
+
+  // If reducing intensity, add a minor disruption record
+  if (constraints?.reduceIntensity || constraints?.skipDays?.length) {
+    await supabase
+      .from('user_disruptions')
+      .insert({
+        user_id: userId,
+        disruption_type: 'schedule',
+        start_date: new Date().toISOString().split('T')[0],
+        severity: constraints?.reduceIntensity ? 'moderate' : 'minor',
+        notes: reason,
+      });
+  }
+
+  await logCoachAction(userId, 'adjust_week', {
+    reason,
+    constraints,
+  });
+
+  return {
+    success: true,
+    message: `Week adjustment recorded. The coach will replan your remaining sessions.`,
+    data: { reason, constraints },
+  };
+}
+
+// ============================================================================
 // AUDIT LOGGING
 // ============================================================================
 
@@ -836,6 +1106,29 @@ export function parseCoachAction(
           focusAreas: (details.focusAreas as string[]) || (details.config as any)?.focusAreas,
         },
         reason: (details.reason as string) || suggestedAction.label,
+      };
+
+    case 'log_readiness':
+      return {
+        type: 'log_readiness',
+        sleep_quality: (details.sleep_quality as 1 | 2 | 3 | 4 | 5) || 3,
+        muscle_soreness: (details.muscle_soreness as 1 | 2 | 3 | 4 | 5) || 3,
+        stress_level: (details.stress_level as 1 | 2 | 3 | 4 | 5) || 3,
+        notes: details.notes as string | undefined,
+      };
+
+    case 'log_workout_sets':
+      return {
+        type: 'log_workout_sets',
+        exercises: (details.exercises as LogWorkoutSetsAction['exercises']) || [],
+        sessionNotes: details.sessionNotes as string | undefined,
+      };
+
+    case 'adjust_week':
+      return {
+        type: 'adjust_week',
+        reason: (details.reason as string) || suggestedAction.label,
+        constraints: details.constraints as AdjustWeekAction['constraints'],
       };
 
     default:

@@ -434,7 +434,7 @@ function formatDate(dateStr: string): string {
 export interface ParsedCoachResponse {
   message: string;
   suggestedAction?: {
-    type: 'adjust_workout' | 'swap_exercise' | 'modify_block' | 'add_note' | 'set_goal' | 'schedule_deload' | 'replace_program';
+    type: 'adjust_workout' | 'swap_exercise' | 'modify_block' | 'add_note' | 'set_goal' | 'schedule_deload' | 'replace_program' | 'log_readiness' | 'log_workout_sets' | 'adjust_week' | 'open_week_planner' | 'add_disruption';
     label: string;
     details: Record<string, unknown>;
   };
@@ -458,6 +458,19 @@ function getActionLabel(type: string, details: Record<string, unknown>): string 
       return 'Schedule deload';
     case 'set_goal':
       return 'Set goal';
+    case 'log_readiness':
+      return 'Log readiness check-in';
+    case 'log_workout_sets': {
+      const exercises = details.exercises as Array<{ exerciseName: string }> | undefined;
+      const count = exercises?.length || 0;
+      return count > 0 ? `Log ${count} exercise(s)` : 'Log workout';
+    }
+    case 'adjust_week':
+      return 'Adjust this week\'s plan';
+    case 'open_week_planner':
+      return 'Open weekly planner';
+    case 'add_disruption':
+      return 'Record disruption';
     default:
       return `Apply ${type.replace(/_/g, ' ')}`;
   }
