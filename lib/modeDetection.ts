@@ -109,7 +109,7 @@ const INTENT_PATTERNS: IntentPattern[] = [
     ],
   },
 
-  // Daily mode triggers
+  // Daily mode triggers (includes check-ins and workout logging)
   {
     mode: 'daily',
     patterns: [
@@ -120,14 +120,46 @@ const INTENT_PATTERNS: IntentPattern[] = [
       'train today',
       'what am i doing today',
       'today',
+      // Natural language check-in triggers
+      'i slept',
+      'slept great',
+      'slept well',
+      'slept terrible',
+      'slept poorly',
+      'feeling good',
+      'feeling great',
+      'feeling rough',
+      'feeling tired',
+      'feeling fresh',
+      'i feel',
+      "here's how i feel",
+      "how i'm feeling",
+      'ready to train',
+      'ready to go',
+      "let's go",
+      'check in',
+      'checking in',
+      'morning check',
+      // Mid-week adjustment triggers
+      'kid is sick',
+      'kids are sick',
+      'bad night',
+      'no sleep',
+      "didn't sleep",
+      'need to adjust',
+      'need to change',
+      'change my plan',
+      'reshuffle',
+      'skip today',
+      'only have 30 min',
+      'short on time',
     ],
     requiresContext: (ctx) => {
-      // Only if it looks like they're asking about today specifically
       return true;
     },
   },
 
-  // Post-workout evaluation triggers
+  // Post-workout evaluation + workout logging triggers
   {
     mode: 'post_workout',
     patterns: [
@@ -141,6 +173,11 @@ const INTENT_PATTERNS: IntentPattern[] = [
       'here is my workout',
       'i did',
       'workout complete',
+      'just hit',
+      'i just hit',
+      'finished my workout',
+      'log this',
+      'log my workout',
     ],
   },
 

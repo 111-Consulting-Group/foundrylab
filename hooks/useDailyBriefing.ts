@@ -1,5 +1,5 @@
 import { useCoachContext } from '@/hooks/useCoach';
-import { fetchCoachResponse } from '@/lib/coachService';
+import { CoachServiceError, fetchCoachResponse } from '@/lib/coachService';
 import { useGuideStore } from '@/stores/useGuideStore';
 import { useEffect, useState } from 'react';
 
@@ -26,7 +26,6 @@ export function useDailyBriefing() {
                 const workoutToday = !!context.upcomingWorkout;
                 const lastWorkout = context.recentWorkouts?.[0];
 
-                // Simple context summary
                 const contextSummary = `
           Readiness: ${readinessScore ?? 'Unknown'}/100.
           Has workout today: ${workoutToday}.
@@ -49,9 +48,17 @@ export function useDailyBriefing() {
                 const greeting = data.message?.trim().replace(/^"|"$/g, '') || "Good morning.";
                 setBriefing(greeting);
             } catch (error) {
-                console.error('Failed to generate briefing:', error);
-                // Fallback checks
-                setBriefing("Good morning.");
+                // Use a contextual fallback greeting instead of a generic one
+                if (error instanceof CoachServiceError && error.code === 'not_configured') {
+                    console.warn('AI coach not configured, using fallback greeting');
+                } else {
+                    console.error('Failed to generate briefing:', error);
+                }
+
+                // Provide a decent fallback based on available context
+                const hour = new Date().getHours();
+                const timeGreeting = hour < 12 ? 'Good morning.' : hour < 17 ? 'Good afternoon.' : 'Good evening.';
+                setBriefing(timeGreeting);
             } finally {
                 setIsLoading(false);
             }
