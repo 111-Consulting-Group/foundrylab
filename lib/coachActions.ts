@@ -427,7 +427,7 @@ async function executeUpdateTargets(
   const updates: Record<string, number | null> = {};
 
   if (newTargets.load !== undefined) {
-    updates.last_weight_used = newTargets.load;
+    updates.last_weight = newTargets.load;
   }
   if (newTargets.reps !== undefined) {
     updates.typical_rep_max = newTargets.reps;
@@ -900,7 +900,7 @@ async function executeLogWorkoutSets(
         .from('exercises')
         .insert({
           name: exerciseData.exerciseName,
-          category: 'custom',
+          muscle_group: 'Other',
           is_custom: true,
           created_by: userId,
         })
@@ -919,7 +919,7 @@ async function executeLogWorkoutSets(
       exercise_id: exerciseId,
       set_order: index + 1,
       actual_reps: set.reps,
-      actual_load: set.weight || null,
+      actual_weight: set.weight || null,
       actual_rpe: set.rpe || null,
       notes: exerciseData.notes || null,
     }));

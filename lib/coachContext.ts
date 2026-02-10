@@ -434,7 +434,7 @@ function formatDate(dateStr: string): string {
 export interface ParsedCoachResponse {
   message: string;
   suggestedAction?: {
-    type: 'adjust_workout' | 'swap_exercise' | 'modify_block' | 'add_note' | 'set_goal' | 'schedule_deload' | 'replace_program' | 'log_readiness' | 'log_workout_sets' | 'adjust_week' | 'open_week_planner' | 'add_disruption';
+    type: 'adjust_workout' | 'swap_exercise' | 'modify_block' | 'add_note' | 'set_goal' | 'schedule_deload' | 'update_targets' | 'replace_program' | 'log_readiness' | 'log_workout_sets' | 'adjust_week' | 'open_week_planner' | 'add_disruption' | 'update_profile';
     label: string;
     details: Record<string, unknown>;
   };
