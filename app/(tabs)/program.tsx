@@ -57,8 +57,8 @@ export default function ProgramScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
         {/* Ambient Background Glows */}
-        <View style={{ position: 'absolute', top: -100, left: -80, width: 300, height: 300, backgroundColor: 'rgba(37, 99, 235, 0.08)', borderRadius: 150 }} />
-        <View style={{ position: 'absolute', bottom: 0, right: -100, width: 350, height: 350, backgroundColor: 'rgba(37, 99, 235, 0.05)', borderRadius: 175 }} />
+        <View pointerEvents="none" style={{ position: 'absolute', top: -100, left: -80, width: 300, height: 300, backgroundColor: 'rgba(37, 99, 235, 0.08)', borderRadius: 150 }} />
+        <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, right: -100, width: 350, height: 350, backgroundColor: 'rgba(37, 99, 235, 0.05)', borderRadius: 175 }} />
 
         <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
@@ -96,8 +96,8 @@ export default function ProgramScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
       {/* Ambient Background Glows */}
-      <View style={{ position: 'absolute', top: -80, right: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 140 }} />
-      <View style={{ position: 'absolute', bottom: 50, left: -80, width: 250, height: 250, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 125 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -80, right: -100, width: 280, height: 280, backgroundColor: 'rgba(37, 99, 235, 0.06)', borderRadius: 140 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 50, left: -80, width: 250, height: 250, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 125 }} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
         {isLoading ? (

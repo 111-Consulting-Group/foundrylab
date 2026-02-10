@@ -71,6 +71,7 @@ export function SubstitutionPicker({
       <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
         {/* Ambient Background Glow */}
         <View
+          pointerEvents="none"
           style={{
             position: 'absolute',
             top: -50,

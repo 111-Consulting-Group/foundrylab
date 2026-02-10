@@ -66,6 +66,7 @@ export function TemplatePicker({
       <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
         {/* Ambient Background Glow */}
         <View
+          pointerEvents="none"
           style={{
             position: 'absolute',
             top: -50,
@@ -354,6 +355,7 @@ export function SaveTemplateModal({
       <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
         {/* Ambient Background Glow */}
         <View
+          pointerEvents="none"
           style={{
             position: 'absolute',
             top: -50,

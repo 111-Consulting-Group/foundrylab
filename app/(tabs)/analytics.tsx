@@ -35,8 +35,8 @@ export default function AnalyticsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
       {/* Ambient Background Glows */}
-      <View style={{ position: 'absolute', top: -60, right: -100, width: 260, height: 260, backgroundColor: 'rgba(37, 99, 235, 0.07)', borderRadius: 130 }} />
-      <View style={{ position: 'absolute', bottom: 80, left: -80, width: 220, height: 220, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 110 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -60, right: -100, width: 260, height: 260, backgroundColor: 'rgba(37, 99, 235, 0.07)', borderRadius: 130 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 80, left: -80, width: 220, height: 220, backgroundColor: 'rgba(37, 99, 235, 0.04)', borderRadius: 110 }} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>

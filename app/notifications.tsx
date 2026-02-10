@@ -105,6 +105,7 @@ export default function NotificationsScreen() {
       <View style={{ flex: 1, backgroundColor: Colors.void[900] }}>
         {/* Ambient Background Glows */}
         <View
+          pointerEvents="none"
           style={{
             position: 'absolute',
             top: -60,
