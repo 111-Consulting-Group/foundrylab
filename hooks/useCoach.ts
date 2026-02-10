@@ -626,18 +626,56 @@ export function useCoach(options: UseCoachOptions = {}) {
   // Send message to AI
   const sendMessage = useCallback(
     async (userMessage: string) => {
-      if (!userId || !context) return;
-
       // Input validation
       const trimmedMessage = userMessage.trim();
       if (trimmedMessage.length < MIN_MESSAGE_LENGTH) {
-        console.warn('Message too short');
         return;
       }
       if (trimmedMessage.length > MAX_MESSAGE_LENGTH) {
-        console.warn('Message too long, truncating');
+        console.warn('[Coach] Message too long, truncating');
       }
       const sanitizedMessage = trimmedMessage.slice(0, MAX_MESSAGE_LENGTH);
+
+      // Show the user's message in the chat IMMEDIATELY, before any async
+      // operations, so the message never "vanishes" even if sending fails.
+      const userChatMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: sanitizedMessage,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, userChatMessage]);
+
+      // Guard: provide visible feedback instead of silently returning
+      if (!userId) {
+        console.warn('[Coach] No userId, cannot send');
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `error-${Date.now()}`,
+            role: 'assistant' as const,
+            content: 'Please sign in to use the coach.',
+            timestamp: new Date(),
+            isStreaming: false,
+          },
+        ]);
+        return;
+      }
+
+      if (!context) {
+        console.warn('[Coach] Context not loaded yet');
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `error-${Date.now()}`,
+            role: 'assistant' as const,
+            content: 'Still loading your training data. Please wait a moment and try again.',
+            timestamp: new Date(),
+            isStreaming: false,
+          },
+        ]);
+        return;
+      }
 
       // Cancel any pending request
       abortControllerRef.current?.abort();
@@ -695,17 +733,7 @@ export function useCoach(options: UseCoachOptions = {}) {
           }
         }
 
-        // Add user message to UI immediately
-        const userChatMessage: ChatMessage = {
-          id: `user-${Date.now()}`,
-          role: 'user',
-          content: sanitizedMessage,
-          timestamp: new Date(),
-        };
-
-        setMessages((prev) => [...prev, userChatMessage]);
-
-        // Save user message
+        // Save user message (already shown in UI above)
         await saveMessage(convId, 'user', sanitizedMessage, contextSnapshot);
 
         // Track journey signal for coach interaction

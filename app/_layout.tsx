@@ -10,6 +10,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
+import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -191,9 +192,14 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const userId = useAppStore((state) => state.userId);
 
+  // On web (mobile Safari), GestureHandlerRootView intercepts pointer events
+  // during the capture phase, preventing Pressable/TouchableOpacity onPress
+  // from firing. Use a plain View on web since gesture navigation isn't needed.
+  const RootGestureWrapper = Platform.OS === 'web' ? View : GestureHandlerRootView;
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? FoundryLabDarkTheme : FoundryLabLightTheme}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <RootGestureWrapper style={{ flex: 1 }}>
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
@@ -287,7 +293,7 @@ function RootLayoutNav() {
             }}
           />
         </Stack>
-      </GestureHandlerRootView>
+      </RootGestureWrapper>
     </ThemeProvider>
   );
 }
